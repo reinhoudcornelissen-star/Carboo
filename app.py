@@ -94,7 +94,7 @@ CARBOO_AVATAR = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST
 
 col_brand, col_user = st.columns([4, 1])
 with col_brand:
-    st.markdown(f'''
+    st.markdown('''
     <div style="display:flex; align-items:center; gap:14px; padding:10px 0;">
         <img src="{}" style="width:52px; height:52px; object-fit:contain;">
         <div class="brand-header" style="padding:0; margin:0;">CAR<span>BOO</span></div>
