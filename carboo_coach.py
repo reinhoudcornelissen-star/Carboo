@@ -224,32 +224,33 @@ def _stap_carboloading():
     """)
 
     # ─── FOOD DATABASE ─────────────────────────────────────────────────────
+    # label = beschrijvende portie-eenheid  |  carbs = KH per 1 eenheid (gram)
     FOOD_DB = {
-        "Wit brood":             {"unit": "sneden",       "carbs": 15},
-        "Bruin brood":           {"unit": "sneden",       "carbs": 14},
-        "Pistolet":              {"unit": "stuks",        "carbs": 26},
-        "Koffiekoek":            {"unit": "stuks",        "carbs": 35},
-        "Havermout":             {"unit": "soeplepels",   "carbs": 8},
-        "Ontbijtgranen":         {"unit": "portie",       "carbs": 30},
-        "Granola":               {"unit": "soeplepels",   "carbs": 12},
-        "Banaan":                {"unit": "stuks",        "carbs": 25},
-        "Jam/Confituur":         {"unit": "koffielepel",  "carbs": 7},
-        "Honing":                {"unit": "koffielepel",  "carbs": 6},
-        "Chocopasta":            {"unit": "koffielepel",  "carbs": 10},
-        "Pasta (bijgerecht)":    {"unit": "portie 150g",  "carbs": 45},
-        "Pasta (hoofdgerecht)":  {"unit": "portie 300g",  "carbs": 90},
-        "Rijst":                 {"unit": "eetlepels",    "carbs": 6},
-        "Aardappelen":           {"unit": "stuks",        "carbs": 20},
-        "Wrap":                  {"unit": "stuks",        "carbs": 25},
-        "Appelmoes":             {"unit": "potje",        "carbs": 22},
-        "Couscous":              {"unit": "soeplepels",   "carbs": 10},
-        "Quinoa":                {"unit": "soeplepels",   "carbs": 11},
-        "Fruit":                 {"unit": "stuks",        "carbs": 15},
-        "Granenkoek":            {"unit": "stuks",        "carbs": 20},
-        "Peperkoek":             {"unit": "sneden",       "carbs": 18},
-        "Rijstwafel":            {"unit": "stuks",        "carbs": 7},
-        "Gedroogde abrikozen":   {"unit": "stuks",        "carbs": 4},
-        "Sportdrank":            {"unit": "ml",           "carbs": 0.07},
+        "Wit brood":             {"unit": "sneden",      "label": "1 snede (~35g)  →  15g KH",      "carbs": 15},
+        "Bruin brood":           {"unit": "sneden",      "label": "1 snede (~35g)  →  14g KH",      "carbs": 14},
+        "Pistolet":              {"unit": "stuks",       "label": "1 pistolet (~60g)  →  26g KH",   "carbs": 26},
+        "Koffiekoek":            {"unit": "stuks",       "label": "1 koek (~80g)  →  35g KH",       "carbs": 35},
+        "Havermout":             {"unit": "soeplepels",  "label": "1 soeplepel (~15g)  →  8g KH",   "carbs": 8},
+        "Ontbijtgranen":         {"unit": "porties",     "label": "1 portie (~40g)  →  30g KH",     "carbs": 30},
+        "Granola":               {"unit": "soeplepels",  "label": "1 soeplepel (~20g)  →  12g KH",  "carbs": 12},
+        "Banaan":                {"unit": "stuks",       "label": "1 banaan (~120g)  →  25g KH",    "carbs": 25},
+        "Jam/Confituur":         {"unit": "koffielepels","label": "1 koffielepel (~15g)  →  7g KH", "carbs": 7},
+        "Honing":                {"unit": "koffielepels","label": "1 koffielepel (~10g)  →  6g KH", "carbs": 6},
+        "Chocopasta":            {"unit": "koffielepels","label": "1 koffielepel (~15g)  →  10g KH","carbs": 10},
+        "Pasta (bijgerecht)":    {"unit": "porties",     "label": "1 portie (~150g bereide)  →  45g KH",  "carbs": 45},
+        "Pasta (hoofdgerecht)":  {"unit": "porties",     "label": "1 portie (~300g bereide)  →  90g KH",  "carbs": 90},
+        "Rijst":                 {"unit": "eetlepels",   "label": "1 eetlepel (~23g bereide)  →  6g KH",  "carbs": 6},
+        "Aardappelen":           {"unit": "stuks",       "label": "1 aardappel (~125g)  →  20g KH", "carbs": 20},
+        "Wrap":                  {"unit": "stuks",       "label": "1 wrap (~65g)  →  25g KH",       "carbs": 25},
+        "Appelmoes":             {"unit": "potjes",      "label": "1 potje (~100g)  →  22g KH",     "carbs": 22},
+        "Couscous":              {"unit": "soeplepels",  "label": "1 soeplepel (~40g bereide)  →  10g KH", "carbs": 10},
+        "Quinoa":                {"unit": "soeplepels",  "label": "1 soeplepel (~45g bereide)  →  11g KH", "carbs": 11},
+        "Fruit":                 {"unit": "stuks",       "label": "1 stuk (~125g)  →  15g KH",      "carbs": 15},
+        "Granenkoek":            {"unit": "stuks",       "label": "1 koek (~35g)  →  20g KH",       "carbs": 20},
+        "Peperkoek":             {"unit": "sneden",      "label": "1 snede (~30g)  →  18g KH",      "carbs": 18},
+        "Rijstwafel":            {"unit": "stuks",       "label": "1 rijstwafel (~10g)  →  7g KH",  "carbs": 7},
+        "Gedroogde abrikozen":   {"unit": "stuks",       "label": "1 abrikoos (~8g)  →  4g KH",     "carbs": 4},
+        "Sportdrank":            {"unit": "ml",          "label": "100ml  →  ~7g KH",               "carbs": 0.07},
     }
 
     MOMENT_CONFIGS = {
@@ -318,10 +319,14 @@ def _stap_carboloading():
                             key = f"cl_{dag_idx}_{moment}_{food}"
                             col_a, col_b = st.columns([3, 2])
                             with col_a:
-                                st.markdown(f"<div style='font-size:0.8rem; color:#cbd5e1; padding-top:8px;'>{food}</div>", unsafe_allow_html=True)
+                                st.markdown(f"""
+                                <div style='margin-bottom:2px;'>
+                                    <div style='font-size:0.82rem; color:#e2e8f0; font-weight:600;'>{food}</div>
+                                    <div style='font-size:0.7rem; color:#64748b;'>{info['label']}</div>
+                                </div>""", unsafe_allow_html=True)
                             with col_b:
                                 val = st.number_input(
-                                    f"{info['unit']}",
+                                    f"Aantal {info['unit']}",
                                     min_value=0.0, value=0.0, step=1.0,
                                     key=key,
                                     label_visibility="collapsed"
@@ -332,9 +337,10 @@ def _stap_carboloading():
                                 items_list.append(f"{val} {info['unit']} {food} ({c}g)")
 
                         # Custom product
-                        with st.expander("➕ Eigen product"):
-                            cname = st.text_input("Naam", key=f"cname_{dag_idx}_{moment}", label_visibility="collapsed", placeholder="Naam product")
-                            ccarbs = st.number_input("KH (g)", min_value=0.0, key=f"ccarbs_{dag_idx}_{moment}", label_visibility="collapsed")
+                        with st.expander("➕ Eigen product toevoegen"):
+                            st.markdown("<div style='font-size:0.75rem; color:#f97316; margin-bottom:6px;'>⚠️ Geef de <strong>koolhydraten per portie</strong> in (zie verpakking — gram KH per 100g × portiegrootte ÷ 100)</div>", unsafe_allow_html=True)
+                            cname = st.text_input("Naam product", key=f"cname_{dag_idx}_{moment}", placeholder="bijv. Rijstpap, Sportbar…")
+                            ccarbs = st.number_input("Koolhydraten per portie (gram KH)", min_value=0.0, key=f"ccarbs_{dag_idx}_{moment}")
                             if cname and ccarbs > 0:
                                 moment_carbs += ccarbs
                                 items_list.append(f"{cname} (eigen) {round(ccarbs)}g")
