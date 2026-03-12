@@ -48,25 +48,21 @@ def _progress_bar(stap_idx: int):
 def _coach_bubble(tekst: str, extra_klein: bool = False):
     """Coach bubble met de echte Carboo avatar links."""
     grootte = "70px" if extra_klein else "90px"
-    st.markdown(f"""
-    <div style="display:flex; gap:16px; margin-bottom:24px; align-items:flex-start;">
-        <div style="flex-shrink:0; margin-top:2px;">
-            <img src="{CARBOO_AVATAR}"
-                 style="height:{grootte}; width:auto;
-                        filter:drop-shadow(0 0 10px rgba(249,115,22,0.5));">
-        </div>
-        <div style="background:#1e293b; border:1px solid #334155;
-                    border-radius:0 16px 16px 16px;
-                    padding:16px 20px; color:#f8fafc; font-size:0.92rem;
-                    line-height:1.65; max-width:700px; position:relative;">
-            <div style="position:absolute; left:-10px; top:18px; width:0; height:0;
-                        border-top:8px solid transparent;
-                        border-bottom:8px solid transparent;
-                        border-right:10px solid #334155;"></div>
-            {tekst}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    col_av, col_txt = st.columns([1, 8])
+    with col_av:
+        st.markdown(
+            f'<img src="{CARBOO_AVATAR}" style="height:{grootte};width:auto;'
+            f'filter:drop-shadow(0 0 10px rgba(249,115,22,0.5));display:block;">',
+            unsafe_allow_html=True
+        )
+    with col_txt:
+        st.markdown(
+            f'<div style="background:#1e293b;border:1px solid #334155;'
+            f'border-radius:0 16px 16px 16px;padding:16px 20px;'
+            f'color:#f8fafc;font-size:0.92rem;line-height:1.65;'
+            f'margin-top:4px;">{tekst}</div>',
+            unsafe_allow_html=True
+        )
 
 
 def _info_card(titel, waarde, kleur="#f97316", icon=""):
