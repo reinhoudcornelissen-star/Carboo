@@ -206,6 +206,7 @@ def _stap_wedstrijd():
 
 # ─── STAP 3: CARBOLOADING ────────────────────────────────────────────────────
 def _stap_carboloading():
+    import random
     data = st.session_state.get("coach_data", {})
     gewicht = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
@@ -219,94 +220,172 @@ def _stap_carboloading():
     Op basis van jouw gewicht van <strong>{gewicht}kg</strong> en een wedstrijdduur van
     <strong>{totale_min // 60}u{totale_min % 60:02d}min</strong> is jouw dagdoelstelling:
     <strong style="color:#f97316; font-size:1.2rem;"> {dag_target}g koolhydraten/dag</strong><br><br>
-    Vul hieronder per maaltijd in hoeveel koolhydraten je plant.
+    Vul hieronder per maaltijdmoment de producten in die je plant te eten.
     """)
 
-    MAALTIJDEN = {
-        "Ontbijt":       {"pct": 0.25,  "emoji": "🌅"},
-        "Tussendoor VM": {"pct": 0.083, "emoji": "🍌"},
-        "Lunch":         {"pct": 0.25,  "emoji": "🥗"},
-        "Tussendoor NM": {"pct": 0.083, "emoji": "🍎"},
-        "Avondmaal":     {"pct": 0.25,  "emoji": "🍝"},
-        "Avond snack":   {"pct": 0.083, "emoji": "🌙"},
+    # ─── FOOD DATABASE ─────────────────────────────────────────────────────
+    FOOD_DB = {
+        "Wit brood":             {"unit": "sneden",       "carbs": 15},
+        "Bruin brood":           {"unit": "sneden",       "carbs": 14},
+        "Pistolet":              {"unit": "stuks",        "carbs": 26},
+        "Koffiekoek":            {"unit": "stuks",        "carbs": 35},
+        "Havermout":             {"unit": "soeplepels",   "carbs": 8},
+        "Ontbijtgranen":         {"unit": "portie",       "carbs": 30},
+        "Granola":               {"unit": "soeplepels",   "carbs": 12},
+        "Banaan":                {"unit": "stuks",        "carbs": 25},
+        "Jam/Confituur":         {"unit": "koffielepel",  "carbs": 7},
+        "Honing":                {"unit": "koffielepel",  "carbs": 6},
+        "Chocopasta":            {"unit": "koffielepel",  "carbs": 10},
+        "Pasta (bijgerecht)":    {"unit": "portie 150g",  "carbs": 45},
+        "Pasta (hoofdgerecht)":  {"unit": "portie 300g",  "carbs": 90},
+        "Rijst":                 {"unit": "eetlepels",    "carbs": 6},
+        "Aardappelen":           {"unit": "stuks",        "carbs": 20},
+        "Wrap":                  {"unit": "stuks",        "carbs": 25},
+        "Appelmoes":             {"unit": "potje",        "carbs": 22},
+        "Couscous":              {"unit": "soeplepels",   "carbs": 10},
+        "Quinoa":                {"unit": "soeplepels",   "carbs": 11},
+        "Fruit":                 {"unit": "stuks",        "carbs": 15},
+        "Granenkoek":            {"unit": "stuks",        "carbs": 20},
+        "Peperkoek":             {"unit": "sneden",       "carbs": 18},
+        "Rijstwafel":            {"unit": "stuks",        "carbs": 7},
+        "Gedroogde abrikozen":   {"unit": "stuks",        "carbs": 4},
+        "Sportdrank":            {"unit": "ml",           "carbs": 0.07},
     }
 
-    tab1, tab2 = st.tabs(["DAG 1 — 2 dagen voor race", "DAG 2 — dag voor race"])
+    MOMENT_CONFIGS = {
+        "Ontbijt":       {"pct": 0.25,  "emoji": "🌅", "foods": ["Wit brood","Bruin brood","Pistolet","Koffiekoek","Havermout","Ontbijtgranen","Granola","Banaan","Jam/Confituur","Honing","Chocopasta","Sportdrank"]},
+        "Tussendoor VM": {"pct": 0.083, "emoji": "🍌", "foods": ["Banaan","Fruit","Granenkoek","Peperkoek","Rijstwafel","Gedroogde abrikozen","Sportdrank"]},
+        "Lunch":         {"pct": 0.25,  "emoji": "🥗", "foods": ["Pasta (bijgerecht)","Pasta (hoofdgerecht)","Rijst","Wrap","Aardappelen","Wit brood","Bruin brood","Appelmoes","Sportdrank"]},
+        "Tussendoor NM": {"pct": 0.083, "emoji": "🍎", "foods": ["Banaan","Fruit","Granenkoek","Peperkoek","Rijstwafel","Gedroogde abrikozen","Sportdrank"]},
+        "Avondmaal":     {"pct": 0.25,  "emoji": "🍝", "foods": ["Pasta (bijgerecht)","Pasta (hoofdgerecht)","Rijst","Aardappelen","Couscous","Quinoa","Wrap","Appelmoes","Sportdrank"]},
+        "Avond snack":   {"pct": 0.083, "emoji": "🌙", "foods": ["Rijstwafel","Peperkoek","Granenkoek","Banaan","Fruit","Sportdrank"]},
+    }
+
+    BOOST_TIPS = {
+        "Ontbijt":    ["Extra lepel honing (+6g)", "Glas appelsap 200ml (+20g)", "Extra banaan (+25g)", "Snee wit brood met jam (+22g)"],
+        "Lunch":      ["Extra sandwich met stroop (+24g)", "Potje appelmoes (+22g)", "Extra wrap (+25g)", "Drinkyoghurt 250ml (+25g)"],
+        "Avondmaal":  ["Extra schep rijst/pasta (+12g)", "Glas limonade (+20g)", "Schaaltje sorbetijs (+30g)", "Wit brood bij maaltijd (+15g)"],
+        "Tussendoor": ["Handvol winegums (+25g)", "Blikje cola 330ml (+35g)", "Twee rijstwafels met honing (+20g)", "Plak peperkoek (+18g)", "Gedroogde dadels 3 stuks (+18g)"],
+    }
+
+    def get_boost_tip(moment):
+        cat = "Tussendoor" if ("Tussendoor" in moment or moment == "Avond snack") else moment
+        pool = BOOST_TIPS.get(cat, BOOST_TIPS["Tussendoor"])
+        return f"• {random.choice(pool)}"
+
+    # ─── DAG TABS ─────────────────────────────────────────────────────────
+    tab1, tab2 = st.tabs(["📅  DAG 1 — 2 dagen voor race", "📅  DAG 2 — dag voor race"])
     dag_totalen = {}
 
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
         with tab:
-            dag_kh = 0
-            maaltijd_list = list(MAALTIJDEN.items())
+            dag_kh = 0.0
+            moments = list(MOMENT_CONFIGS.keys())
+            left_col, right_col = st.columns(2)
 
-            # Render all 6 meal cards in 2 columns
-            col1, col2 = st.columns(2)
-            cols = [col1, col2]
-            meal_kh_values = {}
+            for col, moment_list in [(left_col, moments[:3]), (right_col, moments[3:])]:
+                with col:
+                    for moment in moment_list:
+                        cfg = MOMENT_CONFIGS[moment]
+                        target_m = round(dag_target * cfg["pct"])
+                        moment_carbs = 0.0
+                        items_list = []
 
-            for i, (m_name, m_cfg) in enumerate(maaltijd_list):
-                m_target = round(dag_target * m_cfg["pct"])
-                with cols[i % 2]:
-                    # Card header
-                    st.markdown(f"""
-                    <div style="background:linear-gradient(135deg,#0f172a,#1a2540);
-                         border:1px solid #1e293b; border-top:3px solid #f97316;
-                         border-radius:12px; padding:16px 16px 8px 16px; margin-bottom:4px;">
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
-                            <span style="font-size:1.4rem;">{m_cfg['emoji']}</span>
-                            <div>
-                                <div style="color:#f97316; font-weight:800; font-size:0.8rem; letter-spacing:0.05em;">
-                                    {m_name.upper()}
+                        # Card header
+                        st.markdown(f"""
+                        <div style="background:linear-gradient(135deg,#0f172a,#1a2540);
+                             border:1px solid #1e293b; border-top:3px solid #f97316;
+                             border-radius:12px 12px 0 0; padding:14px 16px 10px 16px; margin-bottom:0;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span style="font-size:1.3rem;">{cfg['emoji']}</span>
+                                <div>
+                                    <div style="color:#f97316; font-weight:800; font-size:0.8rem; letter-spacing:0.05em;">
+                                        {moment.upper()}
+                                    </div>
+                                    <div style="color:#64748b; font-size:0.72rem;">doel: {target_m}g KH</div>
                                 </div>
-                                <div style="color:#64748b; font-size:0.72rem;">doel: {m_target}g KH</div>
                             </div>
                         </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    kh_val = st.number_input(
-                        f"KH {m_name} dag{dag_idx}", min_value=0, max_value=500,
-                        value=st.session_state.get(f"cl_d{dag_idx}_{m_name}", 0),
-                        step=5, key=f"cl_d{dag_idx}_{m_name}",
-                        label_visibility="collapsed"
-                    )
-                    dag_kh += kh_val
-                    meal_kh_values[m_name] = kh_val
-                    pct_m = min(100, round((kh_val / m_target) * 100)) if m_target > 0 else 0
-                    bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
-                    st.markdown(f"""
-                    <div style="background:#1e293b; border-radius:4px; height:5px; margin:2px 0 2px 0;">
-                        <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;
-                             transition:width 0.3s;"></div>
-                    </div>
-                    <div style="font-size:0.68rem; color:#64748b; margin-bottom:12px;">{kh_val}g / {m_target}g ({pct_m}%)</div>
-                    """, unsafe_allow_html=True)
+                        <div style="background:#0d1525; border:1px solid #1e293b; border-top:none;
+                             border-radius:0 0 12px 12px; padding:12px 14px 10px 14px; margin-bottom:14px;">
+                        """, unsafe_allow_html=True)
 
-            # Day total summary bar
+                        # Food inputs
+                        for food in cfg["foods"]:
+                            info = FOOD_DB.get(food)
+                            if not info:
+                                continue
+                            key = f"cl_{dag_idx}_{moment}_{food}"
+                            col_a, col_b = st.columns([3, 2])
+                            with col_a:
+                                st.markdown(f"<div style='font-size:0.8rem; color:#cbd5e1; padding-top:8px;'>{food}</div>", unsafe_allow_html=True)
+                            with col_b:
+                                val = st.number_input(
+                                    f"{info['unit']}",
+                                    min_value=0.0, value=0.0, step=1.0,
+                                    key=key,
+                                    label_visibility="collapsed"
+                                )
+                            if val > 0:
+                                c = round(val * info["carbs"])
+                                moment_carbs += c
+                                items_list.append(f"{val} {info['unit']} {food} ({c}g)")
+
+                        # Custom product
+                        with st.expander("➕ Eigen product"):
+                            cname = st.text_input("Naam", key=f"cname_{dag_idx}_{moment}", label_visibility="collapsed", placeholder="Naam product")
+                            ccarbs = st.number_input("KH (g)", min_value=0.0, key=f"ccarbs_{dag_idx}_{moment}", label_visibility="collapsed")
+                            if cname and ccarbs > 0:
+                                moment_carbs += ccarbs
+                                items_list.append(f"{cname} (eigen) {round(ccarbs)}g")
+
+                        dag_kh += moment_carbs
+
+                        # Progress bar per moment
+                        pct_m = min(100, round((moment_carbs / target_m) * 100)) if target_m > 0 else 0
+                        bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
+
+                        boost_html = ""
+                        if moment_carbs > 0 and (target_m - moment_carbs) > 5:
+                            tip = get_boost_tip(moment)
+                            boost_html = f"""<div style="background:rgba(239,68,68,0.08); border:1px solid #ef4444;
+                                border-radius:6px; padding:8px 10px; margin-top:6px; font-size:0.75rem; color:#fca5a5;">
+                                💡 <strong>Booster tip:</strong> {tip}</div>"""
+
+                        st.markdown(f"""
+                        <div style="background:#1e293b; border-radius:4px; height:5px; margin:8px 0 2px 0;">
+                            <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
+                        </div>
+                        <div style="font-size:0.7rem; color:#64748b;">{round(moment_carbs)}g / {target_m}g ({pct_m}%)</div>
+                        {boost_html}
+                        </div>
+                        """, unsafe_allow_html=True)
+
+            # Day total bar
             dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
             status_emoji = "✅" if dag_pct >= 90 else ("⚡" if dag_pct >= 70 else "📉")
             status_msg = "Doel bereikt!" if dag_pct >= 90 else ("Bijna!" if dag_pct >= 70 else "Nog te laag")
             st.markdown(f"""
             <div style="background:linear-gradient(135deg,#1e293b,#0f172a); border:1px solid #334155;
-                 border-radius:14px; padding:18px 20px; margin-top:12px;">
+                 border-radius:14px; padding:18px 20px; margin-top:4px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <div style="font-weight:900; font-size:1rem; color:#f8fafc;">
                         {status_emoji} TOTAAL DAG {dag_idx}
                     </div>
                     <div style="font-weight:900; font-size:1.1rem; color:{bar_color};">
-                        {dag_kh}g <span style="color:#64748b; font-size:0.85rem;">/ {dag_target}g</span>
+                        {round(dag_kh)}g <span style="color:#64748b; font-size:0.85rem;">/ {dag_target}g</span>
                     </div>
                 </div>
                 <div style="background:#334155; border-radius:8px; height:10px; overflow:hidden;">
-                    <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color};
-                         border-radius:8px;"></div>
+                    <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color}; border-radius:8px;"></div>
                 </div>
                 <div style="font-size:0.78rem; color:#94a3b8; margin-top:6px; text-align:right;">
                     {dag_pct}% — {status_msg}
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            dag_totalen[f"dag{dag_idx}"] = {"totaal": dag_kh, "target": dag_target, "pct": dag_pct}
+            dag_totalen[f"dag{dag_idx}"] = {"totaal": round(dag_kh), "target": dag_target, "pct": dag_pct}
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
@@ -321,7 +400,6 @@ def _stap_carboloading():
             })
             st.session_state.coach_stap = 4
             st.rerun()
-
 
 # ─── STAP 4: RACEDAG ─────────────────────────────────────────────────────────
 def _stap_racedag():
