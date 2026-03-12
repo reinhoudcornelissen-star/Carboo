@@ -326,24 +326,48 @@ def _stap_carboloading():
                                 </div>""", unsafe_allow_html=True)
                             with col_b:
                                 val = st.number_input(
-                                    f"Aantal {info['unit']}",
+                                    info['unit'],
                                     min_value=0.0, value=0.0, step=1.0,
                                     key=key,
-                                    label_visibility="collapsed"
+                                    placeholder=info['unit'],
                                 )
                             if val > 0:
                                 c = round(val * info["carbs"])
                                 moment_carbs += c
                                 items_list.append(f"{val} {info['unit']} {food} ({c}g)")
 
-                        # Custom product
+                        # Custom products — unlimited, with delete
+                        custom_key = f"custom_{dag_idx}_{moment}"
+                        if custom_key not in st.session_state:
+                            st.session_state[custom_key] = []
+
                         with st.expander("➕ Eigen product toevoegen"):
-                            st.markdown("<div style='font-size:0.75rem; color:#f97316; margin-bottom:6px;'>⚠️ Geef de <strong>koolhydraten per portie</strong> in (zie verpakking — gram KH per 100g × portiegrootte ÷ 100)</div>", unsafe_allow_html=True)
-                            cname = st.text_input("Naam product", key=f"cname_{dag_idx}_{moment}", placeholder="bijv. Rijstpap, Sportbar…")
-                            ccarbs = st.number_input("Koolhydraten per portie (gram KH)", min_value=0.0, key=f"ccarbs_{dag_idx}_{moment}")
-                            if cname and ccarbs > 0:
-                                moment_carbs += ccarbs
-                                items_list.append(f"{cname} (eigen) {round(ccarbs)}g")
+                            st.markdown("<div style='font-size:0.75rem; color:#f97316; margin-bottom:8px;'>Geef het aantal koolhydraten per portie in — zie verpakking.</div>", unsafe_allow_html=True)
+
+                            to_delete = []
+                            for ci, item in enumerate(st.session_state[custom_key]):
+                                ca, cb, cc = st.columns([3, 2, 1])
+                                with ca:
+                                    nm = st.text_input("Naam", value=item["name"], key=f"{custom_key}_n{ci}", label_visibility="collapsed", placeholder="Naam product")
+                                with cb:
+                                    kh = st.number_input("g KH", value=item["carbs"], min_value=0.0, key=f"{custom_key}_k{ci}", label_visibility="collapsed", placeholder="g KH/portie")
+                                with cc:
+                                    if st.button("✕", key=f"{custom_key}_d{ci}"):
+                                        to_delete.append(ci)
+                                st.session_state[custom_key][ci] = {"name": nm, "carbs": kh}
+
+                            for ci in reversed(to_delete):
+                                st.session_state[custom_key].pop(ci)
+                                st.rerun()
+
+                            if st.button("+ Voeg toe", key=f"{custom_key}_add"):
+                                st.session_state[custom_key].append({"name": "", "carbs": 0.0})
+                                st.rerun()
+
+                        for item in st.session_state.get(custom_key, []):
+                            if item["name"] and item["carbs"] > 0:
+                                moment_carbs += item["carbs"]
+                                items_list.append(f"{item['name']} (eigen) {round(item['carbs'])}g")
 
                         dag_kh += moment_carbs
 
