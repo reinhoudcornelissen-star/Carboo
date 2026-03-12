@@ -217,77 +217,93 @@ def _stap_carboloading():
 
     _coach_bubble(f"""
     Op basis van jouw gewicht van <strong>{gewicht}kg</strong> en een wedstrijdduur van
-    <strong>{totale_min // 60}u{totale_min % 60:02d}min</strong> is het carbohydrate loading protocol:<br><br>
-    Factor: <strong>{factor}g koolhydraten per kg lichaamsgewicht</strong><br>
-    Dagdoelstelling: <strong style="color:#f97316; font-size:1.1rem;">{dag_target}g koolhydraten/dag</strong><br><br>
-    Vul hieronder in welke maaltijden je de komende 2 dagen plant.
+    <strong>{totale_min // 60}u{totale_min % 60:02d}min</strong> is jouw dagdoelstelling:
+    <strong style="color:#f97316; font-size:1.2rem;"> {dag_target}g koolhydraten/dag</strong><br><br>
+    Vul hieronder per maaltijd in hoeveel koolhydraten je plant.
     """)
 
-    st.markdown("""
-    <div style="background:rgba(249,115,22,0.08); border:1px solid #f97316; padding:12px 16px;
-         border-radius:10px; margin-bottom:20px; font-size:0.82rem; color:#fb923c;">
-        Tip: Focus op rijst, pasta, brood, aardappelen en sportdranken. Beperk vetten en vezels
-        de dag voor de race om maagproblemen te vermijden.
-    </div>
-    """, unsafe_allow_html=True)
-
     MAALTIJDEN = {
-        "Ontbijt":       {"pct": 0.25,  "icon": "Ontbijt"},
-        "Tussendoor VM": {"pct": 0.083, "icon": "Tussendoor VM"},
-        "Lunch":         {"pct": 0.25,  "icon": "Lunch"},
-        "Tussendoor NM": {"pct": 0.083, "icon": "Tussendoor NM"},
-        "Avondmaal":     {"pct": 0.25,  "icon": "Avondmaal"},
-        "Avond snack":   {"pct": 0.083, "icon": "Avond snack"},
+        "Ontbijt":       {"pct": 0.25,  "emoji": "🌅"},
+        "Tussendoor VM": {"pct": 0.083, "emoji": "🍌"},
+        "Lunch":         {"pct": 0.25,  "emoji": "🥗"},
+        "Tussendoor NM": {"pct": 0.083, "emoji": "🍎"},
+        "Avondmaal":     {"pct": 0.25,  "emoji": "🍝"},
+        "Avond snack":   {"pct": 0.083, "emoji": "🌙"},
     }
 
-    tab1, tab2 = st.tabs(["DAG 1 (2 dagen voor)", "DAG 2 (dag voor race)"])
+    tab1, tab2 = st.tabs(["DAG 1 — 2 dagen voor race", "DAG 2 — dag voor race"])
     dag_totalen = {}
 
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
         with tab:
             dag_kh = 0
-            col1, col2 = st.columns(2)
             maaltijd_list = list(MAALTIJDEN.items())
-            for col_idx, col in enumerate([col1, col2]):
-                with col:
-                    for m_name, m_cfg in maaltijd_list[col_idx*3:(col_idx+1)*3]:
-                        m_target = round(dag_target * m_cfg["pct"])
-                        st.markdown(f"""
-                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px;
-                             padding:14px; margin-bottom:12px; border-left:3px solid #f97316;">
-                            <div style="color:#f97316; font-weight:800; font-size:0.78rem; margin-bottom:8px;">
-                                {m_name.upper()} — doel: {m_target}g KH
-                            </div>
-                        """, unsafe_allow_html=True)
-                        kh_val = st.number_input(
-                            f"KH voor {m_name}", min_value=0, max_value=500,
-                            value=st.session_state.get(f"cl_d{dag_idx}_{m_name}", 0),
-                            step=5, key=f"cl_d{dag_idx}_{m_name}",
-                            label_visibility="collapsed"
-                        )
-                        dag_kh += kh_val
-                        pct_m = min(100, round((kh_val / m_target) * 100)) if m_target > 0 else 0
-                        bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
-                        st.markdown(f"""
-                        <div style="background:#1e293b; border-radius:4px; height:4px; margin-top:6px;">
-                            <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
-                        </div>
-                        <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">{kh_val}g / {m_target}g ({pct_m}%)</div>
-                        </div>
-                        """, unsafe_allow_html=True)
 
+            # Render all 6 meal cards in 2 columns
+            col1, col2 = st.columns(2)
+            cols = [col1, col2]
+            meal_kh_values = {}
+
+            for i, (m_name, m_cfg) in enumerate(maaltijd_list):
+                m_target = round(dag_target * m_cfg["pct"])
+                with cols[i % 2]:
+                    # Card header
+                    st.markdown(f"""
+                    <div style="background:linear-gradient(135deg,#0f172a,#1a2540);
+                         border:1px solid #1e293b; border-top:3px solid #f97316;
+                         border-radius:12px; padding:16px 16px 8px 16px; margin-bottom:4px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                            <span style="font-size:1.4rem;">{m_cfg['emoji']}</span>
+                            <div>
+                                <div style="color:#f97316; font-weight:800; font-size:0.8rem; letter-spacing:0.05em;">
+                                    {m_name.upper()}
+                                </div>
+                                <div style="color:#64748b; font-size:0.72rem;">doel: {m_target}g KH</div>
+                            </div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    kh_val = st.number_input(
+                        f"KH {m_name} dag{dag_idx}", min_value=0, max_value=500,
+                        value=st.session_state.get(f"cl_d{dag_idx}_{m_name}", 0),
+                        step=5, key=f"cl_d{dag_idx}_{m_name}",
+                        label_visibility="collapsed"
+                    )
+                    dag_kh += kh_val
+                    meal_kh_values[m_name] = kh_val
+                    pct_m = min(100, round((kh_val / m_target) * 100)) if m_target > 0 else 0
+                    bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
+                    st.markdown(f"""
+                    <div style="background:#1e293b; border-radius:4px; height:5px; margin:2px 0 2px 0;">
+                        <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;
+                             transition:width 0.3s;"></div>
+                    </div>
+                    <div style="font-size:0.68rem; color:#64748b; margin-bottom:12px;">{kh_val}g / {m_target}g ({pct_m}%)</div>
+                    """, unsafe_allow_html=True)
+
+            # Day total summary bar
             dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
-            status_msg = "Doel bereikt!" if dag_pct >= 90 else ("Bijna!" if dag_pct >= 70 else "Te laag")
+            status_emoji = "✅" if dag_pct >= 90 else ("⚡" if dag_pct >= 70 else "📉")
+            status_msg = "Doel bereikt!" if dag_pct >= 90 else ("Bijna!" if dag_pct >= 70 else "Nog te laag")
             st.markdown(f"""
-            <div style="background:#1e293b; border-radius:12px; padding:16px; text-align:center; margin-top:8px;">
-                <div style="font-weight:900; font-size:1rem; color:#f8fafc; margin-bottom:8px;">
-                    TOTAAL DAG {dag_idx}: {dag_kh}g / {dag_target}g &nbsp; {status_msg}
+            <div style="background:linear-gradient(135deg,#1e293b,#0f172a); border:1px solid #334155;
+                 border-radius:14px; padding:18px 20px; margin-top:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-weight:900; font-size:1rem; color:#f8fafc;">
+                        {status_emoji} TOTAAL DAG {dag_idx}
+                    </div>
+                    <div style="font-weight:900; font-size:1.1rem; color:{bar_color};">
+                        {dag_kh}g <span style="color:#64748b; font-size:0.85rem;">/ {dag_target}g</span>
+                    </div>
                 </div>
-                <div style="background:#334155; border-radius:8px; height:12px; overflow:hidden;">
-                    <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color}; border-radius:8px;"></div>
+                <div style="background:#334155; border-radius:8px; height:10px; overflow:hidden;">
+                    <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color};
+                         border-radius:8px;"></div>
                 </div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:6px;">{dag_pct}% van dagtarget bereikt</div>
+                <div style="font-size:0.78rem; color:#94a3b8; margin-top:6px; text-align:right;">
+                    {dag_pct}% — {status_msg}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             dag_totalen[f"dag{dag_idx}"] = {"totaal": dag_kh, "target": dag_target, "pct": dag_pct}
