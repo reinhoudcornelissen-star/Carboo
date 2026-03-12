@@ -120,31 +120,19 @@ def render_login_page():
         z-index: 0;
     }
 
-    /* Login card */
+    /* Login card - volledig transparant, geen zichtbare container */
     .login-card {
-        background: rgba(10, 20, 40, 0.90);
-        border: 1px solid rgba(59,130,246,0.25);
-        border-radius: 20px;
-        padding: 2.5rem;
-        backdrop-filter: blur(20px);
-        box-shadow: 0 0 0 1px rgba(59,130,246,0.1),
-                    0 20px 60px rgba(0,0,0,0.5),
-                    inset 0 1px 0 rgba(255,255,255,0.05);
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        backdrop-filter: none;
+        box-shadow: none;
         position: relative;
-        overflow: hidden;
-        margin-top: 1rem;
+        overflow: visible;
+        margin-top: 0;
     }
-    .login-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, #3b82f6, #f97316, transparent);
-        animation: shimmer 3s linear infinite;
-    }
-    @keyframes shimmer {
-        0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; }
-    }
+    .login-card::before { display: none; }
 
     /* Brand */
     .brand-name {
@@ -258,10 +246,11 @@ def render_login_page():
     [data-testid="stToolbar"] { display: none !important; }
     header[data-testid="stHeader"] { display: none !important; }
     .stApp > header { display: none !important; }
-    /* Negatieve marge om de lege ruimte op te heffen */
+    /* Compacte padding */
     .block-container {
-        padding-top: 0rem !important;
-        margin-top: -4rem !important;
+        padding-top: 3rem !important;
+        margin-top: 0 !important;
+        max-width: 600px !important;
     }
     /* Verberg het eerste lege element (veroorzaakt het blauwe vlak) */
     .stApp [data-testid="stVerticalBlock"] > div:first-child > [data-testid="stVerticalBlock"] > div:first-child {
