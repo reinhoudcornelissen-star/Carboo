@@ -83,6 +83,15 @@ def render_login_page():
     header {visibility: hidden;}
     .stApp { background: #030710 !important; }
 
+    /* Verwijder lege ruimte bovenaan */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    [data-testid="stHeader"] { display: none !important; }
+
     /* Grid achtergrond */
     .stApp::before {
         content: '';
@@ -228,62 +237,58 @@ def render_login_page():
         border-radius: 8px !important;
     }
 
-    /* Avatar animatie */
-    .avatar-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
+    /* Verberg het donkere blok bovenaan */
+    [data-testid="stDecoration"],
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"] {
+        display: none !important;
     }
-    .avatar-img {
-        animation: hover-float 4s ease-in-out infinite;
-        filter: drop-shadow(0 0 30px rgba(37,99,235,0.5)) drop-shadow(0 0 60px rgba(249,115,22,0.25));
-        max-width: 100%;
-    }
+    .block-container { padding-top: 2rem !important; }
+
+    /* Avatar float animatie */
     @keyframes hover-float {
         0%, 100% { transform: translateY(0px) rotate(-1deg); }
-        50% { transform: translateY(-12px) rotate(1deg); }
+        50% { transform: translateY(-6px) rotate(1deg); }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # Layout: avatar links, login rechts
-    col_avatar, col_login = st.columns([1.1, 0.9])
+    # Haal avatar src op uit login.html
+    import re
+    avatar_src = ""
+    if os.path.exists("login.html"):
+        try:
+            with open("login.html", "r") as f:
+                content = f.read()
+            match = re.search(r'<img[^>]+src="([^"]+)"[^>]*>', content)
+            if match:
+                avatar_src = match.group(1)
+        except Exception:
+            pass
 
-    with col_avatar:
-        # Laad avatar uit HTML bestand als dat bestaat, anders toon tekst logo
-        avatar_html = ""
-        if os.path.exists("login.html"):
-            try:
-                # Haal alleen de img src uit de HTML
-                with open("login.html", "r") as f:
-                    content = f.read()
-                import re
-                match = re.search(r'<img[^>]+src="([^"]+)"[^>]*>', content)
-                if match:
-                    img_src = match.group(1)
-                    avatar_html = f'<div class="avatar-container"><img class="avatar-img" src="{img_src}" style="max-height:450px;"></div>'
-            except Exception:
-                pass
-
-        if avatar_html:
-            st.markdown(avatar_html, unsafe_allow_html=True)
-        else:
-            st.markdown("""
-            <div style="display:flex;align-items:center;justify-content:center;height:400px;">
-                <div style="font-family:'Rajdhani',sans-serif;font-size:8rem;font-weight:900;
-                     background:linear-gradient(135deg,#2563eb,#f97316);
-                     -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-                     text-align:center;animation:hover-float 4s ease-in-out infinite;">
-                    🏃
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # Gecentreerde login card — geen linker kolom meer
+    col_pad_l, col_login, col_pad_r = st.columns([1, 2, 1])
 
     with col_login:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown('<div class="brand-name">CARBOO</div>', unsafe_allow_html=True)
-        st.markdown('<div class="brand-subtitle">Race Nutrition Platform</div>', unsafe_allow_html=True)
+
+        # Avatar RECHTS van CARBOO titel, klein
+        if avatar_src:
+            st.markdown(f'''
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
+                <div>
+                    <div class="brand-name">CARBOO</div>
+                    <div class="brand-subtitle">Race Nutrition Platform</div>
+                </div>
+                <img src="{avatar_src}"
+                     style="height:80px;width:auto;flex-shrink:0;
+                            filter:drop-shadow(0 0 12px rgba(37,99,235,0.7)) drop-shadow(0 0 24px rgba(249,115,22,0.4));
+                            animation:hover-float 4s ease-in-out infinite;">
+            </div>
+            ''', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="brand-name">CARBOO</div>', unsafe_allow_html=True)
+            st.markdown('<div class="brand-subtitle">Race Nutrition Platform</div>', unsafe_allow_html=True)
 
         # Toon registratie of login
         if st.session_state.get("show_register", False):
