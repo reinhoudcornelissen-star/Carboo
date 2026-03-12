@@ -95,33 +95,23 @@ if st.session_state.module != "menu":
 # ─── MENU ────────────────────────────────────────────────────────────────────
 if st.session_state.module == "menu":
 
-    # Coach banner met avatar
-    col_banner, col_av = st.columns([3, 1])
-    with col_banner:
-        st.markdown('''
-        <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
-             border-left:4px solid #f97316;border-radius:12px;
-             padding:24px 28px;margin-bottom:24px;">
-            <div style="color:#f97316;font-size:0.72rem;font-weight:800;
-                 letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">
-                JOUW PERSOONLIJKE COACH
-            </div>
-            <div style="font-size:1.4rem;font-weight:800;margin-bottom:8px;color:#f8fafc;">
-                Carboo begeleidt jou naar raceday
-            </div>
-            <div style="color:#94a3b8;font-size:0.9rem;">
-                Volg de interactieve wizard voor een volledig voedingsplan op maat — van carboloading tot uurschema tijdens de race.
-            </div>
+    # Coach banner - geen avatar
+    st.markdown('''
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
+         border-left:4px solid #f97316;border-radius:12px;
+         padding:24px 28px;margin-bottom:24px;">
+        <div style="color:#f97316;font-size:0.72rem;font-weight:800;
+             letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">
+            JOUW PERSOONLIJKE COACH
         </div>
-        ''', unsafe_allow_html=True)
-    with col_av:
-        st.markdown(f'''
-        <div style="display:flex;justify-content:center;align-items:center;height:100%;padding-bottom:24px;">
-            <img src="{CARBOO_AVATAR}"
-                 style="height:120px;width:auto;
-                        filter:drop-shadow(0 0 16px rgba(249,115,22,0.6));">
+        <div style="font-size:1.4rem;font-weight:800;margin-bottom:8px;color:#f8fafc;">
+            Carboo begeleidt jou naar je racedag
         </div>
-        ''', unsafe_allow_html=True)
+        <div style="color:#94a3b8;font-size:0.9rem;">
+            Volg de interactieve wizard voor een volledig voedingsplan op maat — van carboloading tot uurschema tijdens de race.
+        </div>
+    </div>
+    ''', unsafe_allow_html=True)
 
     if st.button("START MET CARBOO COACH", key="btn_coach", use_container_width=False):
         st.session_state.module = "coach"
