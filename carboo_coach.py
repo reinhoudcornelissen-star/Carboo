@@ -181,7 +181,6 @@ def _stap_wedstrijd():
     <div style="background:rgba(59,130,246,0.1); border:1px solid #3b82f6; padding:14px;
          border-radius:10px; margin:16px 0; text-align:center; color:#93c5fd; font-weight:700;">
         Duur: {totale_min // 60}u{totale_min % 60:02d}m &nbsp;|&nbsp;
-        KH-target tijdens race: <strong>{min_kh}–{max_kh}g/uur</strong> &nbsp;|&nbsp;
         {math.ceil(totale_min/60)} uur te plannen
     </div>
     """, unsafe_allow_html=True)
