@@ -266,15 +266,15 @@ def render_login_page():
         # Avatar RECHTS van CARBOO titel, klein
         if avatar_src:
             st.markdown(f'''
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:4px;">
-                <div>
-                    <div class="brand-name">CARBOO</div>
+            <div style="display:flex;align-items:center;gap:2px;margin-bottom:4px;">
+                <div style="line-height:1;">
+                    <div class="brand-name" style="margin-right:0;">CARBOO</div>
                     <div class="brand-subtitle">Race Nutrition Platform</div>
                 </div>
                 <img src="{avatar_src}"
-                     style="height:80px;width:auto;flex-shrink:0;
-                            filter:drop-shadow(0 0 12px rgba(37,99,235,0.7)) drop-shadow(0 0 24px rgba(249,115,22,0.4));
-                            animation:hover-float 4s ease-in-out infinite;">
+                     style="height:90px;width:auto;flex-shrink:0;
+                            margin-left:2px;
+                            filter:drop-shadow(0 0 12px rgba(37,99,235,0.7)) drop-shadow(0 0 24px rgba(249,115,22,0.4));">
             </div>
             ''', unsafe_allow_html=True)
         else:
