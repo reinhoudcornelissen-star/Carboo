@@ -46,8 +46,7 @@ def _progress_bar(stap_idx: int):
 
 
 def _coach_bubble(tekst: str, extra_klein: bool = False):
-    """Coach bubble met typewriter effect."""
-    import re, time
+    """Coach bubble met de echte Carboo avatar links."""
     grootte = "70px" if extra_klein else "90px"
     col_av, col_txt = st.columns([1, 8])
     with col_av:
@@ -57,22 +56,7 @@ def _coach_bubble(tekst: str, extra_klein: bool = False):
             unsafe_allow_html=True
         )
     with col_txt:
-        # Strip HTML tags voor typewriter, gebruik clean tekst
-        clean = re.sub(r'<[^>]+>', '', tekst).strip()
-        bubble = st.empty()
-        typed = ""
-        for char in clean:
-            typed += char
-            bubble.markdown(
-                f'<div style="background:#1e293b;border:1px solid #334155;'
-                f'border-radius:0 16px 16px 16px;padding:16px 20px;'
-                f'color:#f8fafc;font-size:0.92rem;line-height:1.65;'
-                f'margin-top:4px;">{typed}▌</div>',
-                unsafe_allow_html=True
-            )
-            time.sleep(0.012)
-        # Finale versie met HTML opmaak, zonder cursor
-        bubble.markdown(
+        st.markdown(
             f'<div style="background:#1e293b;border:1px solid #334155;'
             f'border-radius:0 16px 16px 16px;padding:16px 20px;'
             f'color:#f8fafc;font-size:0.92rem;line-height:1.65;'
@@ -305,6 +289,29 @@ def _stap_carboloading():
         border: 1px solid #334155 !important;
         border-radius: 10px !important;
         background: #0f172a !important;
+    }
+    /* Voorkom verduistering bij interactie */
+    [data-testid="stExpander"]:focus-within,
+    [data-testid="stExpander"] *:focus {
+        background: #0f172a !important;
+    }
+    /* Tekst in invoervelden zichtbaar houden */
+    [data-testid="stExpander"] input {
+        color: #f8fafc !important;
+        background: #1e293b !important;
+    }
+    [data-testid="stExpander"] label,
+    [data-testid="stExpander"] .stMarkdown p,
+    [data-testid="stExpander"] .stMarkdown div {
+        color: #e2e8f0 !important;
+    }
+    /* Verwijder flash/overlay bij klikken */
+    [data-testid="stExpander"] [data-baseweb="input"] {
+        background: #1e293b !important;
+    }
+    [data-testid="stExpander"] [data-baseweb="input"]:focus-within {
+        background: #1e293b !important;
+        border-color: #f97316 !important;
     }
     </style>
     """, unsafe_allow_html=True)
