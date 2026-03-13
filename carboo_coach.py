@@ -186,7 +186,6 @@ def _stap_wedstrijd():
     hoogte = st.number_input("⛰️ Hoogte boven zeeniveau (m)", 0, 5000,
         data.get("hoogte", 0), key="w_hoogte")
 
-    # Duur berekening
     start_dt = datetime.combine(datetime.today(), start_time)
     eind_dt = datetime.combine(datetime.today(), eind_time)
     if eind_dt <= start_dt:
@@ -231,7 +230,6 @@ def _stap_carboloading():
     gewicht = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
 
-    # Factor bepalen
     if totale_min > 300:
         factor = 12
     elif totale_min > 180:
@@ -260,35 +258,6 @@ def _stap_carboloading():
     </div>
     """, unsafe_allow_html=True)
 
-    # ── CSS FIX: number_input blijft leesbaar, ook bij + / - knoppen ──────
-    st.markdown("""
-    <style>
-    /* Donkere achtergrond voor number inputs in carboloading */
-    div[data-testid="stNumberInput"] input {
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
-        border: 1px solid #334155 !important;
-    }
-    div[data-testid="stNumberInput"] button {
-        background-color: #334155 !important;
-        color: #f8fafc !important;
-        border: none !important;
-    }
-    div[data-testid="stNumberInput"] button:hover {
-        background-color: #f97316 !important;
-        color: #fff !important;
-    }
-    div[data-testid="stNumberInput"] button svg {
-        fill: #f8fafc !important;
-    }
-    /* Zorg dat de container ook donker blijft */
-    div[data-testid="stNumberInput"] > div {
-        background-color: #1e293b !important;
-        border-radius: 8px !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
     MAALTIJDEN = {
         "Ontbijt":       {"pct": 0.25,  "icon": "🌅"},
         "Tussendoor VM": {"pct": 0.083, "icon": "☕"},
@@ -311,14 +280,6 @@ def _stap_carboloading():
                 with col:
                     for m_name, m_cfg in maaltijd_list[col_idx*3:(col_idx+1)*3]:
                         m_target = round(dag_target * m_cfg["pct"])
-                        
-                        # ── Persistente sleutel: lees altijd uit session_state ──
-                        ss_key = f"cl_d{dag_idx}_{m_name}"
-                        # Initialiseer uit coach_data als die er al is (terugnavigatie)
-                        if ss_key not in st.session_state:
-                            saved = st.session_state.get("coach_data", {}).get("cl_waarden", {})
-                            st.session_state[ss_key] = saved.get(ss_key, 0)
-
                         st.markdown(f"""
                         <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; 
                              padding:14px; margin-bottom:12px; border-left:3px solid #f97316;">
@@ -330,13 +291,12 @@ def _stap_carboloading():
                         kh_val = st.number_input(
                             f"KH (gram) voor {m_name}",
                             min_value=0, max_value=500,
-                            value=st.session_state[ss_key],
-                            step=5, key=ss_key,
+                            value=st.session_state.get(f"cl_d{dag_idx}_{m_name}", 0),
+                            step=5, key=f"cl_d{dag_idx}_{m_name}",
                             label_visibility="collapsed"
                         )
                         dag_kh += kh_val
 
-                        # Mini progress
                         pct_m = min(100, round((kh_val / m_target) * 100)) if m_target > 0 else 0
                         bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
                         st.markdown(f"""
@@ -347,7 +307,6 @@ def _stap_carboloading():
                         </div>
                         """, unsafe_allow_html=True)
 
-            # Dag totaal
             dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
             status_msg = "✅ Doel bereikt!" if dag_pct >= 90 else ("⚠️ Bijna!" if dag_pct >= 70 else "❌ Te laag")
@@ -369,34 +328,37 @@ def _stap_carboloading():
     col_prev, col_next = st.columns(2)
     with col_prev:
         if st.button("← Vorige", key="cl_prev"):
-            # ── Sla alle ingevulde waarden op vóór we teruggaan ──
+            # Sla huidige waarden op voor terugnavigatie
             cl_waarden = {}
-            for dag_idx in [1, 2]:
-                for m_name in MAALTIJDEN:
-                    k = f"cl_d{dag_idx}_{m_name}"
-                    cl_waarden[k] = st.session_state.get(k, 0)
+            for dag_idx2 in [1, 2]:
+                for m_name in MAALTIJDEN.keys():
+                    ss_key = f"cl_d{dag_idx2}_{m_name}"
+                    cl_waarden[ss_key] = st.session_state.get(ss_key, 0)
             st.session_state.coach_data["cl_waarden"] = cl_waarden
-            st.session_state.coach_data["carboloading"] = dag_totalen
-            st.session_state.coach_data["dag_target"] = dag_target
-            st.session_state.coach_data["factor"] = factor
             st.session_state.coach_stap = 2
             st.rerun()
     with col_next:
         if st.button("Volgende →", key="cl_next", use_container_width=True):
-            # ── Sla alle ingevulde waarden op ──
+            # Sla huidige waarden op
             cl_waarden = {}
-            for dag_idx in [1, 2]:
-                for m_name in MAALTIJDEN:
-                    k = f"cl_d{dag_idx}_{m_name}"
-                    cl_waarden[k] = st.session_state.get(k, 0)
+            for dag_idx2 in [1, 2]:
+                for m_name in MAALTIJDEN.keys():
+                    ss_key = f"cl_d{dag_idx2}_{m_name}"
+                    cl_waarden[ss_key] = st.session_state.get(ss_key, 0)
+            st.session_state.coach_data["cl_waarden"] = cl_waarden
             st.session_state.coach_data.update({
                 "carboloading": dag_totalen,
                 "dag_target": dag_target,
                 "factor": factor,
-                "cl_waarden": cl_waarden,
             })
             st.session_state.coach_stap = 4
             st.rerun()
+
+    # Herstel waarden na terugnavigatie
+    if "cl_waarden" in st.session_state.get("coach_data", {}):
+        for ss_key, val in st.session_state.coach_data["cl_waarden"].items():
+            if ss_key not in st.session_state:
+                st.session_state[ss_key] = val
 
 
 def _stap_racedag():
@@ -411,7 +373,6 @@ def _stap_racedag():
 
     start_dt = datetime.strptime(start_time_str, "%H:%M")
 
-    # Ontbijt timing
     onbijt_tips = {
         "3-4 uur voor start (aanbevolen)": -210,
         "2-3 uur voor start": -150,
@@ -454,7 +415,6 @@ def _stap_racedag():
             "Meerdere cafeïne gels verspreid",
         ], index=data.get("cafeine_idx", 1), key="rd_cafe_strat")
 
-    # Samenvatting totaal racedag KH voor de start
     pre_totaal = ontbijt_kh + (35 if sportdrank_ont else 0) + (23 if pre_gel else 0) + pre_kh_extra
     gewicht = data.get("gewicht", 70)
     ideaal_min = round(gewicht * 1)
@@ -576,7 +536,6 @@ def _stap_samenvatting():
     Bewaar dit goed en volg het stap voor stap!
     """, "🏆")
 
-    # ─── PROFIEL SAMENVATTING ─────────────────────────────────────────────
     st.markdown("""
     <div style="background:#1e293b; border-radius:16px; padding:20px; margin-bottom:20px; border-top:4px solid #f97316;">
         <div style="font-weight:900; color:#f97316; font-size:0.85rem; letter-spacing:2px; margin-bottom:14px;">📋 JOUW PLAN OVERZICHT</div>
@@ -600,7 +559,6 @@ def _stap_samenvatting():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ─── SECTIE TABS ─────────────────────────────────────────────────────
     tab_cl, tab_race, tab_plan = st.tabs(["🍝  CARBOLOADING", "🌅  RACEDAG", "⏱️  RACEPLAN"])
 
     with tab_cl:
@@ -638,7 +596,6 @@ def _stap_samenvatting():
             </div>
             """, unsafe_allow_html=True)
 
-        # Carboloading tips
         st.markdown("""
         <div style="margin-top:16px;">
             <div style="font-weight:800; color:#f97316; margin-bottom:10px; font-size:0.85rem;">💡 CARBOLOADING TIPS</div>
@@ -684,7 +641,6 @@ def _stap_samenvatting():
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # Cafeïne strategie
         cafe_strat = data.get("cafeine_strategie", "—")
         st.markdown(f"""
         <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:12px 16px; 
@@ -712,12 +668,10 @@ def _stap_samenvatting():
             </div>
             """, unsafe_allow_html=True)
         else:
-            # Vocht berekening
             basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 500)
             f_factor = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
             vocht_per_m = round(((basis_vocht * (1 + f_factor)) / 3) / 10) * 10
 
-            # Alerts
             if temp > 28 or (temp > 24 and vochtigheid > 75):
                 st.markdown('<div class="alert-red">⚠️ <b>ORS NODIG:</b> Hitte + vochtigheid. Gebruik ORS voor zoutbalans.</div>', unsafe_allow_html=True)
 
@@ -733,7 +687,6 @@ def _stap_samenvatting():
                 uur_start = start_dt + timedelta(hours=u)
                 uur_label = uur_start.strftime("%H:%M")
 
-                # Sportdrank
                 if pool.get("drank"):
                     d = pool["drank"][0]
                     kh_per_m = round((d["kh"] / 500) * vocht_per_m)
@@ -741,7 +694,6 @@ def _stap_samenvatting():
                         moment_items[m].append({"label": f"🥤 {vocht_per_m}ml <b>{d['name']}</b> ({kh_per_m}g)", "kh": kh_per_m})
                         uur_kh += kh_per_m
 
-                # Cafeïne
                 cafe_strat = data.get("cafeine_strategie", "")
                 if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
                     c = pool["cafe"][0]
@@ -754,14 +706,12 @@ def _stap_samenvatting():
                     moment_items[2].append({"label": f"⚡ <b>{c['name']}</b> ({c['kh']}g)", "kh": c["kh"]})
                     uur_kh += c["kh"]
 
-                # Vast voedsel
                 if pool.get("vast") and uur_kh < cur_min_kh:
                     item = pool["vast"][vast_idx % len(pool["vast"])]
                     moment_items[2].append({"label": f"🍱 <b>{item['name']}</b> ({item['kh']}g)", "kh": item["kh"]})
                     uur_kh += item["kh"]
                     vast_idx += 1
 
-                # Gels aanvullen
                 if pool.get("gels") and uur_kh < cur_min_kh:
                     g = pool["gels"][0]
                     moment_items[3].append({"label": f"🧪 <b>{g['name']}</b> ({g['kh']}g)", "kh": g["kh"]})
@@ -810,7 +760,6 @@ def _stap_samenvatting():
             </div>
             """, unsafe_allow_html=True)
 
-    # ─── ACTIES ──────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -844,7 +793,6 @@ def render_coach(user: dict):
     stap = st.session_state.coach_stap
     stap_idx = min(stap, len(STAPPEN) - 1)
 
-    # Header
     st.markdown(f"""
     <div style="background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:16px; padding:18px 22px; 
          margin-bottom:20px; border-left:5px solid #f97316; display:flex; justify-content:space-between;">
