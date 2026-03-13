@@ -52,7 +52,7 @@ def _coach_bubble(tekst: str, extra_klein: bool = False):
     with col_av:
         st.markdown(
             f'<img src="{CARBOO_AVATAR}" style="height:{grootte};width:auto;'
-            f'filter:drop-shadow(0 0 10px rgba(249,115,22,0.5));display:block;">',
+            f'filter:drop-shadow(0 0 6px rgba(249,115,22,0.3));display:block;">',
             unsafe_allow_html=True
         )
     with col_txt:
@@ -274,10 +274,9 @@ def _stap_carboloading():
         pool = BOOST_TIPS.get(cat, BOOST_TIPS["Tussendoor"])
         return f"• {random.choice(pool)}"
 
-    # CSS voor betere expander tekstkleur
+    # CSS - fix expander, remove flash, fix + button color
     st.markdown("""
     <style>
-    /* Expander label tekst helderder */
     [data-testid="stExpander"] summary p,
     [data-testid="stExpander"] summary span,
     [data-testid="stExpander"] details summary {
@@ -290,12 +289,10 @@ def _stap_carboloading():
         border-radius: 10px !important;
         background: #0f172a !important;
     }
-    /* Voorkom verduistering bij interactie */
     [data-testid="stExpander"]:focus-within,
     [data-testid="stExpander"] *:focus {
         background: #0f172a !important;
     }
-    /* Tekst in invoervelden zichtbaar houden */
     [data-testid="stExpander"] input {
         color: #f8fafc !important;
         background: #1e293b !important;
@@ -305,13 +302,27 @@ def _stap_carboloading():
     [data-testid="stExpander"] .stMarkdown div {
         color: #e2e8f0 !important;
     }
-    /* Verwijder flash/overlay bij klikken */
     [data-testid="stExpander"] [data-baseweb="input"] {
         background: #1e293b !important;
     }
     [data-testid="stExpander"] [data-baseweb="input"]:focus-within {
         background: #1e293b !important;
         border-color: #f97316 !important;
+    }
+    /* Fix witte flash bij + knop */
+    [data-testid="stExpander"] button {
+        background: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #334155 !important;
+    }
+    [data-testid="stExpander"] button:hover {
+        background: #334155 !important;
+        color: #f97316 !important;
+    }
+    [data-testid="stExpander"] button:active,
+    [data-testid="stExpander"] button:focus {
+        background: #1e293b !important;
+        color: #f8fafc !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -334,37 +345,8 @@ def _stap_carboloading():
                         moment_carbs = 0.0
                         items_list = []
 
-                        # Card header
-                        st.markdown(f"""
-                        <div style="background:linear-gradient(135deg,#0f172a,#1a2540);
-                             border:1px solid #1e293b; border-top:3px solid #f97316;
-                             border-radius:12px 12px 0 0; padding:14px 16px 10px 16px; margin-bottom:0;">
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span style="font-size:1.3rem;">{cfg['emoji']}</span>
-                                <div>
-                                    <div style="color:#f97316; font-weight:800; font-size:0.8rem; letter-spacing:0.05em;">
-                                        {moment.upper()}
-                                    </div>
-                                    <div style="color:#64748b; font-size:0.72rem;">doel: {target_m}g KH</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="background:#0d1525; border:1px solid #1e293b; border-top:none;
-                             border-radius:0 0 12px 12px; padding:12px 14px 10px 14px; margin-bottom:14px;">
-                        """, unsafe_allow_html=True)
-
                         # Compact tabel in expander per dagdeel
-                        with st.expander(f"{cfg['emoji']}  {moment}  —  doel: {target_m}g KH  |  {round(moment_carbs)}g ingepland", expanded=False):
-                            # Header rij
-                            st.markdown("""
-                            <div style='display:grid; grid-template-columns:1fr 120px 60px;
-                                 gap:6px; padding:4px 0; border-bottom:1px solid #334155;
-                                 font-size:0.72rem; color:#64748b; font-weight:700;
-                                 letter-spacing:0.05em;'>
-                                <div>PRODUCT</div><div style='text-align:center;'>EENHEID</div>
-                                <div style='text-align:center;'>AANTAL</div>
-                            </div>""", unsafe_allow_html=True)
-
+                        with st.expander(f"{cfg['emoji']}  {moment}  —  doel: {target_m}g KH", expanded=False):
                             for food in cfg["foods"]:
                                 info = FOOD_DB.get(food)
                                 if not info:
@@ -378,9 +360,13 @@ def _stap_carboloading():
                                         <div style='font-size:0.68rem; color:#64748b;'>{info['label']}</div>
                                     </div>""", unsafe_allow_html=True)
                                 with col_b:
+                                    # Herstel waarde uit session_state als die bestaat
+                                    saved_val = st.session_state.get(key, 0.0)
                                     val = st.number_input(
                                         info['unit'],
-                                        min_value=0.0, value=0.0, step=1.0,
+                                        min_value=0.0,
+                                        value=float(saved_val),
+                                        step=1.0,
                                         key=key,
                                         placeholder=info['unit'],
                                     )
@@ -424,25 +410,17 @@ def _stap_carboloading():
 
                         dag_kh += moment_carbs
 
-                        # Progress bar onder expander
+                        # Progress bar onder expander (geen booster tips)
                         pct_m = min(100, round((moment_carbs / target_m) * 100)) if target_m > 0 else 0
                         bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
-                        boost_html = ""
-                        if moment_carbs > 0 and (target_m - moment_carbs) > 5:
-                            tip = get_boost_tip(moment)
-                            boost_html = f"""<div style="background:rgba(239,68,68,0.08); border:1px solid #ef4444;
-                                border-radius:6px; padding:6px 10px; margin-top:4px; font-size:0.72rem; color:#fca5a5;">
-                                💡 <strong>Booster tip:</strong> {tip}</div>"""
                         st.markdown(f"""
                         <div style="background:#1e293b; border-radius:4px; height:4px; margin:2px 0;">
                             <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
                         </div>
                         <div style="font-size:0.68rem; color:#64748b; margin-bottom:10px;">{round(moment_carbs)}g / {target_m}g ({pct_m}%)</div>
-                        {boost_html}
                         """, unsafe_allow_html=True)
 
 
-            # Day total bar
             dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
             status_emoji = "✅" if dag_pct >= 90 else ("⚡" if dag_pct >= 70 else "📉")
