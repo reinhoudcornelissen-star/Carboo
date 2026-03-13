@@ -311,38 +311,49 @@ def _stap_carboloading():
                              border-radius:0 0 12px 12px; padding:12px 14px 10px 14px; margin-bottom:14px;">
                         """, unsafe_allow_html=True)
 
-                        # Food inputs
-                        for food in cfg["foods"]:
-                            info = FOOD_DB.get(food)
-                            if not info:
-                                continue
-                            key = f"cl_{dag_idx}_{moment}_{food}"
-                            col_a, col_b = st.columns([3, 2])
-                            with col_a:
-                                st.markdown(f"""
-                                <div style='margin-bottom:2px;'>
-                                    <div style='font-size:0.82rem; color:#e2e8f0; font-weight:600;'>{food}</div>
-                                    <div style='font-size:0.7rem; color:#64748b;'>{info['label']}</div>
-                                </div>""", unsafe_allow_html=True)
-                            with col_b:
-                                val = st.number_input(
-                                    info['unit'],
-                                    min_value=0.0, value=0.0, step=1.0,
-                                    key=key,
-                                    placeholder=info['unit'],
-                                )
-                            if val > 0:
-                                c = round(val * info["carbs"])
-                                moment_carbs += c
-                                items_list.append(f"{val} {info['unit']} {food} ({c}g)")
+                        # Compact tabel in expander per dagdeel
+                        with st.expander(f"{cfg['emoji']}  {moment}  —  doel: {target_m}g KH  |  {round(moment_carbs)}g ingepland", expanded=False):
+                            # Header rij
+                            st.markdown("""
+                            <div style='display:grid; grid-template-columns:1fr 120px 60px;
+                                 gap:6px; padding:4px 0; border-bottom:1px solid #334155;
+                                 font-size:0.72rem; color:#64748b; font-weight:700;
+                                 letter-spacing:0.05em;'>
+                                <div>PRODUCT</div><div style='text-align:center;'>EENHEID</div>
+                                <div style='text-align:center;'>AANTAL</div>
+                            </div>""", unsafe_allow_html=True)
 
-                        # Custom products — unlimited, with delete
-                        custom_key = f"custom_{dag_idx}_{moment}"
-                        if custom_key not in st.session_state:
-                            st.session_state[custom_key] = []
+                            for food in cfg["foods"]:
+                                info = FOOD_DB.get(food)
+                                if not info:
+                                    continue
+                                key = f"cl_{dag_idx}_{moment}_{food}"
+                                col_a, col_b = st.columns([4, 2])
+                                with col_a:
+                                    st.markdown(f"""
+                                    <div style='padding:6px 0 2px 0;'>
+                                        <div style='font-size:0.83rem; color:#e2e8f0; font-weight:600; line-height:1.2;'>{food}</div>
+                                        <div style='font-size:0.68rem; color:#64748b;'>{info['label']}</div>
+                                    </div>""", unsafe_allow_html=True)
+                                with col_b:
+                                    val = st.number_input(
+                                        info['unit'],
+                                        min_value=0.0, value=0.0, step=1.0,
+                                        key=key,
+                                        placeholder=info['unit'],
+                                    )
+                                if val > 0:
+                                    c = round(val * info["carbs"])
+                                    moment_carbs += c
+                                    items_list.append(f"{val} {info['unit']} {food} ({c}g)")
 
-                        with st.expander("➕ Eigen product toevoegen"):
-                            st.markdown("<div style='font-size:0.75rem; color:#f97316; margin-bottom:8px;'>Geef het aantal koolhydraten per portie in — zie verpakking.</div>", unsafe_allow_html=True)
+                            # Custom products
+                            st.markdown("<div style='border-top:1px solid #334155; margin-top:8px; padding-top:8px;'></div>", unsafe_allow_html=True)
+                            custom_key = f"custom_{dag_idx}_{moment}"
+                            if custom_key not in st.session_state:
+                                st.session_state[custom_key] = []
+
+                            st.markdown("<div style='font-size:0.72rem; color:#f97316; margin-bottom:6px;'>➕ Eigen producten — geef KH per portie in (zie verpakking)</div>", unsafe_allow_html=True)
 
                             to_delete = []
                             for ci, item in enumerate(st.session_state[custom_key]):
@@ -360,7 +371,7 @@ def _stap_carboloading():
                                 st.session_state[custom_key].pop(ci)
                                 st.rerun()
 
-                            if st.button("+ Voeg toe", key=f"{custom_key}_add"):
+                            if st.button("+ Voeg eigen product toe", key=f"{custom_key}_add"):
                                 st.session_state[custom_key].append({"name": "", "carbs": 0.0})
                                 st.rerun()
 
@@ -371,25 +382,23 @@ def _stap_carboloading():
 
                         dag_kh += moment_carbs
 
-                        # Progress bar per moment
+                        # Progress bar onder expander
                         pct_m = min(100, round((moment_carbs / target_m) * 100)) if target_m > 0 else 0
                         bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
-
                         boost_html = ""
                         if moment_carbs > 0 and (target_m - moment_carbs) > 5:
                             tip = get_boost_tip(moment)
                             boost_html = f"""<div style="background:rgba(239,68,68,0.08); border:1px solid #ef4444;
-                                border-radius:6px; padding:8px 10px; margin-top:6px; font-size:0.75rem; color:#fca5a5;">
+                                border-radius:6px; padding:6px 10px; margin-top:4px; font-size:0.72rem; color:#fca5a5;">
                                 💡 <strong>Booster tip:</strong> {tip}</div>"""
-
                         st.markdown(f"""
-                        <div style="background:#1e293b; border-radius:4px; height:5px; margin:8px 0 2px 0;">
+                        <div style="background:#1e293b; border-radius:4px; height:4px; margin:2px 0;">
                             <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
                         </div>
-                        <div style="font-size:0.7rem; color:#64748b;">{round(moment_carbs)}g / {target_m}g ({pct_m}%)</div>
+                        <div style="font-size:0.68rem; color:#64748b; margin-bottom:10px;">{round(moment_carbs)}g / {target_m}g ({pct_m}%)</div>
                         {boost_html}
-                        </div>
                         """, unsafe_allow_html=True)
+
 
             # Day total bar
             dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
