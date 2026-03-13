@@ -46,7 +46,8 @@ def _progress_bar(stap_idx: int):
 
 
 def _coach_bubble(tekst: str, extra_klein: bool = False):
-    """Coach bubble met de echte Carboo avatar links."""
+    """Coach bubble met typewriter effect."""
+    import re, time
     grootte = "70px" if extra_klein else "90px"
     col_av, col_txt = st.columns([1, 8])
     with col_av:
@@ -56,7 +57,22 @@ def _coach_bubble(tekst: str, extra_klein: bool = False):
             unsafe_allow_html=True
         )
     with col_txt:
-        st.markdown(
+        # Strip HTML tags voor typewriter, gebruik clean tekst
+        clean = re.sub(r'<[^>]+>', '', tekst).strip()
+        bubble = st.empty()
+        typed = ""
+        for char in clean:
+            typed += char
+            bubble.markdown(
+                f'<div style="background:#1e293b;border:1px solid #334155;'
+                f'border-radius:0 16px 16px 16px;padding:16px 20px;'
+                f'color:#f8fafc;font-size:0.92rem;line-height:1.65;'
+                f'margin-top:4px;">{typed}▌</div>',
+                unsafe_allow_html=True
+            )
+            time.sleep(0.012)
+        # Finale versie met HTML opmaak, zonder cursor
+        bubble.markdown(
             f'<div style="background:#1e293b;border:1px solid #334155;'
             f'border-radius:0 16px 16px 16px;padding:16px 20px;'
             f'color:#f8fafc;font-size:0.92rem;line-height:1.65;'
@@ -273,6 +289,25 @@ def _stap_carboloading():
         cat = "Tussendoor" if ("Tussendoor" in moment or moment == "Avond snack") else moment
         pool = BOOST_TIPS.get(cat, BOOST_TIPS["Tussendoor"])
         return f"• {random.choice(pool)}"
+
+    # CSS voor betere expander tekstkleur
+    st.markdown("""
+    <style>
+    /* Expander label tekst helderder */
+    [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] summary span,
+    [data-testid="stExpander"] details summary {
+        color: #f1f5f9 !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+    }
+    [data-testid="stExpander"] {
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+        background: #0f172a !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     # ─── DAG TABS ─────────────────────────────────────────────────────────
     tab1, tab2 = st.tabs(["📅  DAG 1 — 2 dagen voor race", "📅  DAG 2 — dag voor race"])
