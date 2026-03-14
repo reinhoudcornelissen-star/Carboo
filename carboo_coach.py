@@ -64,23 +64,16 @@ def _progress_bar(stap_idx: int):
 
 
 def _coach_bubble(tekst: str, icon: str = "🤖"):
-    st.markdown(f"""
-    <div style="display:flex; gap:14px; margin-bottom:20px; align-items:flex-end;">
-        <div style="flex-shrink:0; width:70px; height:70px; display:flex; align-items:flex-end; justify-content:center;">
-            <img src="{MASCOT_B64}"
-                 style="height:70px; width:auto; object-fit:contain;
-                        filter:drop-shadow(0 2px 8px rgba(249,115,22,0.5));"
-                 alt="Carboo">
-        </div>
-        <div style="background:#1e293b; border:1px solid #334155; border-radius:0 14px 14px 14px; 
-             padding:14px 18px; color:#f8fafc; font-size:0.9rem; line-height:1.6; max-width:680px;
-             position:relative;">
-            <div style="position:absolute; bottom:-1px; left:-8px; width:0; height:0;
-                 border-top:8px solid transparent; border-right:8px solid #334155;"></div>
-            {tekst}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = (
+        '<div style="display:flex;gap:14px;margin-bottom:20px;align-items:flex-end;">' +
+        '<div style="flex-shrink:0;width:70px;height:70px;display:flex;align-items:flex-end;justify-content:center;">' +
+        '<img src="' + MASCOT_B64 + '" style="height:70px;width:auto;object-fit:contain;filter:drop-shadow(0 2px 8px rgba(249,115,22,0.5));" alt="Carboo">' +
+        '</div>' +
+        '<div style="background:#1e293b;border:1px solid #334155;border-radius:0 14px 14px 14px;padding:14px 18px;color:#f8fafc;font-size:0.9rem;line-height:1.6;max-width:680px;">' +
+        tekst +
+        '</div></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def _info_card(titel: str, waarde: str, kleur: str = "#f97316", icon: str = ""):
@@ -104,18 +97,9 @@ def _stap_welkom(naam: str):
     Dit duurt slechts <b>5-7 minuten</b>. Ben je er klaar voor?
     """, "🤖")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🚀  JA, LET'S GO!", key="welkom_ja", use_container_width=True):
-            st.session_state.coach_stap = 1
-            st.rerun()
-    with col2:
-        if st.button("📋  Bekijk eerder plan", key="welkom_plan", use_container_width=True):
-            if st.session_state.get("coach_data"):
-                st.session_state.coach_stap = 6
-                st.rerun()
-            else:
-                st.info("Nog geen eerder plan gevonden. Start een nieuw plan!")
+    if st.button("🚀  JA, LET'S GO!", key="welkom_ja", use_container_width=True):
+        st.session_state.coach_stap = 1
+        st.rerun()
 
 
 def _stap_profiel(naam: str):
