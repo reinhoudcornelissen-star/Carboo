@@ -127,23 +127,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── MASCOT + BRANDING ───────────────────────────────────────────────────────
-st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
+st.markdown("<div style='height:50px'></div>", unsafe_allow_html=True)
 
-col_l, col_mid, col_r = st.columns([1, 2, 1])
+col_l, col_mid, col_r = st.columns([1, 3, 1])
 with col_mid:
-    # Mascot via st.image (werkt altijd, geen f-string probleem)
-    img_data = b64decode_to_bytes(CARBOO_AVATAR) if False else None
-    # Mascot: sla tijdelijk op als bytes voor st.image()
-    import base64 as _b64
-    _img_bytes = _b64.b64decode(CARBOO_AVATAR.split(",", 1)[1])
-    st.markdown('<style>div[data-testid="stImage"]{filter:drop-shadow(0 0 30px rgba(249,115,22,0.45)) drop-shadow(0 0 60px rgba(59,130,246,0.2));}</style>', unsafe_allow_html=True)
-    col_img_l, col_img_c, col_img_r = st.columns([3,1,3])
-    with col_img_c:
-        st.image(_img_bytes, width=140)
-
-    st.markdown('<div class="carboo-hero-title">CARBOO</div>', unsafe_allow_html=True)
-    st.markdown('<div class="carboo-subtitle">RACE NUTRITION PLATFORM</div>', unsafe_allow_html=True)
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown('''
+    <div class="carboo-hero-title">CARBOO</div>
+    <div class="carboo-subtitle">RACE NUTRITION PLATFORM</div>
+    ''', unsafe_allow_html=True)
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
 # ─── COACH BUBBLE ────────────────────────────────────────────────────────────
 col_l2, col_bubble, col_r2 = st.columns([1, 3, 1])
@@ -172,14 +164,16 @@ with col_bubble:
 st.markdown("<div style='height:40px'></div>", unsafe_allow_html=True)
 
 # ─── WIZARD CARD ─────────────────────────────────────────────────────────────
-col_l3, col_wiz, col_r3 = st.columns([1, 2.2, 1])
+col_l3, col_wiz, col_r3 = st.columns([1, 3, 1])
 with col_wiz:
     st.markdown('''
     <div class="wizard-card">
         <div style="position:absolute;top:0;left:0;right:0;height:3px;
             background:linear-gradient(90deg,#f97316,#3b82f6,#8b5cf6,#f97316);
             background-size:300% 100%;"></div>
-        <div style="font-size:2rem;margin-bottom:10px;">🏆</div>
+        <div style="margin-bottom:6px; margin-top:4px;">
+    ''' + '<img src="' + CARBOO_AVATAR + '" style="height:120px;width:auto;object-fit:contain;filter:drop-shadow(0 0 16px rgba(249,115,22,0.55));">' + '''
+        </div>
         <div class="wizard-card-title">CARBOO COACH WIZARD</div>
         <div style="color:#94a3b8;font-size:0.88rem;line-height:1.7;margin-bottom:18px;">
             Jouw volledig gepersonaliseerd voedingsplan in 7 stappen.<br>
