@@ -4,6 +4,7 @@ import os
 import hashlib
 from datetime import datetime
 
+
 USERS_FILE = "users.json"
 
 # ─── HELPER FUNCTIONS ────────────────────────────────────────────────────────
