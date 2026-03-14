@@ -237,95 +237,170 @@ def _stap_wedstrijd():
 
 
 def _stap_carboloading():
-    data = st.session_state.get("coach_data", {})
+    data    = st.session_state.get("coach_data", {})
     gewicht = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
 
-    if totale_min > 300:
-        factor = 12
-    elif totale_min > 180:
-        factor = 10
-    elif totale_min > 90:
-        factor = 8
-    else:
-        factor = 6
+    if totale_min > 300:   factor = 12
+    elif totale_min > 180: factor = 10
+    elif totale_min > 90:  factor = 8
+    else:                  factor = 6
 
     dag_target = round(gewicht * factor)
 
     _coach_bubble(f"""
-    Op basis van jouw gewicht van <b>{gewicht}kg</b> en een wedstrijdduur van 
-    <b>{totale_min // 60}u{totale_min % 60:02d}min</b> is het <b>carbohydrate loading protocol</b>:<br><br>
-    📊 Factor: <b>{factor}g koolhydraten per kg lichaamsgewicht</b><br>
-    🎯 Dagdoelstelling: <b style="color:#f97316; font-size:1.1rem;">{dag_target}g koolhydraten/dag</b><br><br>
-    Vul hieronder in welke maaltijden je de komende 2 dagen plant. 
-    Ik bereken dan automatisch of je jouw doel haalt.
+    Op basis van jouw gewicht van <b>{gewicht}kg</b> en een wedstrijdduur van
+    <b>{totale_min//60}u{totale_min%60:02d}min</b> is het <b>carbohydrate loading protocol</b>:<br><br>
+    \U0001f4ca Factor: <b>{factor}g koolhydraten per kg lichaamsgewicht</b><br>
+    \U0001f3af Dagdoelstelling: <b style="color:#f97316; font-size:1.1rem;">{dag_target}g koolhydraten/dag</b><br><br>
+    Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.
     """)
 
     st.markdown("""
-    <div style="background:rgba(249,115,22,0.08); border:1px solid #f97316; padding:12px 16px; 
+    <div style="background:rgba(249,115,22,0.08); border:1px solid #f97316; padding:12px 16px;
          border-radius:10px; margin-bottom:20px; font-size:0.82rem; color:#fb923c;">
-        💡 <b>Tip:</b> Focus op rijst, pasta, brood, aardappelen en sportdranken. Beperk vetten en vezels 
-        de dag voor de race om maagproblemen te vermijden.
+        \U0001f4a1 <b>Tip:</b> Focus op rijst, pasta, brood, aardappelen en sportdranken.
+        Beperk vetten en vezels de dag voor de race.
     </div>
     """, unsafe_allow_html=True)
 
-    MAALTIJDEN = {
-        "Ontbijt":       {"pct": 0.25,  "icon": "🌅"},
-        "Tussendoor VM": {"pct": 0.083, "icon": "☕"},
-        "Lunch":         {"pct": 0.25,  "icon": "🍽️"},
-        "Tussendoor NM": {"pct": 0.083, "icon": "🍎"},
-        "Avondmaal":     {"pct": 0.25,  "icon": "🌙"},
-        "Avond snack":   {"pct": 0.083, "icon": "🍌"},
+    st.markdown("""
+    <style>
+    div[data-testid="stNumberInput"] input {
+        background-color:#1e293b !important; color:#f8fafc !important;
+        border:1px solid #334155 !important; }
+    div[data-testid="stNumberInput"] button {
+        background-color:#334155 !important; color:#f8fafc !important; border:none !important; }
+    div[data-testid="stNumberInput"] button:hover {
+        background-color:#f97316 !important; color:#fff !important; }
+    div[data-testid="stNumberInput"] button svg { fill:#f8fafc !important; }
+    div[data-testid="stNumberInput"] > div {
+        background-color:#1e293b !important; border-radius:8px !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    MOMENT_FOODS = {
+        "Ontbijt": [
+            {"naam": "Havermout",       "unit": "gram",  "kh_per": 0.60},
+            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
+            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
+            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
+            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
+            {"naam": "Honing",          "unit": "el",    "kh_per": 17},
+        ],
+        "Tussendoor VM": [
+            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
+            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
+            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
+            {"naam": "Energiereep",     "unit": "stuk",  "kh_per": 40},
+            {"naam": "Rozijnen",        "unit": "gram",  "kh_per": 0.75},
+        ],
+        "Lunch": [
+            {"naam": "Pasta gekookt",   "unit": "gram",  "kh_per": 0.25},
+            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
+            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
+            {"naam": "Aardappelen",     "unit": "gram",  "kh_per": 0.17},
+            {"naam": "Vruchtensap",     "unit": "ml",    "kh_per": 0.10},
+            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
+        ],
+        "Tussendoor NM": [
+            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
+            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
+            {"naam": "Dadelstroop",     "unit": "el",    "kh_per": 18},
+            {"naam": "Energiereep",     "unit": "stuk",  "kh_per": 40},
+            {"naam": "Appel",           "unit": "stuk",  "kh_per": 20},
+        ],
+        "Avondmaal": [
+            {"naam": "Pasta gekookt",   "unit": "gram",  "kh_per": 0.25},
+            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
+            {"naam": "Aardappelen",     "unit": "gram",  "kh_per": 0.17},
+            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
+            {"naam": "Vruchtensap",     "unit": "ml",    "kh_per": 0.10},
+        ],
+        "Avond snack": [
+            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
+            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
+            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
+            {"naam": "Honing",          "unit": "el",    "kh_per": 17},
+            {"naam": "Rozijnen",        "unit": "gram",  "kh_per": 0.75},
+        ],
     }
 
-    tab1, tab2 = st.tabs(["📅  DAG 1 (2 dagen voor)", "📅  DAG 2 (dag voor race)"])
+    MAALTIJD_CONFIG = {
+        "Ontbijt":       {"pct": 0.25,  "icon": "\U0001f305"},
+        "Tussendoor VM": {"pct": 0.083, "icon": "\u2615"},
+        "Lunch":         {"pct": 0.25,  "icon": "\U0001f37d\ufe0f"},
+        "Tussendoor NM": {"pct": 0.083, "icon": "\U0001f34e"},
+        "Avondmaal":     {"pct": 0.25,  "icon": "\U0001f319"},
+        "Avond snack":   {"pct": 0.083, "icon": "\U0001f34c"},
+    }
+
+    tab1, tab2 = st.tabs(["\U0001f4c5  DAG 1 (2 dagen voor)", "\U0001f4c5  DAG 2 (dag voor race)"])
     dag_totalen = {}
 
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
         with tab:
             dag_kh = 0
-            col1, col2 = st.columns(2)
-            maaltijd_list = list(MAALTIJDEN.items())
+            left_col, right_col = st.columns(2)
+            maaltijd_list = list(MAALTIJD_CONFIG.items())
 
-            for col_idx, col in enumerate([col1, col2]):
-                with col:
-                    for m_name, m_cfg in maaltijd_list[col_idx*3:(col_idx+1)*3]:
-                        m_target = round(dag_target * m_cfg["pct"])
-                        st.markdown(f"""
-                        <div style="background:#0f172a; border:1px solid #1e293b; border-radius:10px; 
-                             padding:14px; margin-bottom:12px; border-left:3px solid #f97316;">
-                            <div style="color:#f97316; font-weight:800; font-size:0.78rem; margin-bottom:8px;">
-                                {m_cfg['icon']} {m_name.upper()} — doel: {m_target}g KH
+            for col_obj, moment_slice in [
+                (left_col,  maaltijd_list[:3]),
+                (right_col, maaltijd_list[3:]),
+            ]:
+                with col_obj:
+                    for m_name, m_cfg in moment_slice:
+                        m_target  = round(dag_target * m_cfg["pct"])
+                        moment_kh = 0
+
+                        with st.expander(
+                            f"{m_cfg['icon']} **{m_name}** — doel: {m_target}g KH",
+                            expanded=False,
+                        ):
+                            for product in MOMENT_FOODS.get(m_name, []):
+                                ss_key = f"cl_d{dag_idx}_{m_name}_{product['naam']}"
+                                if ss_key not in st.session_state:
+                                    saved = data.get("cl_waarden", {})
+                                    st.session_state[ss_key] = float(saved.get(ss_key, 0.0))
+
+                                val = st.number_input(
+                                    f"{product['naam']} ({product['unit']})",
+                                    min_value=0.0, step=1.0,
+                                    value=float(st.session_state[ss_key]),
+                                    key=ss_key,
+                                )
+                                kh = round(val * product["kh_per"])
+                                moment_kh += kh
+                                if val > 0:
+                                    st.caption(f"\u2192 {kh}g KH")
+
+                            with st.expander("\u2795 Eigen product"):
+                                eigen_naam = st.text_input("Naam",    key=f"eigen_nm_d{dag_idx}_{m_name}")
+                                eigen_kh   = st.number_input("KH (g)", min_value=0.0, key=f"eigen_kh_d{dag_idx}_{m_name}")
+                                if eigen_naam and eigen_kh > 0:
+                                    moment_kh += eigen_kh
+
+                            pct_m = min(100, round((moment_kh/m_target)*100)) if m_target > 0 else 0
+                            bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
+                            st.markdown(f"""
+                            <div style="background:#1e293b; border-radius:4px; height:6px; margin-top:8px;">
+                                <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
                             </div>
-                        """, unsafe_allow_html=True)
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px; text-align:right;">
+                                {round(moment_kh)}g / {m_target}g ({pct_m}%)
+                            </div>
+                            """, unsafe_allow_html=True)
 
-                        kh_val = st.number_input(
-                            f"KH (gram) voor {m_name}",
-                            min_value=0, max_value=500,
-                            value=st.session_state.get(f"cl_d{dag_idx}_{m_name}", 0),
-                            step=5, key=f"cl_d{dag_idx}_{m_name}",
-                            label_visibility="collapsed"
-                        )
-                        dag_kh += kh_val
+                        dag_kh += moment_kh
 
-                        pct_m = min(100, round((kh_val / m_target) * 100)) if m_target > 0 else 0
-                        bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
-                        st.markdown(f"""
-                        <div style="background:#1e293b; border-radius:4px; height:4px; margin-top:6px;">
-                            <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
-                        </div>
-                        <div style="font-size:0.65rem; color:#64748b; margin-top:3px;">{kh_val}g / {m_target}g ({pct_m}%)</div>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-            dag_pct = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
+            dag_pct   = round((dag_kh/dag_target)*100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
-            status_msg = "✅ Doel bereikt!" if dag_pct >= 90 else ("⚠️ Bijna!" if dag_pct >= 70 else "❌ Te laag")
+            status_msg = "\u2705 Doel bereikt!" if dag_pct >= 90 else ("\u26a0\ufe0f Bijna!" if dag_pct >= 70 else "\u274c Te laag")
 
             st.markdown(f"""
-            <div style="background:#1e293b; border-radius:12px; padding:16px; text-align:center; margin-top:8px;">
+            <div style="background:#1e293b; border-radius:12px; padding:16px; text-align:center; margin-top:12px;">
                 <div style="font-weight:900; font-size:1rem; color:#f8fafc; margin-bottom:8px;">
-                    TOTAAL DAG {dag_idx}: {dag_kh}g / {dag_target}g &nbsp; {status_msg}
+                    TOTAAL DAG {dag_idx}: {round(dag_kh)}g / {dag_target}g &nbsp; {status_msg}
                 </div>
                 <div style="background:#334155; border-radius:8px; height:12px; overflow:hidden;">
                     <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color}; border-radius:8px;"></div>
@@ -333,43 +408,35 @@ def _stap_carboloading():
                 <div style="font-size:0.8rem; color:#94a3b8; margin-top:6px;">{dag_pct}% van dagtarget bereikt</div>
             </div>
             """, unsafe_allow_html=True)
-            dag_totalen[f"dag{dag_idx}"] = {"totaal": dag_kh, "target": dag_target, "pct": dag_pct}
+            dag_totalen[f"dag{dag_idx}"] = {"totaal": round(dag_kh), "target": dag_target, "pct": dag_pct}
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
+
+    def _save_cl():
+        cl_waarden = {}
+        for d in [1, 2]:
+            for m_name, _ in MAALTIJD_CONFIG.items():
+                for product in MOMENT_FOODS.get(m_name, []):
+                    k = f"cl_d{d}_{m_name}_{product['naam']}"
+                    cl_waarden[k] = st.session_state.get(k, 0.0)
+        if "coach_data" not in st.session_state:
+            st.session_state.coach_data = {}
+        st.session_state.coach_data.update({
+            "cl_waarden": cl_waarden, "carboloading": dag_totalen,
+            "dag_target": dag_target, "factor": factor,
+        })
+
     with col_prev:
-        if st.button("← Vorige", key="cl_prev"):
-            # Sla huidige waarden op voor terugnavigatie
-            cl_waarden = {}
-            for dag_idx2 in [1, 2]:
-                for m_name in MAALTIJDEN.keys():
-                    ss_key = f"cl_d{dag_idx2}_{m_name}"
-                    cl_waarden[ss_key] = st.session_state.get(ss_key, 0)
-            st.session_state.coach_data["cl_waarden"] = cl_waarden
+        if st.button("\u2190 Vorige", key="cl_prev"):
+            _save_cl()
             st.session_state.coach_stap = 2
             st.rerun()
     with col_next:
-        if st.button("Volgende →", key="cl_next", use_container_width=True):
-            # Sla huidige waarden op
-            cl_waarden = {}
-            for dag_idx2 in [1, 2]:
-                for m_name in MAALTIJDEN.keys():
-                    ss_key = f"cl_d{dag_idx2}_{m_name}"
-                    cl_waarden[ss_key] = st.session_state.get(ss_key, 0)
-            st.session_state.coach_data["cl_waarden"] = cl_waarden
-            st.session_state.coach_data.update({
-                "carboloading": dag_totalen,
-                "dag_target": dag_target,
-                "factor": factor,
-            })
+        if st.button("Volgende \u2192", key="cl_next", use_container_width=True):
+            _save_cl()
             st.session_state.coach_stap = 4
             st.rerun()
-
-    # Herstel waarden na terugnavigatie
-    if "cl_waarden" in st.session_state.get("coach_data", {}):
-        for ss_key, val in st.session_state.coach_data["cl_waarden"].items():
-            if ss_key not in st.session_state:
-                st.session_state[ss_key] = val
 
 
 def _stap_racedag():
