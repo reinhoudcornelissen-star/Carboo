@@ -220,8 +220,8 @@ def _stap_wedstrijd():
 
 
 def _stap_carboloading():
-    data    = st.session_state.get("coach_data", {})
-    gewicht = data.get("gewicht", 70)
+    data       = st.session_state.get("coach_data", {})
+    gewicht    = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
 
     if totale_min > 300:   factor = 12
@@ -237,8 +237,6 @@ def _stap_carboloading():
     Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.
     """)
 
-
-
     st.markdown("""
     <style>
     div[data-testid="stNumberInput"] input {
@@ -251,66 +249,77 @@ def _stap_carboloading():
     div[data-testid="stNumberInput"] button svg { fill:#f8fafc !important; }
     div[data-testid="stNumberInput"] > div {
         background-color:#1e293b !important; border-radius:8px !important; }
+    div[data-testid="stTextInput"] input {
+        background-color:#1e293b !important; color:#f8fafc !important;
+        border:1px solid #334155 !important; }
+    /* Expander styling */
+    div[data-testid="stExpander"] {
+        background:#0f172a !important; border:1px solid #334155 !important;
+        border-radius:10px !important; margin-bottom:8px !important; }
+    div[data-testid="stExpander"] summary {
+        color:#f1f5f9 !important; font-weight:700 !important; }
+    div[data-testid="stExpander"] summary:hover {
+        color:#f97316 !important; }
     </style>
     """, unsafe_allow_html=True)
 
     MOMENT_FOODS = {
         "Ontbijt": [
-            {"naam": "Havermout",       "unit": "gram",  "kh_per": 0.60},
-            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
-            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
-            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
-            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
-            {"naam": "Honing",          "unit": "el",    "kh_per": 17},
+            {"naam": "Havermout",     "portie": "100g",    "kh_portie": 60},
+            {"naam": "Wit brood",     "portie": "1 snede", "kh_portie": 15},
+            {"naam": "Banaan",        "portie": "1 stuk",  "kh_portie": 25},
+            {"naam": "Rijst gekookt", "portie": "100g",    "kh_portie": 28},
+            {"naam": "Sportdrank",    "portie": "500ml",   "kh_portie": 35},
+            {"naam": "Honing",        "portie": "1 el",    "kh_portie": 17},
         ],
         "Tussendoor VM": [
-            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
-            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
-            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
-            {"naam": "Energiereep",     "unit": "stuk",  "kh_per": 40},
-            {"naam": "Rozijnen",        "unit": "gram",  "kh_per": 0.75},
+            {"naam": "Rijstwafels",  "portie": "1 stuk",  "kh_portie": 7},
+            {"naam": "Banaan",       "portie": "1 stuk",  "kh_portie": 25},
+            {"naam": "Sportdrank",   "portie": "500ml",   "kh_portie": 35},
+            {"naam": "Energiereep",  "portie": "1 reep",  "kh_portie": 40},
+            {"naam": "Rozijnen",     "portie": "50g",     "kh_portie": 38},
         ],
         "Lunch": [
-            {"naam": "Pasta gekookt",   "unit": "gram",  "kh_per": 0.25},
-            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
-            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
-            {"naam": "Aardappelen",     "unit": "gram",  "kh_per": 0.17},
-            {"naam": "Vruchtensap",     "unit": "ml",    "kh_per": 0.10},
-            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
+            {"naam": "Pasta gekookt",  "portie": "100g",    "kh_portie": 25},
+            {"naam": "Rijst gekookt",  "portie": "100g",    "kh_portie": 28},
+            {"naam": "Wit brood",      "portie": "1 snede", "kh_portie": 15},
+            {"naam": "Aardappelen",    "portie": "100g",    "kh_portie": 17},
+            {"naam": "Vruchtensap",    "portie": "200ml",   "kh_portie": 20},
+            {"naam": "Banaan",         "portie": "1 stuk",  "kh_portie": 25},
         ],
         "Tussendoor NM": [
-            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
-            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
-            {"naam": "Dadelstroop",     "unit": "el",    "kh_per": 18},
-            {"naam": "Energiereep",     "unit": "stuk",  "kh_per": 40},
-            {"naam": "Appel",           "unit": "stuk",  "kh_per": 20},
+            {"naam": "Rijstwafels",   "portie": "1 stuk",  "kh_portie": 7},
+            {"naam": "Sportdrank",    "portie": "500ml",   "kh_portie": 35},
+            {"naam": "Dadelstroop",   "portie": "1 el",    "kh_portie": 18},
+            {"naam": "Energiereep",   "portie": "1 reep",  "kh_portie": 40},
+            {"naam": "Appel",         "portie": "1 stuk",  "kh_portie": 20},
         ],
         "Avondmaal": [
-            {"naam": "Pasta gekookt",   "unit": "gram",  "kh_per": 0.25},
-            {"naam": "Rijst gekookt",   "unit": "gram",  "kh_per": 0.28},
-            {"naam": "Aardappelen",     "unit": "gram",  "kh_per": 0.17},
-            {"naam": "Wit brood",       "unit": "snede", "kh_per": 15},
-            {"naam": "Vruchtensap",     "unit": "ml",    "kh_per": 0.10},
+            {"naam": "Pasta gekookt",  "portie": "100g",    "kh_portie": 25},
+            {"naam": "Rijst gekookt",  "portie": "100g",    "kh_portie": 28},
+            {"naam": "Aardappelen",    "portie": "100g",    "kh_portie": 17},
+            {"naam": "Wit brood",      "portie": "1 snede", "kh_portie": 15},
+            {"naam": "Vruchtensap",    "portie": "200ml",   "kh_portie": 20},
         ],
         "Avond snack": [
-            {"naam": "Banaan",          "unit": "stuk",  "kh_per": 25},
-            {"naam": "Rijstwafels",     "unit": "stuk",  "kh_per": 7},
-            {"naam": "Sportdrank",      "unit": "ml",    "kh_per": 0.07},
-            {"naam": "Honing",          "unit": "el",    "kh_per": 17},
-            {"naam": "Rozijnen",        "unit": "gram",  "kh_per": 0.75},
+            {"naam": "Banaan",        "portie": "1 stuk",  "kh_portie": 25},
+            {"naam": "Rijstwafels",   "portie": "1 stuk",  "kh_portie": 7},
+            {"naam": "Sportdrank",    "portie": "500ml",   "kh_portie": 35},
+            {"naam": "Honing",        "portie": "1 el",    "kh_portie": 17},
+            {"naam": "Rozijnen",      "portie": "50g",     "kh_portie": 38},
         ],
     }
 
     MAALTIJD_CONFIG = {
-        "Ontbijt":       {"pct": 0.25,  "icon": "\U0001f305"},
-        "Tussendoor VM": {"pct": 0.083, "icon": "\u2615"},
-        "Lunch":         {"pct": 0.25,  "icon": "\U0001f37d\ufe0f"},
-        "Tussendoor NM": {"pct": 0.083, "icon": "\U0001f34e"},
-        "Avondmaal":     {"pct": 0.25,  "icon": "\U0001f319"},
-        "Avond snack":   {"pct": 0.083, "icon": "\U0001f34c"},
+        "Ontbijt":       {"pct": 0.25,  "icon": ""},
+        "Tussendoor VM": {"pct": 0.083, "icon": ""},
+        "Lunch":         {"pct": 0.25,  "icon": ""},
+        "Tussendoor NM": {"pct": 0.083, "icon": ""},
+        "Avondmaal":     {"pct": 0.25,  "icon": ""},
+        "Avond snack":   {"pct": 0.083, "icon": ""},
     }
 
-    tab1, tab2 = st.tabs(["\U0001f4c5  DAG 1 (2 dagen voor)", "\U0001f4c5  DAG 2 (dag voor race)"])
+    tab1, tab2 = st.tabs(["  DAG 1 (2 dagen voor)", "  DAG 2 (dag voor race)"])
     dag_totalen = {}
 
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
@@ -328,59 +337,172 @@ def _stap_carboloading():
                         m_target  = round(dag_target * m_cfg["pct"])
                         moment_kh = 0
 
-                        with st.expander(
-                            f"{m_cfg['icon']} **{m_name}** — doel: {m_target}g KH",
-                            expanded=False,
-                        ):
+                        # Tel eigen producten mee voor label
+                        eigen_key_base = f"eigen_d{dag_idx}_{m_name}"
+                        n_eigen = st.session_state.get(f"{eigen_key_base}_n", 0)
+                        eigen_kh_total = sum(
+                            st.session_state.get(f"{eigen_key_base}_{i}_kh", 0)
+                            for i in range(n_eigen)
+                        )
+
+                        # Standaard producten bijdrage
+                        standaard_kh = sum(
+                            st.session_state.get(f"cl_d{dag_idx}_{m_name}_{p['naam']}", 0)
+                            * p["kh_portie"]
+                            for p in MOMENT_FOODS.get(m_name, [])
+                        )
+                        preview_kh = round(standaard_kh + eigen_kh_total)
+                        pct_prev = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
+                        bar_prev = "#22c55e" if pct_prev >= 90 else ("#fbbf24" if pct_prev >= 60 else "#94a3b8")
+
+                        # Label met voortgang
+                        exp_label = f"**{m_name}** — doel: {m_target}g KH   {preview_kh}g /{m_target}g"
+
+                        with st.expander(exp_label, expanded=False):
+
+                            # ── Standaard producten ───────────────────────
+                            st.markdown(
+                                '<div style="font-size:0.7rem;color:#64748b;font-weight:700;'
+                                'letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">'
+                                'Voedingsmiddel · portiegrootte · KH/portie · aantal porties</div>',
+                                unsafe_allow_html=True
+                            )
+
                             for product in MOMENT_FOODS.get(m_name, []):
                                 ss_key = f"cl_d{dag_idx}_{m_name}_{product['naam']}"
                                 if ss_key not in st.session_state:
                                     saved = data.get("cl_waarden", {})
-                                    st.session_state[ss_key] = float(saved.get(ss_key, 0.0))
+                                    st.session_state[ss_key] = int(saved.get(ss_key, 0))
 
-                                val = st.number_input(
-                                    f"{product['naam']} ({product['unit']})",
-                                    min_value=0.0, step=1.0,
-                                    value=float(st.session_state[ss_key]),
-                                    key=ss_key,
-                                )
-                                kh = round(val * product["kh_per"])
+                                pc1, pc2, pc3 = st.columns([3, 1, 1])
+                                with pc1:
+                                    st.markdown(
+                                        f'<div style="padding:8px 0 4px;color:#f1f5f9;font-size:0.88rem;font-weight:600;">'
+                                        f'{product["naam"]}'
+                                        f'<span style="color:#64748b;font-size:0.75rem;font-weight:400;margin-left:6px;">'
+                                        f'{product["portie"]} = {product["kh_portie"]}g KH</span></div>',
+                                        unsafe_allow_html=True
+                                    )
+                                with pc2:
+                                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+                                with pc3:
+                                    val = st.number_input(
+                                        "porties",
+                                        min_value=0, max_value=20,
+                                        value=st.session_state[ss_key],
+                                        step=1, key=ss_key,
+                                        label_visibility="collapsed"
+                                    )
+
+                                kh = val * product["kh_portie"]
                                 moment_kh += kh
                                 if val > 0:
-                                    st.caption(f"\u2192 {kh}g KH")
+                                    st.markdown(
+                                        f'<div style="font-size:0.72rem;color:#f97316;'
+                                        f'margin:-4px 0 6px 0;text-align:right;">→ {val}× {product["kh_portie"]}g = <b>{round(kh)}g KH</b></div>',
+                                        unsafe_allow_html=True
+                                    )
 
-                            with st.expander("\u2795 Eigen product"):
-                                eigen_naam = st.text_input("Naam",    key=f"eigen_nm_d{dag_idx}_{m_name}")
-                                eigen_kh   = st.number_input("KH (g)", min_value=0.0, key=f"eigen_kh_d{dag_idx}_{m_name}")
-                                if eigen_naam and eigen_kh > 0:
-                                    moment_kh += eigen_kh
+                            # ── Eigen producten ───────────────────────────
+                            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
+                            st.markdown(
+                                '<div style="font-size:0.7rem;color:#3b82f6;font-weight:700;'
+                                'letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">'
+                                '➕ Eigen producten</div>',
+                                unsafe_allow_html=True
+                            )
+                            st.caption("Noteer het aantal koolhydraten per portie (zie verpakking)")
 
-                            pct_m = min(100, round((moment_kh/m_target)*100)) if m_target > 0 else 0
+                            for i in range(n_eigen):
+                                e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
+                                e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh", 0)
+                                e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0)
+
+                                ec1, ec2, ec3, ec4 = st.columns([3, 1.5, 1.5, 0.7])
+                                with ec1:
+                                    new_naam = st.text_input(
+                                        "Naam", value=e_naam,
+                                        key=f"{eigen_key_base}_{i}_naam_inp",
+                                        placeholder="Productnaam",
+                                        label_visibility="collapsed"
+                                    )
+                                    st.session_state[f"{eigen_key_base}_{i}_naam"] = new_naam
+                                with ec2:
+                                    new_kh = st.number_input(
+                                        "KH/portie", value=float(e_kh),
+                                        min_value=0.0, step=1.0,
+                                        key=f"{eigen_key_base}_{i}_kh_inp",
+                                        label_visibility="collapsed",
+                                        help="KH per portie (verpakking)"
+                                    )
+                                    st.session_state[f"{eigen_key_base}_{i}_kh"] = new_kh
+                                with ec3:
+                                    new_port = st.number_input(
+                                        "Porties", value=float(e_port),
+                                        min_value=0.0, step=1.0,
+                                        key=f"{eigen_key_base}_{i}_port_inp",
+                                        label_visibility="collapsed",
+                                        help="Aantal porties"
+                                    )
+                                    st.session_state[f"{eigen_key_base}_{i}_port"] = new_port
+                                with ec4:
+                                    if st.button("🗑️", key=f"{eigen_key_base}_{i}_del",
+                                                 help="Verwijder", use_container_width=True):
+                                        # Schuif alle producten na i omhoog
+                                        for j in range(i, n_eigen - 1):
+                                            for field in ["naam", "kh", "port"]:
+                                                st.session_state[f"{eigen_key_base}_{j}_{field}"] = \
+                                                    st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
+                                        # Verwijder laatste
+                                        for field in ["naam", "kh", "port"]:
+                                            st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}", None)
+                                        st.session_state[f"{eigen_key_base}_n"] = n_eigen - 1
+                                        st.rerun()
+
+                                eigen_kh_i = new_kh * new_port
+                                moment_kh += eigen_kh_i
+                                if new_port > 0 and new_kh > 0:
+                                    st.markdown(
+                                        f'<div style="font-size:0.72rem;color:#3b82f6;'
+                                        f'margin:-4px 0 4px 0;text-align:right;">→ {new_port:.0f}× {new_kh:.0f}g = <b>{round(eigen_kh_i)}g KH</b></div>',
+                                        unsafe_allow_html=True
+                                    )
+
+                            # Toevoegen knop
+                            if st.button(f"+ Voeg eigen product toe", key=f"{eigen_key_base}_add",
+                                         use_container_width=False):
+                                st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
+                                st.rerun()
+
+                            # ── Mini progress in expander ─────────────────
+                            pct_m = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
                             bar_c = "#22c55e" if pct_m >= 90 else ("#fbbf24" if pct_m >= 60 else "#ef4444")
                             st.markdown(f"""
-                            <div style="background:#1e293b; border-radius:4px; height:6px; margin-top:8px;">
-                                <div style="width:{pct_m}%; height:100%; background:{bar_c}; border-radius:4px;"></div>
+                            <div style="background:#1e293b;border-radius:4px;height:6px;margin-top:10px;">
+                                <div style="width:{pct_m}%;height:100%;background:{bar_c};border-radius:4px;"></div>
                             </div>
-                            <div style="font-size:0.72rem; color:#94a3b8; margin-top:4px; text-align:right;">
-                                {round(moment_kh)}g / {m_target}g ({pct_m}%)
+                            <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;text-align:right;font-weight:700;">
+                                {round(moment_kh)}g / {m_target}g KH &nbsp;({pct_m}%)
                             </div>
                             """, unsafe_allow_html=True)
 
                         dag_kh += moment_kh
 
-            dag_pct   = round((dag_kh/dag_target)*100) if dag_target > 0 else 0
+            # Dag totaal
+            dag_pct   = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             bar_color = "#22c55e" if dag_pct >= 90 else ("#fbbf24" if dag_pct >= 70 else "#ef4444")
-            status_msg = "\u2705 Doel bereikt!" if dag_pct >= 90 else ("\u26a0\ufe0f Bijna!" if dag_pct >= 70 else "\u274c Te laag")
+            status_msg = "✅ Doel bereikt!" if dag_pct >= 90 else ("⚠️ Bijna!" if dag_pct >= 70 else "❌ Te laag")
 
             st.markdown(f"""
-            <div style="background:#1e293b; border-radius:12px; padding:16px; text-align:center; margin-top:12px;">
-                <div style="font-weight:900; font-size:1rem; color:#f8fafc; margin-bottom:8px;">
+            <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;
+                 padding:16px;text-align:center;margin-top:12px;">
+                <div style="font-weight:900;font-size:1rem;color:#f8fafc;margin-bottom:8px;">
                     TOTAAL DAG {dag_idx}: {round(dag_kh)}g / {dag_target}g &nbsp; {status_msg}
                 </div>
-                <div style="background:#334155; border-radius:8px; height:12px; overflow:hidden;">
-                    <div style="width:{min(dag_pct,100)}%; height:100%; background:{bar_color}; border-radius:8px;"></div>
+                <div style="background:#1e293b;border-radius:8px;height:12px;overflow:hidden;">
+                    <div style="width:{min(dag_pct,100)}%;height:100%;background:{bar_color};border-radius:8px;"></div>
                 </div>
-                <div style="font-size:0.8rem; color:#94a3b8; margin-top:6px;">{dag_pct}% van dagtarget bereikt</div>
+                <div style="font-size:0.8rem;color:#94a3b8;margin-top:6px;">{dag_pct}% van dagtarget bereikt</div>
             </div>
             """, unsafe_allow_html=True)
             dag_totalen[f"dag{dag_idx}"] = {"totaal": round(dag_kh), "target": dag_target, "pct": dag_pct}
@@ -391,10 +513,10 @@ def _stap_carboloading():
     def _save_cl():
         cl_waarden = {}
         for d in [1, 2]:
-            for m_name, _ in MAALTIJD_CONFIG.items():
+            for m_name in MAALTIJD_CONFIG:
                 for product in MOMENT_FOODS.get(m_name, []):
                     k = f"cl_d{d}_{m_name}_{product['naam']}"
-                    cl_waarden[k] = st.session_state.get(k, 0.0)
+                    cl_waarden[k] = st.session_state.get(k, 0)
         if "coach_data" not in st.session_state:
             st.session_state.coach_data = {}
         st.session_state.coach_data.update({
@@ -403,15 +525,16 @@ def _stap_carboloading():
         })
 
     with col_prev:
-        if st.button("\u2190 Vorige", key="cl_prev"):
+        if st.button("← Vorige", key="cl_prev"):
             _save_cl()
             st.session_state.coach_stap = 2
             st.rerun()
     with col_next:
-        if st.button("Volgende \u2192", key="cl_next", use_container_width=True):
+        if st.button("Volgende →", key="cl_next", use_container_width=True):
             _save_cl()
             st.session_state.coach_stap = 4
             st.rerun()
+
 
 
 def _stap_racedag():
