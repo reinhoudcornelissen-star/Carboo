@@ -526,6 +526,20 @@ def _stap_raceplan():
     Op basis hiervan bouw ik een <b>uur-per-uur raceplan</b> met exacte hoeveelheden en timing.
     """)
 
+    # KH targets info banner
+    _data = st.session_state.get("coach_data", {})
+    _min_kh = _data.get("min_kh", 60)
+    _max_kh = _data.get("max_kh", 90)
+    _totale_min = _data.get("totale_min", 0)
+    _sport = _data.get("sport", "")
+    st.markdown(f"""
+    <div style="background:rgba(59,130,246,0.1); border:1px solid #3b82f6; padding:12px 16px;
+         border-radius:10px; margin-bottom:20px; text-align:center; color:#93c5fd; font-weight:700;">
+        🏅 {_sport} &nbsp;|&nbsp; ⏱️ {_totale_min//60}u{_totale_min%60:02d}m &nbsp;|&nbsp;
+        🎯 KH-target tijdens race: <b style="color:white;">{_min_kh}–{_max_kh}g/uur</b>
+    </div>
+    """, unsafe_allow_html=True)
+
     pcol1, pcol2 = st.columns(2)
 
     with pcol1:
