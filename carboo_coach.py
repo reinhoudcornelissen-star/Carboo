@@ -232,20 +232,12 @@ def _stap_carboloading():
     dag_target = round(gewicht * factor)
 
     _coach_bubble(f"""
-    Op basis van jouw gewicht van <b>{gewicht}kg</b> en een wedstrijdduur van
-    <b>{totale_min//60}u{totale_min%60:02d}min</b> is het <b>carbohydrate loading protocol</b>:<br><br>
-    \U0001f4ca Factor: <b>{factor}g koolhydraten per kg lichaamsgewicht</b><br>
-    \U0001f3af Dagdoelstelling: <b style="color:#f97316; font-size:1.1rem;">{dag_target}g koolhydraten/dag</b><br><br>
+    Jouw dagdoelstelling voor de komende 2 dagen:<br><br>
+    🎯 <b style="color:#f97316; font-size:1.3rem;">{dag_target}g koolhydraten per dag</b><br><br>
     Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.
     """)
 
-    st.markdown("""
-    <div style="background:rgba(249,115,22,0.08); border:1px solid #f97316; padding:12px 16px;
-         border-radius:10px; margin-bottom:20px; font-size:0.82rem; color:#fb923c;">
-        \U0001f4a1 <b>Tip:</b> Focus op rijst, pasta, brood, aardappelen en sportdranken.
-        Beperk vetten en vezels de dag voor de race.
-    </div>
-    """, unsafe_allow_html=True)
+
 
     st.markdown("""
     <style>
