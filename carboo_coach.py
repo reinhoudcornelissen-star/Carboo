@@ -122,7 +122,7 @@ def _stap_profiel(naam: str):
                 index=sport_idx, key="p_sport")
             sport_clean = sport.split(" ", 1)[1] if " " in sport else sport
 
-        niveau_list = ["Recreatief", "Amateurs competitie", "Gevorderd", "Elite / Semi-pro"]
+        niveau_list = ["Recreatief", "Competitief", "Elite / Semi-pro"]
         niveau_default = st.session_state.get("coach_data", {}).get("niveau", "Recreatief")
         niveau_idx = niveau_list.index(niveau_default) if niveau_default in niveau_list else 0
         niveau = st.selectbox("📊 Sportniveau", niveau_list, index=niveau_idx, key="p_niveau")
