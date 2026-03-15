@@ -154,7 +154,7 @@ with col_bubble:
                 <b style="color:#f8fafc;">perfecte voorbereiding</b> op jouw wedstrijd.<br><br>
                 Want weet je wat het mooie is? 
                 <b style="color:#f97316;">Koolhydraten zijn géén vijand — ze zijn je raketbrandstof.</b> 🍝⚡<br>
-                <span style="color:#64748b;">We love carbs. Jij ook, je weet het gewoon nog niet.</span>
+                <span style="color:#64748b;">We love carbs. Carb with Carboo!</span>
                 </span>
             </p>
         </div>''',
