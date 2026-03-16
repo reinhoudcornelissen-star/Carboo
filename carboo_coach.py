@@ -388,18 +388,16 @@ def _stap_carboloading():
                                     saved = data.get("cl_waarden", {})
                                     st.session_state[ss_key] = int(saved.get(ss_key, 0))
 
-                                pc1, pc2, pc3 = st.columns([3, 1, 1])
+                                pc1, pc2 = st.columns([5, 1])
                                 with pc1:
                                     st.markdown(
-                                        f'<div style="padding:8px 0 4px;color:#f1f5f9;font-size:0.88rem;font-weight:600;">'
-                                        f'{product["naam"]}'
-                                        f'<span style="color:#64748b;font-size:0.75rem;font-weight:400;margin-left:6px;">'
-                                        f'{product["portie"]} = {product["kh_portie"]}g KH</span></div>',
+                                        f'<div style="padding:6px 0 2px;color:#f1f5f9;font-size:0.88rem;font-weight:600;line-height:1.4;">'
+                                        f'{product["naam"]} '
+                                        f'<span style="color:#64748b;font-size:0.78rem;font-weight:400;">'
+                                        f'— {product["portie"]} · {product["kh_portie"]}g KH/portie</span></div>',
                                         unsafe_allow_html=True
                                     )
                                 with pc2:
-                                    st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
-                                with pc3:
                                     val = st.number_input(
                                         "porties",
                                         min_value=0, max_value=20,
@@ -418,26 +416,27 @@ def _stap_carboloading():
                                     )
 
                             # ── Eigen producten ───────────────────────────
-                            st.markdown('<div style="height:6px"></div>', unsafe_allow_html=True)
-                            st.markdown(
-                                '<div style="font-size:0.7rem;color:#3b82f6;font-weight:700;'
-                                'letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">'
-                                '➕ Eigen producten</div>',
-                                unsafe_allow_html=True
-                            )
-                            st.caption("Noteer het aantal koolhydraten per portie (zie verpakking)")
+                            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
+                            st.markdown('<hr style="border-color:#1e293b;margin:4px 0 10px 0;">', unsafe_allow_html=True)
 
                             for i in range(n_eigen):
                                 e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
                                 e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh", 0)
                                 e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0)
 
-                                ec1, ec2, ec3, ec4 = st.columns([3, 1.5, 1.5, 0.7])
+                                # Labels boven de eerste rij
+                                if i == 0:
+                                    lc1, lc2, lc3, lc4 = st.columns([4, 2, 2, 0.6])
+                                    with lc1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PRODUCTNAAM</div>', unsafe_allow_html=True)
+                                    with lc2: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KH/PORTIE (g)</div>', unsafe_allow_html=True)
+                                    with lc3: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PORTIES</div>', unsafe_allow_html=True)
+
+                                ec1, ec2, ec3, ec4 = st.columns([4, 2, 2, 0.6])
                                 with ec1:
                                     new_naam = st.text_input(
                                         "Naam", value=e_naam,
                                         key=f"{eigen_key_base}_{i}_naam_inp",
-                                        placeholder="Productnaam",
+                                        placeholder="bv. Cruesli extra",
                                         label_visibility="collapsed"
                                     )
                                     st.session_state[f"{eigen_key_base}_{i}_naam"] = new_naam
@@ -447,7 +446,7 @@ def _stap_carboloading():
                                         min_value=0.0, step=1.0,
                                         key=f"{eigen_key_base}_{i}_kh_inp",
                                         label_visibility="collapsed",
-                                        help="KH per portie (verpakking)"
+                                        help="KH per portie — zie verpakking"
                                     )
                                     st.session_state[f"{eigen_key_base}_{i}_kh"] = new_kh
                                 with ec3:
@@ -460,7 +459,7 @@ def _stap_carboloading():
                                     )
                                     st.session_state[f"{eigen_key_base}_{i}_port"] = new_port
                                 with ec4:
-                                    if st.button("🗑️", key=f"{eigen_key_base}_{i}_del",
+                                    if st.button("🗑", key=f"{eigen_key_base}_{i}_del",
                                                  help="Verwijder", use_container_width=True):
                                         # Schuif alle producten na i omhoog
                                         for j in range(i, n_eigen - 1):
@@ -483,8 +482,8 @@ def _stap_carboloading():
                                     )
 
                             # Toevoegen knop
-                            if st.button(f"+ Voeg eigen product toe", key=f"{eigen_key_base}_add",
-                                         use_container_width=False):
+                            if st.button("➕  Voeg eigen product toe", key=f"{eigen_key_base}_add",
+                                         use_container_width=True):
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
