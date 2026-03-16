@@ -372,7 +372,8 @@ def _stap_carboloading():
                         # Label met voortgang
                         exp_label = f"**{m_name}** — doel: {m_target}g KH   {preview_kh}g /{m_target}g"
 
-                        with st.expander(exp_label, expanded=False):
+                        # expanded=True: blijft open bij input wijziging
+                        with st.expander(exp_label, expanded=True):
 
                             # ── Standaard producten ───────────────────────
                             st.markdown(
