@@ -458,6 +458,9 @@ def _stap_carboloading():
                                 if ss_key not in st.session_state:
                                     saved = data.get("cl_waarden", {})
                                     st.session_state[ss_key] = int(saved.get(ss_key, 0))
+                                # Zorg dat waarde altijd int is (geen float conflict)
+                                if not isinstance(st.session_state.get(ss_key), int):
+                                    st.session_state[ss_key] = 0
 
                                 pc1, pc2 = st.columns([5, 1])
                                 with pc1:
@@ -472,7 +475,6 @@ def _stap_carboloading():
                                     val = st.number_input(
                                         "porties",
                                         min_value=0, max_value=20,
-                                        value=st.session_state[ss_key],
                                         step=1, key=ss_key,
                                         label_visibility="collapsed"
                                     )
@@ -535,11 +537,11 @@ def _stap_carboloading():
                                         # Schuif alle producten na i omhoog
                                         for j in range(i, n_eigen - 1):
                                             for field in ["naam", "kh", "port"]:
-                                                st.session_state[f"{eigen_key_base}_{j}_{field}"] = \
-                                                    st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
-                                        # Verwijder laatste
+                                                st.session_state[f"{eigen_key_base}_{j}_{field}"] =                                                     st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
+                                        # Verwijder laatste + reset input keys naar 0
                                         for field in ["naam", "kh", "port"]:
                                             st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}", None)
+                                            st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}_inp", None)
                                         st.session_state[f"{eigen_key_base}_n"] = n_eigen - 1
                                         st.rerun()
 
