@@ -232,7 +232,7 @@ def _stap_carboloading():
     dag_target = round(gewicht * factor)
 
     _coach_bubble(f"""
-    Jouw dagdoelstelling voor de komende 2 dagen:<br><br>
+    Doelstelling laatste 48 uur voor de race:<br><br>
     🎯 <b style="color:#f97316; font-size:1.3rem;">{dag_target}g koolhydraten per dag</b><br><br>
     Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.
     """)
@@ -403,7 +403,7 @@ def _stap_carboloading():
         "Avond snack":   {"pct": 0.083, "icon": ""},
     }
 
-    tab1, tab2 = st.tabs(["  DAG 1 (2 dagen voor)", "  DAG 2 (dag voor race)"])
+    tab1, tab2 = st.tabs(["  DAG 1 (2 dagen voor race)", "  DAG 2 (1 dag voor race)"])
     dag_totalen = {}
 
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
