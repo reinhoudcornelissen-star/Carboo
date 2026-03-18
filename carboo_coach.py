@@ -638,11 +638,12 @@ def _stap_carboloading():
 def _stap_racedag():
     data = st.session_state.get("coach_data", {})
     start_time_str = data.get("start_time", "09:00")
+    gewicht = data.get("gewicht", 70)
+    dag_target = data.get("dag_target", round(gewicht * 8))
+
     _coach_bubble(f"""
-    Perfect! Nu plannen we jouw <b>racedagvoeding</b> — het ontbijt en de pre-race strategie 
-    vóór de start om {start_time_str}.<br><br>
-    Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder 
-    een volle of zwaar gevoel in de maag.
+    Perfect! Nu plannen we jouw <b>laatste maaltijd voor de wedstrijd</b>!<br><br>
+    Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder een volle of zwaar gevoel in de maag.
     """)
 
     start_dt = datetime.strptime(start_time_str, "%H:%M")
@@ -656,52 +657,24 @@ def _stap_racedag():
     offset = onbijt_tips[ontbijt_keuze]
     ontbijt_tijd = (start_dt + timedelta(minutes=offset)).strftime("%H:%M")
 
-    st.markdown(f"""
-    <div style="background:rgba(34,197,94,0.1); border:1px solid #22c55e; padding:10px 14px; 
-         border-radius:8px; margin-bottom:16px; color:#86efac; font-size:0.85rem;">
-        ✅ Ontbijt om: <b>{ontbijt_tijd}</b> &nbsp;|&nbsp; Start om: <b>{start_time_str}</b>
-    </div>
-    """, unsafe_allow_html=True)
+    # Info: zelfde hoeveelheid als carboloading
+    st.markdown(
+        '<div style="background:rgba(59,130,246,0.08); border:1px solid #3b82f6; padding:14px 18px; ' +
+        'border-radius:10px; margin-bottom:20px; color:#93c5fd; font-size:0.88rem; line-height:1.6;">' +
+        '<b style="color:#60a5fa;">💡 Richtlijn ontbijt koolhydraten</b><br>' +
+        f'Gebruik dezelfde hoeveelheid koolhydraten als tijdens de carboloading: ' +
+        f'<b style="color:white;">{dag_target}g per dag</b>. ' +
+        'Kies licht verteerbare producten: rijst, wit brood, havermout, banaan, confituur.' +
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("<div style='color:#3b82f6; font-weight:700; font-size:0.82rem; margin-bottom:8px;'>🍳 ONTBIJT KOOLHYDRATEN</div>", unsafe_allow_html=True)
-        ontbijt_kh = st.number_input("KH (gram)", 0, 300,
-            data.get("ontbijt_kh", 100), 10, key="rd_ontkh",
-            help="Doel: 1-3g KH/kg. Kies licht verteerbaar: rijst, wit brood, havermout, banaan.")
+    ontbijt_kh = dag_target  # automatisch overnemen van carboloading
 
-        st.markdown("<div style='color:#22c55e; font-weight:700; font-size:0.82rem; margin:12px 0 8px 0;'>☕ DRANKEN ONTBIJT</div>", unsafe_allow_html=True)
-        koffie = st.checkbox("Koffie (cafeïne ~95mg)", value=data.get("koffie", True), key="rd_koffie")
-        sportdrank_ont = st.checkbox("Sportdrank 500ml (+35g KH)", value=data.get("sportdrank_ont", False), key="rd_sdont")
-
-    with col2:
-        st.markdown("<div style='color:#f97316; font-weight:700; font-size:0.82rem; margin-bottom:8px;'>⚡ PRE-RACE (30-60min voor start)</div>", unsafe_allow_html=True)
-        pre_gel = st.checkbox("Pre-race gel (+22-25g KH)", value=data.get("pre_gel", True), key="rd_pregel")
-        pre_kh_extra = st.number_input("Extra KH pre-race (g)", 0, 100,
-            data.get("pre_kh_extra", 0), 5, key="rd_prekh",
-            help="Bijv. rijstwafels, banaan of sportdrank")
-
-        st.markdown("<div style='color:#8b5cf6; font-weight:700; font-size:0.82rem; margin:12px 0 8px 0;'>💊 SUPPLEMENTEN</div>", unsafe_allow_html=True)
-        cafeine_timing = st.selectbox("Cafeïne strategie", [
-            "Geen cafeïne",
-            "Enkel koffie ontbijt",
-            "Koffie + gel met cafeïne (uur 2)",
-            "Meerdere cafeïne gels verspreid",
-        ], index=data.get("cafeine_idx", 1), key="rd_cafe_strat")
-
-    pre_totaal = ontbijt_kh + (35 if sportdrank_ont else 0) + (23 if pre_gel else 0) + pre_kh_extra
-    gewicht = data.get("gewicht", 70)
+    # Totaal voor het rapport
     ideaal_min = round(gewicht * 1)
     ideaal_max = round(gewicht * 3)
-    status = "✅ Goed!" if ideaal_min <= pre_totaal <= ideaal_max else ("⚠️ Mogelijk te veel" if pre_totaal > ideaal_max else "❌ Te weinig")
-
-    st.markdown(f"""
-    <div style="background:#1e293b; border-radius:12px; padding:16px; margin:16px 0; text-align:center;">
-        <div style="color:#94a3b8; font-size:0.78rem; margin-bottom:4px;">TOTAAL KH VOOR DE START</div>
-        <div style="font-size:1.5rem; font-weight:900; color:#f97316;">{pre_totaal}g</div>
-        <div style="font-size:0.82rem; color:#64748b; margin-top:4px;">Ideaal: {ideaal_min}–{ideaal_max}g &nbsp; {status}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    status = "✅ Goed!" if ideaal_min <= ontbijt_kh <= ideaal_max else ("⚠️ Mogelijk te veel" if ontbijt_kh > ideaal_max else "❌ Te weinig")
 
     col_prev, col_next = st.columns(2)
     with col_prev:
@@ -711,21 +684,10 @@ def _stap_racedag():
     with col_next:
         if st.button("Volgende →", key="rd_next", use_container_width=True):
             st.session_state.coach_data.update({
-                "ontbijt_kh": ontbijt_kh,
+                "ontbijt_kh":     ontbijt_kh,
                 "ontbijt_timing": ontbijt_keuze,
-                "ontbijt_tijd": ontbijt_tijd,
-                "koffie": koffie,
-                "sportdrank_ont": sportdrank_ont,
-                "pre_gel": pre_gel,
-                "pre_kh_extra": pre_kh_extra,
-                "cafeine_strategie": cafeine_timing,
-                "cafeine_idx": [
-                    "Geen cafeïne",
-                    "Enkel koffie ontbijt",
-                    "Koffie + gel met cafeïne (uur 2)",
-                    "Meerdere cafeïne gels verspreid",
-                ].index(cafeine_timing),
-                "pre_totaal_kh": pre_totaal,
+                "ontbijt_tijd":   ontbijt_tijd,
+                "pre_totaal_kh":  ontbijt_kh,
             })
             st.session_state.coach_stap = 5
             st.rerun()
