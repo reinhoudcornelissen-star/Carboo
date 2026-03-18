@@ -658,7 +658,9 @@ def _stap_racedag():
 
     _coach_bubble(f"""
     Perfect! Nu plannen we jouw <b>laatste maaltijd voor de wedstrijd</b>!<br><br>
-    Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder een volle of zwaar gevoel in de maag.
+    Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder een volle of zwaar gevoel in de maag.<br><br>
+    ✅ Kies <b>licht verteerbare</b> producten: laag in vezels en vetten.<br>
+    🎯 Kies producten die je maag goed verdraagt en die je al kent uit training.
     """)
 
     # Timing dropdown
@@ -672,17 +674,7 @@ def _stap_racedag():
     offset       = onbijt_tips[ontbijt_keuze]
     ontbijt_tijd = (start_dt + timedelta(minutes=offset)).strftime("%H:%M")
 
-    # Info maaltijdmoment + richtlijnen
-    st.markdown(
-        f'<div style="background:rgba(59,130,246,0.08);border:1px solid #3b82f6;padding:14px 18px;'
-        f'border-radius:10px;margin-bottom:20px;font-size:0.86rem;line-height:1.7;">'
-        f'<b style="color:#60a5fa;">💡 {maaltijd_icon} {maaltijd_naam} — start om {start_time_str}</b>'
-        f'<span style="color:#64748b;font-size:0.75rem;"> (automatisch bepaald op basis van starttijd)</span><br>'
-        f'<span style="color:#93c5fd;">Streef naar <b style="color:white;">{kh_min}–{kh_max}g koolhydraten</b> (1–4g/kg). '
-        f'Kies licht verteerbare producten: laag in vezels en vetten.</span>'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+
 
     # Productenlijsten per maaltijdmoment
     RACEDAG_FOODS = {
@@ -735,7 +727,14 @@ def _stap_racedag():
         ],
     }
 
-    producten = RACEDAG_FOODS[maaltijd_naam]
+    # Alle producten tonen als keuze
+    seen = set()
+    producten = []
+    for foods in RACEDAG_FOODS.values():
+        for p in foods:
+            if p["naam"] not in seen:
+                seen.add(p["naam"])
+                producten.append(p)
     saved_rd  = data.get("rd_waarden", {})
 
     # Header
@@ -830,8 +829,7 @@ def _stap_racedag():
                 unsafe_allow_html=True
             )
 
-    st.markdown('<div style="font-size:0.68rem;color:#3b82f6;font-weight:700;margin-bottom:4px;">➕ Eigen producten</div>', unsafe_allow_html=True)
-    st.caption("Noteer het aantal koolhydraten per portie (zie verpakking)")
+    st.caption("Noteer bij eigen producten het aantal koolhydraten per portie (zie verpakking)")
     if st.button("➕  Voeg eigen product toe", key=f"{eigen_key_base}_add", use_container_width=True):
         st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
         st.rerun()
