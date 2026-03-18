@@ -1091,7 +1091,7 @@ def render_coach(user: dict):
             </div>
         </div>
         <div style="text-align:right;">
-            <div style="font-size:0.68rem; color:#64748b;">Atleet</div>
+            <div style="font-size:0.68rem; color:#64748b;">Gebruiker</div>
             <div style="font-size:0.9rem; font-weight:700; color:#f8fafc;">{naam}</div>
         </div>
     </div>
