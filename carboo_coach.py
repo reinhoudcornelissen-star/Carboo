@@ -112,12 +112,12 @@ def _stap_profiel(naam: str):
         col1, col2 = st.columns(2)
         with col1:
             atleet_naam = st.text_input("👤 Naam atleet",
-                value=st.session_state.get("coach_data", {}).get("atleet_naam", naam),
-                key="p_atleet_naam", placeholder="Voornaam en naam")
+                value=st.session_state.get("coach_data", {}).get("atleet_naam", ""),
+                key="p_atleet_naam", placeholder="Voornaam en naam atleet")
         with col2:
             wedstrijd_naam = st.text_input("🏆 Naam wedstrijd",
                 value=st.session_state.get("coach_data", {}).get("wedstrijd_naam", ""),
-                key="p_wedstrijd_naam", placeholder="bv. Ronde van Vlaanderen")
+                key="p_wedstrijd_naam", placeholder="bv. Ironman Frankfurt")
 
         col3, col4 = st.columns(2)
         with col3:
