@@ -18,11 +18,12 @@ STAPPEN = [
 ]
 
 SPORT_ICONS = {
-    "Fietsen": "🚴",
-    "Lopen": "🏃",
-    "Duatlon": "🏃🚴",
-    "Triatlon": "🏊🚴",
-    "Crosstriatlon": "🚵",
+    "Fietsen":      "🚴",
+    "Lopen":        "🏃",
+    "Duatlon":      "🏃🚴",
+    "Crossduatlon": "🚵🏃",
+    "Triatlon":     "🏊🚴🏃",
+    "Crosstriatlon":"🚵🏊",
 }
 
 KH_TARGETS = {
@@ -880,19 +881,119 @@ def _stap_raceplan():
     Op basis hiervan bouw ik een <b>uur-per-uur raceplan</b> met exacte hoeveelheden en timing.
     """)
 
-    # KH targets info banner
-    _data = st.session_state.get("coach_data", {})
-    _min_kh = _data.get("min_kh", 60)
-    _max_kh = _data.get("max_kh", 90)
-    _totale_min = _data.get("totale_min", 0)
-    _sport = _data.get("sport", "")
-    st.markdown(f"""
-    <div style="background:rgba(59,130,246,0.1); border:1px solid #3b82f6; padding:12px 16px;
-         border-radius:10px; margin-bottom:20px; text-align:center; color:#93c5fd; font-weight:700;">
-        🏅 {_sport} &nbsp;|&nbsp; ⏱️ {_totale_min//60}u{_totale_min%60:02d}m &nbsp;|&nbsp;
-        🎯 KH-target tijdens race: <b style="color:white;">{_min_kh}–{_max_kh}g/uur</b>
-    </div>
-    """, unsafe_allow_html=True)
+    # Sport + duur balk + wetenschappelijke adviezen (geen KH grammen)
+    _sport     = data.get("sport", "")
+    _tot_min   = data.get("totale_min", 0)
+    _sport_icon = SPORT_ICONS.get(_sport, "🏅")
+
+    # Adviezen per sport per tijdsduur
+    RACE_ADVIEZEN = {
+        "Fietsen": {
+            (0,   60):   ["Glycogeen volstaat voor korte inspanning",
+                          "Optioneel: kleine slokjes sportdrank bij warmte",
+                          "Geen vast voedsel nodig"],
+            (60,  90):   ["Start innemen vanaf minuut 20–30, wacht niet op honger",
+                          "Sportdrank of gel — kies wat je kent uit training",
+                          "Kleine regelmatige slokjes, niet alles ineens"],
+            (90,  150):  ["Wissel af: gel én sportdrank (niet alles hetzelfde type suiker)",
+                          "Elke 20–30 min iets innemen, vóór je leeg zit",
+                          "Rijstwafels of reep mogelijk bij rustiger tempo"],
+            (150, 240):  ["Mix vloeibaar + vast: gel, drank, rijstwafel, banaan",
+                          "Glucose + fructose combinatie vergroot de opname",
+                          "Vast voedsel plan je vroeg in de race, niet laat"],
+            (240, 9999): ["Vast voedsel is prioriteit: rijst, reep, banaan",
+                          "Train je darmen op dezelfde producten vóór de race",
+                          "Cola als boost in het laatste uur (suiker + cafeïne)",
+                          "Geen nieuwe producten op racedag — alleen vertrouwde keuzes"],
+        },
+        "Lopen": {
+            (0,   60):   ["Glycogeen volstaat voor een korte loop",
+                          "Mondspoelen met sportdrank kan helpen zonder inname",
+                          "Water aan posten: kleine slokjes"],
+            (60,  90):   ["1 gel of sportdrank halverwege is zinvol",
+                          "Lopen is GI-gevoeliger dan fietsen — test producten in training",
+                          "Neem in met water, nooit op een lege maag starten"],
+            (90,  150):  ["Gel elke 30–45 min, altijd met water (niet met sportdrank)",
+                          "Houd het vloeibaar: gel + water werkt beter dan vast voedsel",
+                          "Start innemen in de eerste 20 minuten, niet wachten"],
+            (150, 240):  ["Gel elke 20–30 min, plan timing aan voedingsposten",
+                          "Vast voedsel (banaan, koek) enkel bij trager tempo",
+                          "Cola in het laatste derde: suiker + cafeïne geeft boost"],
+            (240, 9999): ["Mix gel + vast + cola naarmate de race vordert",
+                          "Elektrolyten (zout) zijn bijzonder belangrijk bij > 4u",
+                          "Eet vroeg en frequent — niet pas als je leeg zit"],
+        },
+        "Triatlon": {
+            (0,   60):   ["Zwemmen: innemen niet mogelijk — start optimaal gevoed",
+                          "T1: neem direct een gel of sportdrank",
+                          "Fiets: kleine slokjes sportdrank, geen vast voedsel"],
+            (60,  90):   ["Fiets is het hoofdtankmoment — start onmiddellijk bij T1",
+                          "T2: gel meenemen aan start van de loop",
+                          "Loop: 1–2 gels met water, vermijd vast voedsel"],
+            (90,  150):  ["Fiets: sportdrank + gels regelmatig verspreid",
+                          "T2: gel mee voor start loop",
+                          "Loop: gel elke 30 min, cola in laatste kilometers welkom"],
+            (150, 240):  ["Fiets = 3× meer inname dan lopen — gebruik die tijd",
+                          "Fiets: gel + drank + eventueel rijstwafel",
+                          "Loop: klein en frequent, GI-gevoeliger na fietsen"],
+            (240, 9999): ["Fiets: mix vast + gel + drank elke 20 min",
+                          "Loop: klein frequent, cola en bouillon laat in de race",
+                          "Zout essentieel bij > 4u — geen nieuw voedsel op racedag"],
+        },
+        "Duatlon": {
+            (0,   75):   ["Gel 10–15 min voor de start",
+                          "1e loop: hoge intensiteit, innemen niet mogelijk",
+                          "Fiets: isotone drank in sips, optioneel 1 gel"],
+            (75,  150):  ["1e loop verbruikt veel glycogeen — start fiets al innemend",
+                          "Fiets = hoofdtankmoment: sportdrank elke 15–20 min",
+                          "T2: gel aan start 2e loop is essentieel"],
+            (150, 210):  ["Fiets: gel + drank + rijstwafel op rustige segmenten",
+                          "T2: gel of cola voor de 2e loop",
+                          "2e loop: gels + water, cola in de finale"],
+            (210, 9999): ["Meer GI-stress dan triatlon — geen zwemherstel mogelijk",
+                          "Plan innametiming op vlakke/rustige segmenten",
+                          "Cola als boost in laatste loodrecht: suiker + cafeïne"],
+        },
+        "Crossduatlon": {
+            (0,   90):   ["Gel voor start — op technisch terrein is innemen gevaarlijk",
+                          "MTB: neem in op vlakke/rechte stukken, nooit op technisch terrein",
+                          "Trail lopen: hogere intensiteit dan wegloop → sneller glycogeen verbruik"],
+            (90,  150):  ["MTB: vloeibaar boven vast (trillingen verhogen GI-stress)",
+                          "Plan je innametijden vooraf op gekende rustige stukken",
+                          "T2: gel aan start 2e trail-loop"],
+            (150, 9999): ["Cafeïne bijzonder effectief voor focus op technisch terrein",
+                          "MTB: enkel vloeibaar tenzij plat/rustig segment",
+                          "Vermijd vast voedsel op technisch of bergachtig MTB-gedeelte"],
+        },
+    }
+
+    # Zoek de juiste adviezen op basis van sport en duur
+    sport_key = _sport if _sport in RACE_ADVIEZEN else "Fietsen"
+    tips = []
+    for (dmin, dmax), advies in RACE_ADVIEZEN[sport_key].items():
+        if dmin <= _tot_min < dmax:
+            tips = advies
+            break
+    if not tips and _tot_min >= 240:
+        tips = list(RACE_ADVIEZEN[sport_key].values())[-1]
+
+    # Balk: sport + duur
+    sport_html = (
+        '<div style="background:rgba(59,130,246,0.08);border:1px solid #3b82f6;'
+        'border-radius:12px;padding:14px 18px;margin-bottom:16px;">' +
+        f'<div style="color:#60a5fa;font-weight:800;font-size:0.85rem;margin-bottom:10px;">' +
+        f'{_sport_icon} {_sport} &nbsp;·&nbsp; ⏱️ {_tot_min//60}u{_tot_min%60:02d}m</div>' +
+        '<div style="color:#94a3b8;font-size:0.78rem;font-weight:700;text-transform:uppercase;'
+        'letter-spacing:0.1em;margin-bottom:8px;">💡 Wetenschappelijk advies voor jouw race</div>'
+    )
+    for tip in tips:
+        sport_html += (
+            f'<div style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;">' +
+            f'<span style="color:#f97316;flex-shrink:0;">→</span>' +
+            f'<span style="color:#e2e8f0;font-size:0.85rem;">{tip}</span></div>'
+        )
+    sport_html += '</div>'
+    st.markdown(sport_html, unsafe_allow_html=True)
 
     pcol1, pcol2 = st.columns(2)
 
