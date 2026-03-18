@@ -235,7 +235,7 @@ with fc2:
                 st.session_state.module = "admin"
                 st.rerun()
         with btn_cols[1]:
-            if st.button("🚪", key="btn_logout", use_container_width=True, help="Uitloggen"):
+            if st.button("🚪", key="btn_logout_admin", use_container_width=True, help="Uitloggen"):
                 for k in list(st.session_state.keys()): del st.session_state[k]
                 st.rerun()
     else:
