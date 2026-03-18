@@ -111,9 +111,19 @@ def _stap_profiel(naam: str):
     with st.container():
         col1, col2 = st.columns(2)
         with col1:
+            atleet_naam = st.text_input("👤 Naam atleet",
+                value=st.session_state.get("coach_data", {}).get("atleet_naam", naam),
+                key="p_atleet_naam", placeholder="Voornaam en naam")
+        with col2:
+            wedstrijd_naam = st.text_input("🏆 Naam wedstrijd",
+                value=st.session_state.get("coach_data", {}).get("wedstrijd_naam", ""),
+                key="p_wedstrijd_naam", placeholder="bv. Ronde van Vlaanderen")
+
+        col3, col4 = st.columns(2)
+        with col3:
             gewicht = st.number_input("⚖️ Lichaamsgewicht (kg)", 30.0, 150.0,
                 st.session_state.get("coach_data", {}).get("gewicht", 70.0), 0.5, key="p_gewicht")
-        with col2:
+        with col4:
             sport_list = list(SPORT_ICONS.keys())
             sport_default = st.session_state.get("coach_data", {}).get("sport", "Fietsen")
             sport_idx = sport_list.index(sport_default) if sport_default in sport_list else 0
@@ -143,10 +153,12 @@ def _stap_profiel(naam: str):
             if "coach_data" not in st.session_state:
                 st.session_state.coach_data = {}
             st.session_state.coach_data.update({
-                "gewicht": gewicht,
-                "sport": sport_clean,
-                "niveau": niveau,
-                "ervaring": ervaring,
+                "atleet_naam":    atleet_naam,
+                "wedstrijd_naam": wedstrijd_naam,
+                "gewicht":        gewicht,
+                "sport":          sport_clean,
+                "niveau":         niveau,
+                "ervaring":       ervaring,
             })
             st.session_state.coach_stap = 2
             st.rerun()
