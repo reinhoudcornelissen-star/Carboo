@@ -891,7 +891,7 @@ def _stap_raceplan():
         "Fietsen": {
             (0,   75):   ["Water of mondspoeling met sportdrank volstaat",
                           "Geen extra koolhydraten nodig",
-                          "Kies producten die je al kent uit training"],
+                          "Druk door naar rapport opmaken!"],
             (75,  120):  ["Kies voor een mix van vloeibare en vaste koolhydraatbronnen",
                           "Sportdrank + rijstwafel of reep: combineer gel met vast voedsel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
@@ -981,7 +981,7 @@ def _stap_raceplan():
         f'<div style="color:#60a5fa;font-weight:800;font-size:0.85rem;margin-bottom:10px;">' +
         f'{_sport_icon} {_sport} &nbsp;·&nbsp; ⏱️ {_tot_min//60}u{_tot_min%60:02d}m</div>' +
         '<div style="color:#94a3b8;font-size:0.78rem;font-weight:700;text-transform:uppercase;'
-        'letter-spacing:0.1em;margin-bottom:8px;">💡 Wetenschappelijk advies voor jouw race</div>'
+        'letter-spacing:0.1em;margin-bottom:8px;">💡 Advies voor jouw race</div>'
     )
     for tip in tips:
         sport_html += (
