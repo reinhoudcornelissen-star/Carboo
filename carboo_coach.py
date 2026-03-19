@@ -889,22 +889,19 @@ def _stap_raceplan():
     # Adviezen per sport per tijdsduur
     RACE_ADVIEZEN = {
         "Fietsen": {
-            (0,   60):   ["Glycogeen volstaat voor korte inspanning",
-                          "Optioneel: kleine slokjes sportdrank bij warmte",
-                          "Geen vast voedsel nodig"],
-            (60,  90):   ["Start innemen vanaf minuut 20–30, wacht niet op honger",
-                          "Sportdrank of gel — kies wat je kent uit training",
-                          "Kleine regelmatige slokjes, niet alles ineens"],
-            (90,  150):  ["Wissel af: gel én sportdrank (niet alles hetzelfde type suiker)",
-                          "Elke 20–30 min iets innemen, vóór je leeg zit",
-                          "Rijstwafels of reep mogelijk bij rustiger tempo"],
-            (150, 240):  ["Mix vloeibaar + vast: gel, drank, rijstwafel, banaan",
-                          "Glucose + fructose combinatie vergroot de opname",
-                          "Vast voedsel plan je vroeg in de race, niet laat"],
-            (240, 9999): ["Vast voedsel is prioriteit: rijst, reep, banaan",
-                          "Train je darmen op dezelfde producten vóór de race",
-                          "Cola als boost in het laatste uur (suiker + cafeïne)",
-                          "Geen nieuwe producten op racedag — alleen vertrouwde keuzes"],
+            (0,   75):   ["Water of mondspoeling met sportdrank volstaat",
+                          "Geen extra koolhydraten nodig",
+                          "Kies producten die je al kent uit training"],
+            (75,  120):  ["Kies voor een mix van vloeibare en vaste koolhydraatbronnen",
+                          "Sportdrank + rijstwafel of reep: combineer gel met vast voedsel",
+                          "Kies producten die je al gebruikt hebt tijdens training"],
+            (120, 181):  ["Kies voor een mix van gels, repen en sportdrank",
+                          "Wissel regelmatig af tussen vloeibaar en vast",
+                          "Kies producten die je al gebruikt hebt tijdens training"],
+            (181, 9999): ["Kies voor een mix van gels, repen en sportdrank",
+                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
+                          "Kies producten die je al gebruikt hebt tijdens training",
+                          "Geen nieuwe producten op racedag - alleen vertrouwde keuzes"],
         },
         "Lopen": {
             (0,   60):   ["Glycogeen volstaat voor een korte loop",
@@ -1056,6 +1053,427 @@ def _stap_raceplan():
             st.session_state.coach_data["pool"] = pool
             st.session_state.coach_stap = 6
             st.rerun()
+
+
+
+def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
+    """Genereer een professioneel PDF rapport van het race nutrition plan."""
+    import io, math
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                    Table, TableStyle, HRFlowable, KeepTogether)
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        rightMargin=1.8*cm, leftMargin=1.8*cm,
+        topMargin=1.8*cm, bottomMargin=1.8*cm
+    )
+
+    # ── Kleuren ──────────────────────────────────────────────────────────────
+    ORANJE   = colors.HexColor("#f97316")
+    DONKER   = colors.HexColor("#0f172a")
+    MIDDEL   = colors.HexColor("#1e293b")
+    LICHTBLAUW = colors.HexColor("#3b82f6")
+    GRIJS    = colors.HexColor("#64748b")
+    WIT      = colors.white
+    LICHTGRIJS = colors.HexColor("#f1f5f9")
+    GROEN    = colors.HexColor("#22c55e")
+
+    # ── Stijlen ───────────────────────────────────────────────────────────────
+    styles = getSampleStyleSheet()
+
+    def maak_stijl(naam, **kwargs):
+        defaults = dict(fontName="Helvetica", fontSize=10,
+                        textColor=DONKER, leading=14)
+        defaults.update(kwargs)
+        return ParagraphStyle(naam, parent=styles["Normal"], **defaults)
+
+    s_titel      = maak_stijl("Titel",    fontSize=22, fontName="Helvetica-Bold",
+                               textColor=WIT, alignment=TA_CENTER, leading=28)
+    s_subtitel   = maak_stijl("Subtitel", fontSize=11, textColor=colors.HexColor("#fb923c"),
+                               alignment=TA_CENTER, leading=16)
+    s_sectie     = maak_stijl("Sectie",   fontSize=12, fontName="Helvetica-Bold",
+                               textColor=ORANJE, leading=18, spaceBefore=14, spaceAfter=4)
+    s_label      = maak_stijl("Label",    fontSize=8,  fontName="Helvetica-Bold",
+                               textColor=GRIJS, leading=12)
+    s_waarde     = maak_stijl("Waarde",   fontSize=11, fontName="Helvetica-Bold",
+                               textColor=DONKER, leading=16)
+    s_body       = maak_stijl("Body",     fontSize=9,  textColor=colors.HexColor("#334155"),
+                               leading=13)
+    s_body_wit   = maak_stijl("BodyWit",  fontSize=9,  textColor=WIT, leading=13)
+    s_kop_wit    = maak_stijl("KopWit",   fontSize=10, fontName="Helvetica-Bold",
+                               textColor=WIT, leading=14)
+    s_tip        = maak_stijl("Tip",      fontSize=8.5, textColor=colors.HexColor("#0f172a"),
+                               leading=13, leftIndent=8)
+
+    story = []
+    W, H  = A4
+    breed = W - 3.6*cm   # effectieve breedte
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEADER BLOK
+    # ══════════════════════════════════════════════════════════════════════════
+    header_data = [[Paragraph("CARBOO RACE NUTRITION PLAN", s_titel)]]
+    header_tbl = Table(header_data, colWidths=[breed])
+    header_tbl.setStyle(TableStyle([
+        ("BACKGROUND",  (0,0), (-1,-1), DONKER),
+        ("ROUNDEDCORNERS", [8]),
+        ("TOPPADDING",  (0,0), (-1,-1), 18),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 6),
+        ("LEFTPADDING", (0,0), (-1,-1), 12),
+        ("RIGHTPADDING",(0,0), (-1,-1), 12),
+    ]))
+    story.append(header_tbl)
+
+    wedstrijd_naam = data.get("wedstrijd_naam", "")
+    if wedstrijd_naam:
+        sub_data = [[Paragraph(wedstrijd_naam.upper(), s_subtitel)]]
+        sub_tbl = Table(sub_data, colWidths=[breed])
+        sub_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0,0), (-1,-1), MIDDEL),
+            ("TOPPADDING",  (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING",(0,0), (-1,-1), 10),
+        ]))
+        story.append(sub_tbl)
+
+    story.append(Spacer(1, 14))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ATLEET & WEDSTRIJD INFO
+    # ══════════════════════════════════════════════════════════════════════════
+    story.append(Paragraph("ATLEET & WEDSTRIJD", s_sectie))
+    story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=8))
+
+    atleet_naam    = data.get("atleet_naam", gebruiker_naam)
+    sport          = data.get("sport", "—")
+    niveau         = data.get("niveau", "—")
+    gewicht        = data.get("gewicht", "—")
+    datum          = data.get("wedstrijd_datum", "—")
+    start          = data.get("start_time", "—")
+    eind           = data.get("eind_time", "—")
+    totmin         = data.get("totale_min", 0)
+    duur_str       = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
+    temp           = data.get("temp", "—")
+    vocht          = data.get("vochtigheid", "—")
+    hoogte         = data.get("hoogte", "—")
+    ervaring       = data.get("ervaring", "—")
+
+    def info_rij(label, val):
+        return [Paragraph(label, s_label), Paragraph(str(val), s_waarde)]
+
+    info_tbl = Table([
+        [Paragraph("NAAM ATLEET", s_label),   Paragraph(atleet_naam, s_waarde),
+         Paragraph("DISCIPLINE", s_label),    Paragraph(sport, s_waarde)],
+        [Paragraph("GEWICHT", s_label),        Paragraph(f"{gewicht} kg", s_waarde),
+         Paragraph("SPORTNIVEAU", s_label),   Paragraph(niveau, s_waarde)],
+        [Paragraph("WEDSTRIJDDATUM", s_label), Paragraph(str(datum), s_waarde),
+         Paragraph("STARTTIJD / EINDTIJD", s_label), Paragraph(f"{start} — {eind}", s_waarde)],
+        [Paragraph("DUUR", s_label),           Paragraph(duur_str, s_waarde),
+         Paragraph("TEMP / VOCHTIGHEID", s_label), Paragraph(f"{temp}°C  |  {vocht}%", s_waarde)],
+        [Paragraph("HOOGTE", s_label),         Paragraph(f"{hoogte} m", s_waarde),
+         Paragraph("ERVARING WEDSTRIJDVOEDING", s_label), Paragraph(ervaring, s_waarde)],
+    ], colWidths=[breed*0.18, breed*0.32, breed*0.22, breed*0.28])
+    info_tbl.setStyle(TableStyle([
+        ("BACKGROUND",   (0,0), (-1,-1), LICHTGRIJS),
+        ("ROWBACKGROUNDS",(0,0),(-1,-1), [LICHTGRIJS, WIT, LICHTGRIJS, WIT, LICHTGRIJS]),
+        ("TOPPADDING",   (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 6),
+        ("LEFTPADDING",  (0,0), (-1,-1), 8),
+        ("RIGHTPADDING", (0,0), (-1,-1), 8),
+        ("VALIGN",       (0,0), (-1,-1), "MIDDLE"),
+        ("BOX",          (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("INNERGRID",    (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("ROUNDEDCORNERS", [4]),
+    ]))
+    story.append(info_tbl)
+    story.append(Spacer(1, 16))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CARBOLOADING
+    # ══════════════════════════════════════════════════════════════════════════
+    dag_target = data.get("dag_target", 0)
+    cl_data    = data.get("carboloading", {})
+
+    story.append(Paragraph("CARBOLOADING — LAATSTE 48 UUR", s_sectie))
+    story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=8))
+
+    if dag_target:
+        doel_data = [[
+            Paragraph("DAGDOELSTELLING", s_label),
+            Paragraph(f"{dag_target}g koolhydraten per dag", s_waarde),
+        ]]
+        doel_tbl = Table(doel_data, colWidths=[breed*0.35, breed*0.65])
+        doel_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0,0), (-1,-1), colors.HexColor("#fff7ed")),
+            ("TOPPADDING",  (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING",(0,0),(-1,-1), 8),
+            ("LEFTPADDING", (0,0), (-1,-1), 10),
+            ("BOX",         (0,0), (-1,-1), 1, ORANJE),
+            ("ROUNDEDCORNERS", [4]),
+        ]))
+        story.append(doel_tbl)
+        story.append(Spacer(1, 8))
+
+    # Per dag totalen
+    cl_rows = [
+        [Paragraph("DAG", s_kop_wit),
+         Paragraph("TOTAAL KH", s_kop_wit),
+         Paragraph("DOELSTELLING", s_kop_wit),
+         Paragraph("% BEREIKT", s_kop_wit)],
+    ]
+    for dag_key, dag_vals in cl_data.items():
+        totaal = dag_vals.get("totaal", 0)
+        target = dag_vals.get("target", dag_target)
+        pct    = dag_vals.get("pct", 0)
+        dag_label = "Dag 1 (2 dagen voor race)" if dag_key == "dag1" else "Dag 2 (1 dag voor race)"
+        cl_rows.append([
+            Paragraph(dag_label, s_body),
+            Paragraph(f"{totaal}g", s_body),
+            Paragraph(f"{target}g", s_body),
+            Paragraph(f"{pct}%", s_body),
+        ])
+
+    if len(cl_rows) > 1:
+        cl_tbl = Table(cl_rows, colWidths=[breed*0.4, breed*0.2, breed*0.2, breed*0.2])
+        cl_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0),  DONKER),
+            ("ROWBACKGROUNDS",(0,1),(-1,-1), [LICHTGRIJS, WIT]),
+            ("TOPPADDING",    (0,0), (-1,-1), 7),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 8),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ("BOX",           (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ]))
+        story.append(cl_tbl)
+    story.append(Spacer(1, 16))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # RACEDAG VOEDING
+    # ══════════════════════════════════════════════════════════════════════════
+    ontbijt_kh     = data.get("ontbijt_kh", 0)
+    ontbijt_timing = data.get("ontbijt_timing", "—")
+    ontbijt_tijd   = data.get("ontbijt_tijd", "—")
+    maaltijd_mom   = data.get("maaltijd_moment", "Ontbijt")
+    rd_waarden     = data.get("rd_waarden", {})
+
+    story.append(Paragraph(f"LAATSTE MAALTIJD — {maaltijd_mom.upper()}", s_sectie))
+    story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=8))
+
+    rd_info = Table([
+        [Paragraph("TIMING", s_label),        Paragraph(ontbijt_timing, s_waarde),
+         Paragraph(f"MAALTIJD OM", s_label),  Paragraph(ontbijt_tijd, s_waarde)],
+        [Paragraph("TOTAAL KH", s_label),     Paragraph(f"{ontbijt_kh}g", s_waarde),
+         Paragraph("TYPE MAALTIJD", s_label), Paragraph(maaltijd_mom, s_waarde)],
+    ], colWidths=[breed*0.2, breed*0.3, breed*0.2, breed*0.3])
+    rd_info.setStyle(TableStyle([
+        ("BACKGROUND",   (0,0), (-1,-1), LICHTGRIJS),
+        ("ROWBACKGROUNDS",(0,0),(-1,-1), [LICHTGRIJS, WIT]),
+        ("TOPPADDING",   (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 6),
+        ("LEFTPADDING",  (0,0), (-1,-1), 8),
+        ("BOX",          (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("INNERGRID",    (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+    ]))
+    story.append(rd_info)
+
+    # Gekozen voedingsmiddelen ontbijt
+    if rd_waarden:
+        rd_rows = [[Paragraph("VOEDINGSMIDDEL", s_kop_wit),
+                    Paragraph("PORTIES", s_kop_wit),
+                    Paragraph("KH", s_kop_wit)]]
+        ONTBIJT_KH = {
+            "Wit brood":17,"Bruin brood":16,"Volkorenbrood":14,"Havermout":27,
+            "Ontbijtgranen":25,"Muesli":30,"Granola (krokant)":26,
+            "Melk (dierlijk)":9,"Plantaardige melk":9,"Banaan":30,"Appel":15,
+            "Peer":19,"Kiwi":11,"Yoghurt natuur":6,"Plattekaas":4,
+            "Confituur":3,"Honing":4,"Chocopasta":3,"Koffie met suiker":5,
+            "Vruchtensap sinaas":20,"Sportdrank":35,
+        }
+        for key, val in rd_waarden.items():
+            if val and val > 0:
+                naam_prod = key.replace("rd_Ontbijt_","").replace("rd_Lunch_","").replace("rd_Avondmaal_","")
+                kh_pp = ONTBIJT_KH.get(naam_prod, 0)
+                kh_tot = round(val * kh_pp)
+                rd_rows.append([
+                    Paragraph(naam_prod, s_body),
+                    Paragraph(str(val), s_body),
+                    Paragraph(f"{kh_tot}g", s_body),
+                ])
+        if len(rd_rows) > 1:
+            story.append(Spacer(1, 6))
+            rd_food_tbl = Table(rd_rows, colWidths=[breed*0.55, breed*0.2, breed*0.25])
+            rd_food_tbl.setStyle(TableStyle([
+                ("BACKGROUND",    (0,0), (-1,0),  DONKER),
+                ("ROWBACKGROUNDS",(0,1),(-1,-1), [LICHTGRIJS, WIT]),
+                ("TOPPADDING",    (0,0), (-1,-1), 6),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+                ("LEFTPADDING",   (0,0), (-1,-1), 8),
+                ("BOX",           (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+                ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ]))
+            story.append(rd_food_tbl)
+    story.append(Spacer(1, 16))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # RACEPLAN PRODUCTEN
+    # ══════════════════════════════════════════════════════════════════════════
+    pool        = data.get("pool", {})
+    min_kh      = data.get("min_kh", 0)
+    max_kh      = data.get("max_kh", 0)
+
+    story.append(Paragraph("RACEPLAN — PRODUCTEN", s_sectie))
+    story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=8))
+
+    # KH targets info
+    if min_kh and max_kh:
+        kh_tbl = Table([[
+            Paragraph("KH-TARGET TIJDENS RACE", s_label),
+            Paragraph(f"{min_kh}–{max_kh}g/uur", s_waarde),
+        ]], colWidths=[breed*0.4, breed*0.6])
+        kh_tbl.setStyle(TableStyle([
+            ("BACKGROUND",  (0,0), (-1,-1), colors.HexColor("#eff6ff")),
+            ("TOPPADDING",  (0,0), (-1,-1), 8),
+            ("BOTTOMPADDING",(0,0),(-1,-1), 8),
+            ("LEFTPADDING", (0,0), (-1,-1), 10),
+            ("BOX",         (0,0), (-1,-1), 1, LICHTBLAUW),
+        ]))
+        story.append(kh_tbl)
+        story.append(Spacer(1, 8))
+
+    categorieen = {
+        "drank": ("🥤 Sportdrank", "per 500ml"),
+        "gels":  ("⚡ Energy gels", "per gel"),
+        "vast":  ("🍌 Vaste voeding", "per portie"),
+        "cafe":  ("☕ Gels met cafeïne", "per gel"),
+    }
+
+    rp_rows = [[Paragraph("PRODUCT", s_kop_wit),
+                Paragraph("TYPE", s_kop_wit),
+                Paragraph("KH/PORTIE", s_kop_wit)]]
+
+    for cat_key, (cat_label, cat_eenheid) in categorieen.items():
+        producten_cat = pool.get(cat_key, [])
+        for p in producten_cat:
+            naam_p = p.get("naam", "—")
+            kh_p   = p.get("kh", "—")
+            rp_rows.append([
+                Paragraph(naam_p, s_body),
+                Paragraph(f"{cat_label} ({cat_eenheid})", s_body),
+                Paragraph(f"{kh_p}g", s_body),
+            ])
+
+    if len(rp_rows) > 1:
+        rp_tbl = Table(rp_rows, colWidths=[breed*0.4, breed*0.35, breed*0.25])
+        rp_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (-1,0),  DONKER),
+            ("ROWBACKGROUNDS",(0,1),(-1,-1), [LICHTGRIJS, WIT]),
+            ("TOPPADDING",    (0,0), (-1,-1), 7),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("LEFTPADDING",   (0,0), (-1,-1), 8),
+            ("BOX",           (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ]))
+        story.append(rp_tbl)
+    else:
+        story.append(Paragraph("Geen producten ingevoerd.", s_body))
+    story.append(Spacer(1, 16))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # UUR-PER-UUR RACEPLAN (tab_plan data)
+    # ══════════════════════════════════════════════════════════════════════════
+    # De samenvatting tab_plan berekent dit runtime — we tonen de producten pool
+    # en de wetenschappelijke adviezen als richtlijn
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # WETENSCHAPPELIJK ADVIES
+    # ══════════════════════════════════════════════════════════════════════════
+    RACE_ADVIEZEN_PDF = {
+        "Fietsen": {
+            (0,75):    ["Water of mondspoeling met sportdrank volstaat","Geen extra koolhydraten nodig","Kies producten die je al kent uit training"],
+            (75,120):  ["Kies voor een mix van vloeibare en vaste koolhydraatbronnen","Sportdrank + rijstwafel of reep: combineer gel met vast voedsel","Kies producten die je al gebruikt hebt tijdens training"],
+            (120,181): ["Kies voor een mix van gels, repen en sportdrank","Wissel regelmatig af tussen vloeibaar en vast","Kies producten die je al gebruikt hebt tijdens training"],
+            (181,9999):["Kies voor een mix van gels, repen en sportdrank","Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)","Kies producten die je al gebruikt hebt tijdens training","Geen nieuwe producten op racedag"],
+        },
+        "Lopen": {
+            (0,60):    ["Glycogeen volstaat voor een korte loop","Mondspoelen met sportdrank kan helpen","Water aan posten: kleine slokjes"],
+            (60,90):   ["1 gel of sportdrank halverwege is zinvol","Lopen is GI-gevoeliger dan fietsen - test in training"],
+            (90,150):  ["Gel elke 30-45 min, altijd met water (niet met sportdrank)","Start innemen in de eerste 20 minuten"],
+            (150,240): ["Gel elke 20-30 min, plan timing aan voedingsposten","Cola in het laatste derde: suiker + cafeine geeft boost"],
+            (240,9999):["Mix gel + vast + cola naarmate de race vordert","Elektrolyten (zout) zijn bijzonder belangrijk bij >4u"],
+        },
+        "Triatlon": {
+            (0,60):    ["Zwemmen: innemen niet mogelijk - start optimaal gevoed","T1: neem direct een gel of sportdrank"],
+            (60,90):   ["Fiets is het hoofdtankmoment - start onmiddellijk bij T1","T2: gel meenemen aan start van de loop"],
+            (90,150):  ["Fiets: sportdrank + gels regelmatig verspreid","Loop: gel elke 30 min, cola in laatste kilometers"],
+            (150,240): ["Fiets = 3x meer inname dan lopen - gebruik die tijd","Loop: klein en frequent, GI-gevoeliger na fietsen"],
+            (240,9999):["Fiets: mix vast + gel + drank elke 20 min","Loop: klein frequent, cola en bouillon laat in de race","Zout essentieel bij >4u"],
+        },
+        "Duatlon": {
+            (0,75):    ["Gel 10-15 min voor de start","Fiets: isotone drank in sips, optioneel 1 gel"],
+            (75,150):  ["1e loop verbruikt veel glycogeen - start fiets al innemend","Fiets = hoofdtankmoment: sportdrank elke 15-20 min","T2: gel aan start 2e loop is essentieel"],
+            (150,210): ["Fiets: gel + drank + rijstwafel op rustige segmenten","2e loop: gels + water, cola in de finale"],
+            (210,9999):["Meer GI-stress dan triatlon - geen zwemherstel mogelijk","Plan innametiming op vlakke/rustige segmenten"],
+        },
+        "Crossduatlon": {
+            (0,90):    ["Gel voor start - op technisch terrein is innemen gevaarlijk","MTB: neem in op vlakke/rechte stukken"],
+            (90,150):  ["MTB: vloeibaar boven vast (trillingen verhogen GI-stress)","T2: gel aan start 2e trail-loop"],
+            (150,9999):["Cafeine bijzonder effectief voor focus op technisch terrein","MTB: enkel vloeibaar tenzij plat/rustig segment"],
+        },
+    }
+
+    sport_key = sport if sport in RACE_ADVIEZEN_PDF else "Fietsen"
+    adviezen  = []
+    for (dmin, dmax), tips in RACE_ADVIEZEN_PDF[sport_key].items():
+        if dmin <= totmin < dmax:
+            adviezen = tips
+            break
+    if not adviezen and totmin >= 240:
+        adviezen = list(RACE_ADVIEZEN_PDF[sport_key].values())[-1]
+
+    if adviezen:
+        story.append(Paragraph("WETENSCHAPPELIJK VOEDINGSADVIES", s_sectie))
+        story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=8))
+        advies_rows = [[Paragraph("ADVIES VOOR JOUW RACE", s_kop_wit)]]
+        for tip in adviezen:
+            advies_rows.append([Paragraph(f"  ->  {tip}", s_tip)])
+        adv_tbl = Table(advies_rows, colWidths=[breed])
+        adv_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0,0), (0,0),  DONKER),
+            ("BACKGROUND",    (0,1), (-1,-1), colors.HexColor("#f0f9ff")),
+            ("ROWBACKGROUNDS",(0,1),(-1,-1), [colors.HexColor("#f0f9ff"), WIT]),
+            ("TOPPADDING",    (0,0), (-1,-1), 7),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+            ("LEFTPADDING",   (0,0), (-1,-1), 10),
+            ("BOX",           (0,0), (-1,-1), 0.5, LICHTBLAUW),
+            ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ]))
+        story.append(adv_tbl)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # FOOTER
+    # ══════════════════════════════════════════════════════════════════════════
+    story.append(Spacer(1, 20))
+    story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS))
+    story.append(Spacer(1, 6))
+    footer_stijl = maak_stijl("Footer", fontSize=7.5, textColor=GRIJS,
+                               alignment=TA_CENTER, leading=11)
+    story.append(Paragraph(
+        "Gegenereerd door Carboo Race Nutrition  •  carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app  •  "
+        "Dit plan is een richtlijn — overleg met een sportdiëtist voor gepersonaliseerd advies.",
+        footer_stijl
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
 
 
 def _stap_samenvatting():
@@ -1290,6 +1708,39 @@ def _stap_samenvatting():
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    # ── PDF Download knop ────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('''
+    <div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #334155;
+         border-radius:16px;padding:20px 24px;text-align:center;margin-bottom:16px;">
+        <div style="font-size:1.5rem;margin-bottom:8px;">📄</div>
+        <div style="font-weight:900;color:#f8fafc;font-size:1rem;margin-bottom:6px;">
+            Genereer jouw PDF Race Nutrition Plan
+        </div>
+        <div style="color:#64748b;font-size:0.82rem;">
+            Alle keuzes, richtlijnen en wetenschappelijke adviezen in één overzichtelijk rapport.
+        </div>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    try:
+        gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
+        pdf_bytes    = _genereer_pdf(data, gebruiker_naam)
+        atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
+        wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
+        bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
+        st.download_button(
+            label="📄  GENEREER PLAN (PDF)",
+            data=pdf_bytes,
+            file_name=bestandsnaam,
+            mime="application/pdf",
+            use_container_width=True,
+            key="sum_pdf_download"
+        )
+    except Exception as e:
+        st.error(f"Fout bij genereren PDF: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
