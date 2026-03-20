@@ -1001,55 +1001,100 @@ def _stap_raceplan():
     sport_html += '</div>'
     st.markdown(sport_html, unsafe_allow_html=True)
 
-    pcol1, pcol2 = st.columns(2)
-
-    with pcol1:
-        st.markdown("<div style='color:#3b82f6; font-weight:700; font-size:0.82rem; margin-bottom:8px;'>🥤 SPORTDRANK (per 500ml)</div>", unsafe_allow_html=True)
-        n_drank = st.number_input("", 0, 5, 1, key="rp_n_drank", label_visibility="collapsed")
-        drank_pool = []
-        for i in range(int(n_drank)):
-            c1, c2 = st.columns([2,1])
-            with c1: naam = st.text_input(f"Naam drank {i+1}", key=f"rp_drank_{i}", placeholder="bijv. Maurten 320")
-            with c2: kh = st.number_input("KH/500ml", key=f"rp_dkh_{i}", min_value=0, value=70)
+    def _product_sectie(label, kleur, emoji, key_n, key_naam, key_kh,
+                        default_n, placeholder_naam, default_kh, eenheid="KH/stuk"):
+        st.markdown(
+            f'<div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;'
+            f'padding:14px 16px;margin-bottom:14px;">' +
+            f'<div style="color:{kleur};font-weight:800;font-size:0.82rem;'
+            f'letter-spacing:0.08em;margin-bottom:10px;">{emoji} {label}</div>',
+            unsafe_allow_html=True
+        )
+        n = st.number_input(f"Aantal {label.lower()}", 0, 8,
+                            default_n, key=key_n, label_visibility="collapsed")
+        pool_items = []
+        for i in range(int(n)):
+            h1, h2, h3 = st.columns([3, 1.5, 0.8])
+            with h1:
+                if i == 0:
+                    st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">PRODUCTNAAM</div>', unsafe_allow_html=True)
+                naam = st.text_input("naam", key=f"{key_naam}_{i}",
+                                     placeholder=placeholder_naam, label_visibility="collapsed")
+            with h2:
+                if i == 0:
+                    st.markdown(f'<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">{eenheid.upper()}</div>', unsafe_allow_html=True)
+                kh = st.number_input("kh", key=f"{key_kh}_{i}",
+                                     min_value=0, value=default_kh, label_visibility="collapsed")
+            with h3:
+                if i == 0:
+                    st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">G KH</div>', unsafe_allow_html=True)
+                st.markdown(
+                    f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;'
+                    f'color:#f97316;text-align:center;">{kh}g</div>',
+                    unsafe_allow_html=True
+                )
             if naam:
-                drank_pool.append({"name": naam, "kh": kh, "type": "drank"})
+                pool_items.append({"naam": naam, "kh": kh})
+        st.markdown('</div>', unsafe_allow_html=True)
+        return pool_items
 
-        st.markdown("<div style='color:#10b981; font-weight:700; font-size:0.82rem; margin:12px 0 8px 0;'>🍱 VASTE VOEDING</div>", unsafe_allow_html=True)
-        n_vast = st.number_input("", 0, 5, 0, key="rp_n_vast", label_visibility="collapsed")
-        vast_pool = []
-        for i in range(int(n_vast)):
-            c1, c2 = st.columns([2,1])
-            with c1: naam = st.text_input(f"Naam vast {i+1}", key=f"rp_vast_{i}", placeholder="bijv. Banaan")
-            with c2: kh = st.number_input("KH", key=f"rp_vkh_{i}", min_value=0, value=25)
-            if naam:
-                vast_pool.append({"name": naam, "kh": kh, "type": "vast"})
+    # ── Rij 1: Sportdrank + Energy gels ──────────────────────────────────────
+    rc1, rc2 = st.columns(2)
+    with rc1:
+        drank_pool = _product_sectie("Sportdrank", "#3b82f6", "🥤",
+                                     "rp_n_drank", "rp_drank", "rp_dkh",
+                                     1, "bijv. Maurten 320", 70, "KH/500ml")
+    with rc2:
+        gels_pool  = _product_sectie("Energy gels", "#60a5fa", "⚡",
+                                     "rp_n_gels", "rp_gel", "rp_gkh",
+                                     1, "bijv. SIS Go Gel", 22, "KH/gel")
 
-    with pcol2:
-        st.markdown("<div style='color:#60a5fa; font-weight:700; font-size:0.82rem; margin-bottom:8px;'>🧪 ENERGY GELS</div>", unsafe_allow_html=True)
-        n_gels = st.number_input("", 0, 5, 1, key="rp_n_gels", label_visibility="collapsed")
-        gels_pool = []
-        for i in range(int(n_gels)):
-            c1, c2 = st.columns([2,1])
-            with c1: naam = st.text_input(f"Naam gel {i+1}", key=f"rp_gel_{i}", placeholder="bijv. SIS Go Gel")
-            with c2: kh = st.number_input("KH", key=f"rp_gkh_{i}", min_value=0, value=22)
-            if naam:
-                gels_pool.append({"name": naam, "kh": kh, "type": "gels"})
+    # ── Rij 2: Vaste voeding + Gels met cafeïne ──────────────────────────────
+    rc3, rc4 = st.columns(2)
+    with rc3:
+        vast_pool  = _product_sectie("Vaste voeding", "#10b981", "🍌",
+                                     "rp_n_vast", "rp_vast", "rp_vkh",
+                                     0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
+    with rc4:
+        cafe_pool  = _product_sectie("Gels met cafeïne", "#f59e0b", "☕",
+                                     "rp_n_cafe", "rp_cafe", "rp_ckh",
+                                     0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
 
-        st.markdown("<div style='color:#f59e0b; font-weight:700; font-size:0.82rem; margin:12px 0 8px 0;'>⚡ GELS + CAFEÏNE</div>", unsafe_allow_html=True)
-        n_cafe = st.number_input("", 0, 5, 0, key="rp_n_cafe", label_visibility="collapsed")
-        cafe_pool = []
-        for i in range(int(n_cafe)):
-            c1, c2 = st.columns([2,1])
-            with c1: naam = st.text_input(f"Naam caf {i+1}", key=f"rp_cafe_{i}", placeholder="bijv. Caffeine Gel")
-            with c2: kh = st.number_input("KH", key=f"rp_ckh_{i}", min_value=0, value=25)
-            if naam:
-                cafe_pool.append({"name": naam, "kh": kh, "type": "cafe"})
+    # ── Rij 3: Supplementen (volledige breedte) ───────────────────────────────
+    st.markdown('''
+    <div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;
+         padding:14px 16px;margin-bottom:14px;">
+        <div style="color:#8b5cf6;font-weight:800;font-size:0.82rem;
+             letter-spacing:0.08em;margin-bottom:10px;">💊 SUPPLEMENTEN</div>
+    ''', unsafe_allow_html=True)
+
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        cafeine_mg  = st.number_input("Cafeïne (mg)", 0, 1000, 0, 50,
+                                      key="rp_cafeine_mg",
+                                      help="Totale cafeïne-inname gepland tijdens race (mg)")
+        st.caption("Cafeïne (mg)")
+    with sc2:
+        natrium_mg  = st.number_input("Natrium (mg/u)", 0, 2000, 0, 100,
+                                      key="rp_natrium",
+                                      help="Natriumdrank of zout tablet (mg per uur)")
+        st.caption("Natrium (mg/uur)")
+    with sc3:
+        supp_vrij   = st.text_input("Ander supplement", key="rp_supp_vrij",
+                                    placeholder="bijv. Bicarb, bietensap, ...")
+        st.caption("Vrij veld")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     pool = {
-        "drank": sorted(drank_pool, key=lambda x: x["kh"], reverse=True),
-        "gels": sorted(gels_pool, key=lambda x: x["kh"], reverse=True),
-        "cafe": cafe_pool,
-        "vast": vast_pool,
+        "drank": drank_pool,
+        "gels":  gels_pool,
+        "cafe":  cafe_pool,
+        "vast":  vast_pool,
+        "supplementen": {
+            "cafeine_mg": cafeine_mg,
+            "natrium_mg": natrium_mg,
+            "vrij":       supp_vrij,
+        },
     }
 
     col_prev, col_gen = st.columns(2)
