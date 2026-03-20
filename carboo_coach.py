@@ -877,8 +877,8 @@ def _stap_racedag():
 def _stap_raceplan():
     data = st.session_state.get("coach_data", {})
     _coach_bubble(f"""
-    Bijna klaar! Voeg nu de <b>producten toe die je tijdens de race</b> gaat gebruiken. 
-    Op basis hiervan bouw ik een <b>uur-per-uur raceplan</b> met exacte hoeveelheden en timing.
+    Bijna klaar! Voeg de <b>producten toe die je tijdens de race</b> wil gebruiken. 
+    Op basis van jouw keuzes en wedstrijdgegevens stel ik een <b>persoonlijk raceplan</b> op.
     """)
 
     # Sport + duur balk + wetenschappelijke adviezen (geen KH grammen)
@@ -988,6 +988,15 @@ def _stap_raceplan():
             f'<div style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;">' +
             f'<span style="color:#f97316;flex-shrink:0;">→</span>' +
             f'<span style="color:#e2e8f0;font-size:0.85rem;">{tip}</span></div>'
+        )
+    # Voeg oproep toe onderaan, behalve bij protocollen zonder KH inname
+    geen_kh = any("Geen extra koolhydraten nodig" in tip for tip in tips)
+    if not geen_kh:
+        sport_html += (
+            '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;">' +
+            '<span style="color:#60a5fa;font-size:0.85rem;">'
+            '📝 Kies hieronder de producten die je wenst te gebruiken in je race ' +
+            'en ik giet ze in een schema.</span></div>'
         )
     sport_html += '</div>'
     st.markdown(sport_html, unsafe_allow_html=True)
