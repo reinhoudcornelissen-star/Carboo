@@ -437,7 +437,7 @@ def _stap_carboloading():
     for dag_idx, tab in enumerate([tab1, tab2], start=1):
         with tab:
             dag_kh = 0
-            left_col, right_col = st.columns(2)
+            left_col, right_col = st.columns([1, 1])
             maaltijd_list = list(MAALTIJD_CONFIG.items())
 
             for col_obj, moment_slice in [
@@ -467,32 +467,12 @@ def _stap_carboloading():
                         pct_prev = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
                         bar_prev = "#22c55e" if pct_prev >= 90 else ("#fbbf24" if pct_prev >= 60 else "#94a3b8")
 
-                        # Label met voortgang — kleur bijhouden in session_state
+                        # Status bijhouden in session_state
                         status_key = f"cl_status_d{dag_idx}_{m_name}"
                         is_groen   = st.session_state.get(status_key, False)
-                        exp_label  = f"**{m_name}**"
-
-                        # Wrapper div met unieke klasse voor CSS targeting
-                        safe_id = f"exp_d{dag_idx}_{m_name}".replace(" ","_").replace("(","").replace(")","")
-                        kleur_css = ""
-                        if is_groen:
-                            kleur_css = f"""
-                            <style>
-                            .carboo_{safe_id} div[data-testid="stExpander"] {{
-                                border-left: 3px solid #22c55e !important;
-                                border-radius: 8px !important;
-                            }}
-                            .carboo_{safe_id} div[data-testid="stExpander"] summary span p {{
-                                color: #22c55e !important;
-                            }}
-                            .carboo_{safe_id} div[data-testid="stExpander"] summary svg {{
-                                color: #22c55e !important;
-                                fill: #22c55e !important;
-                            }}
-                            </style>
-                            <div class="carboo_{safe_id}">
-                            """
-                            st.markdown(kleur_css, unsafe_allow_html=True)
+                        # Gekleurde indicator in het label zelf
+                        dot = "🟢 " if is_groen else ""
+                        exp_label  = f"{dot}**{m_name}**"
 
                         with st.expander(exp_label, expanded=False):
 
@@ -648,9 +628,6 @@ def _stap_carboloading():
                                 st.rerun()
 
 
-
-                        if is_groen and kleur_css:
-                            st.markdown("</div>", unsafe_allow_html=True)
 
                         dag_kh += moment_kh
 
