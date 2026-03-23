@@ -476,9 +476,14 @@ def _stap_carboloading():
                             # ── Progress balk + avatar bij overschrijding BOVENAAN ─
                             _pct_top = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
                             _over    = preview_kh > m_target
-                            _bar_top = "#22c55e" if _pct_top >= 90 else ("#fbbf24" if _pct_top >= 60 else "#334155")
                             if _over:
                                 _bar_top = "#ef4444"
+                            elif _pct_top >= 80:
+                                _bar_top = "#22c55e"
+                            elif _pct_top >= 50:
+                                _bar_top = "#fbbf24"
+                            else:
+                                _bar_top = "#f97316"
 
                             if _over:
                                 st.markdown(
@@ -511,10 +516,9 @@ def _stap_carboloading():
                                 ss_key = f"cl_d{dag_idx}_{m_name}_{product['naam']}"
                                 if ss_key not in st.session_state:
                                     saved = data.get("cl_waarden", {})
-                                    st.session_state[ss_key] = int(saved.get(ss_key, 0))
-                                # Zorg dat waarde altijd int is (geen float conflict)
-                                if not isinstance(st.session_state.get(ss_key), int):
-                                    st.session_state[ss_key] = 0
+                                    st.session_state[ss_key] = float(saved.get(ss_key, 0))
+                                if not isinstance(st.session_state.get(ss_key), (int, float)):
+                                    st.session_state[ss_key] = 0.0
 
                                 pc1, pc2 = st.columns([5, 1])
                                 with pc1:
@@ -528,17 +532,18 @@ def _stap_carboloading():
                                 with pc2:
                                     val = st.number_input(
                                         "porties",
-                                        min_value=0, max_value=20,
-                                        step=1, key=ss_key,
+                                        min_value=0.0, max_value=20.0,
+                                        step=0.5, key=ss_key,
                                         label_visibility="collapsed"
                                     )
 
                                 kh = val * product["kh_portie"]
                                 moment_kh += kh
                                 if val > 0:
+                                    val_str = str(int(val)) if val == int(val) else str(val)
                                     st.markdown(
                                         f'<div style="font-size:0.72rem;color:#f97316;'
-                                        f'margin:-4px 0 6px 0;text-align:right;">→ {val}× {product["kh_portie"]}g = <b>{round(kh)}g KH</b></div>',
+                                        f'margin:-4px 0 6px 0;text-align:right;">→ {val_str}× {product["kh_portie"]}g = <b>{round(kh)}g KH</b></div>',
                                         unsafe_allow_html=True
                                     )
 
@@ -623,12 +628,12 @@ def _stap_carboloading():
             dag_over  = dag_kh > dag_target
             if dag_over:
                 bar_color = "#ef4444"
-            elif dag_pct >= 90:
+            elif dag_pct >= 80:
                 bar_color = "#22c55e"
-            elif dag_pct >= 70:
+            elif dag_pct >= 50:
                 bar_color = "#fbbf24"
             else:
-                bar_color = "#334155"
+                bar_color = "#f97316"
 
             st.markdown(f"""
             <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;
