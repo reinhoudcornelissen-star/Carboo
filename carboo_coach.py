@@ -471,14 +471,27 @@ def _stap_carboloading():
                         exp_label = f"**{m_name}**"
 
                         # expanded=True: blijft open bij input wijziging
-                        with st.expander(exp_label, expanded=True):
+                        with st.expander(exp_label, expanded=False):
 
-                            # ── Progress balk BOVENAAN ────────────────────
+                            # ── Progress balk + avatar bij overschrijding BOVENAAN ─
                             _pct_top = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
                             _over    = preview_kh > m_target
                             _bar_top = "#22c55e" if _pct_top >= 90 else ("#fbbf24" if _pct_top >= 60 else "#334155")
                             if _over:
                                 _bar_top = "#ef4444"
+
+                            if _over:
+                                st.markdown(
+                                    '<div style="display:flex;gap:10px;align-items:center;'
+                                    'margin-bottom:8px;background:rgba(239,68,68,0.1);'
+                                    'border:1px solid #ef4444;border-radius:10px;padding:8px 12px;">' +
+                                    '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
+                                    '<span style="color:#fca5a5;font-size:0.80rem;">'
+                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit dagdeel!</span>' +
+                                    '</div>',
+                                    unsafe_allow_html=True
+                                )
+
                             st.markdown(
                                 f'<div style="background:#1e293b;border-radius:6px;height:8px;margin-bottom:10px;">' +
                                 f'<div style="width:{min(_pct_top,100)}%;height:100%;background:{_bar_top};border-radius:6px;"></div>' +
@@ -601,19 +614,7 @@ def _stap_carboloading():
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
-                            # ── Avatar melding bij overschrijding ────────
-                            _pct_fin = min(200, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
-                            if moment_kh > m_target:
-                                st.markdown(
-                                    '<div style="display:flex;gap:10px;align-items:center;'
-                                    'margin-top:10px;background:rgba(239,68,68,0.1);'
-                                    'border:1px solid #ef4444;border-radius:10px;padding:10px 14px;">' +
-                                    '<img src="' + MASCOT_B64 + '" style="height:40px;width:auto;flex-shrink:0;">' +
-                                    '<span style="color:#fca5a5;font-size:0.82rem;">'
-                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit dagdeel!</span>' +
-                                    '</div>',
-                                    unsafe_allow_html=True
-                                )
+
 
                         dag_kh += moment_kh
 
