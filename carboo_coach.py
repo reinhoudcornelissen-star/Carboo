@@ -254,7 +254,7 @@ def _stap_carboloading():
     gewicht    = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
 
-    # Herstel groene status bij terugkeren van andere stap
+    # Herstel groene status bij terugkeren
     for k, v in data.get("cl_status", {}).items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -272,73 +272,55 @@ def _stap_carboloading():
 
     st.markdown("""
     <style>
-    div[data-testid="stNumberInput"] input {
-        background-color:#1e293b !important; color:#f8fafc !important;
-        border:1px solid #334155 !important; }
-    div[data-testid="stNumberInput"] button {
-        background-color:#334155 !important; color:#f8fafc !important; border:none !important; }
-    div[data-testid="stNumberInput"] button:hover {
-        background-color:#f97316 !important; color:#fff !important; }
-    div[data-testid="stNumberInput"] button svg { fill:#f8fafc !important; }
-    div[data-testid="stNumberInput"] > div {
-        background-color:#1e293b !important; border-radius:8px !important; }
-    div[data-testid="stTextInput"] input {
-        background-color:#1e293b !important; color:#f8fafc !important;
-        border:1px solid #334155 !important; }
-    /* Expander styling */
-    div[data-testid="stExpander"] {
-        background:#0f172a !important; border:1px solid #334155 !important;
-        border-radius:10px !important; margin-bottom:8px !important; }
-    div[data-testid="stExpander"] summary {
-        color:#f1f5f9 !important; font-weight:700 !important; }
-    div[data-testid="stExpander"] summary:hover {
-        color:#f97316 !important; }
+    div[data-testid="stNumberInput"] input { background-color:#1e293b !important; color:#f8fafc !important; border:1px solid #334155 !important; }
+    div[data-testid="stNumberInput"] button { background-color:#334155 !important; color:#f8fafc !important; border:none !important; }
+    div[data-testid="stTextInput"] input { background-color:#1e293b !important; color:#f8fafc !important; border:1px solid #334155 !important; }
     </style>
     """, unsafe_allow_html=True)
 
     MOMENT_FOODS = {
         "Ontbijt": [
-            {"naam": "Wit brood",           "portie": "1 snede (35g)",      "kh_portie": 17},
-            {"naam": "Bruin brood",         "portie": "1 snede (35g)",      "kh_portie": 16},
-            {"naam": "Volkorenbrood",       "portie": "1 snede (35g)",      "kh_portie": 14},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",  "kh_portie": 27},
-            {"naam": "Ontbijtgranen",       "portie": "1 kom (30g)",        "kh_portie": 25},
-            {"naam": "Muesli",              "portie": "1 kom (40g)",        "kh_portie": 30},
-            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",        "kh_portie": 26},
-            {"naam": "Melk (dierlijk)",     "portie": "1 glas (200ml)",     "kh_portie": 9},
-            {"naam": "Plantaardige melk",   "portie": "1 glas (200ml)",     "kh_portie": 9},
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Peer",                "portie": "1 stuk middel (135g netto)", "kh_portie": 19},
-            {"naam": "Kiwi",                "portie": "1 stuk middel (75g netto)",  "kh_portie": 11},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",     "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",    "kh_portie": 4},
-            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
-            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)", "kh_portie": 4},
-            {"naam": "Chocopasta",          "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
-            {"naam": "Koffie met suiker",   "portie": "1 tas + 1 klontje",  "kh_portie": 5},
-            {"naam": "Vruchtensap sinaas",  "portie": "1 glas (200ml)",     "kh_portie": 20},
+            {"naam": "Wit brood",           "portie": "1 snede (35g)",          "kh_portie": 17},
+            {"naam": "Bruin brood",         "portie": "1 snede (35g)",          "kh_portie": 16},
+            {"naam": "Volkorenbrood",       "portie": "1 snede (35g)",          "kh_portie": 14},
+            {"naam": "Havermout",           "portie": "1 kom (45g droog)",      "kh_portie": 27},
+            {"naam": "Ontbijtgranen",       "portie": "1 kom (30g)",            "kh_portie": 25},
+            {"naam": "Muesli",              "portie": "1 kom (40g)",            "kh_portie": 30},
+            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",            "kh_portie": 26},
+            {"naam": "Melk (dierlijk)",     "portie": "1 glas (200ml)",         "kh_portie": 9},
+            {"naam": "Plantaardige melk",   "portie": "1 glas (200ml)",         "kh_portie": 9},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",   "kh_portie": 30},
+            {"naam": "Appel",               "portie": "1 stuk middel (125g)",   "kh_portie": 15},
+            {"naam": "Peer",                "portie": "1 stuk middel (135g)",   "kh_portie": 19},
+            {"naam": "Kiwi",                "portie": "1 stuk middel (75g)",    "kh_portie": 11},
+            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",         "kh_portie": 6},
+            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",        "kh_portie": 4},
+            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)",   "kh_portie": 3},
+            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)",   "kh_portie": 4},
+            {"naam": "Chocopasta",          "portie": "1 koffielepel (4.5g)",   "kh_portie": 3},
+            {"naam": "Koffie met suiker",   "portie": "1 tas + 1 klontje",      "kh_portie": 5},
+            {"naam": "Vruchtensap sinaas",  "portie": "1 glas (200ml)",         "kh_portie": 20},
         ],
         "Tussendoor VM": [
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Peer",                "portie": "1 stuk middel (135g netto)", "kh_portie": 19},
-            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",  "kh_portie": 6},
-            {"naam": "Rozijnen",            "portie": "1 handje (20g)",     "kh_portie": 15},
-            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",       "kh_portie": 26},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",     "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",    "kh_portie": 4},
-            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",        "kh_portie": 26},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",  "kh_portie": 27},
-            {"naam": "Speculoos",           "portie": "1 stuk (7g)",        "kh_portie": 5},
-            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",      "kh_portie": 26},
-            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)", "kh_portie": 27},
-            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",       "kh_portie": 27},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",   "kh_portie": 30},
+            {"naam": "Appel",               "portie": "1 stuk middel (125g)",   "kh_portie": 15},
+            {"naam": "Peer",                "portie": "1 stuk middel (135g)",   "kh_portie": 19},
+            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",      "kh_portie": 6},
+            {"naam": "Rozijnen",            "portie": "1 handje (20g)",         "kh_portie": 15},
+            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",           "kh_portie": 26},
+            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",         "kh_portie": 6},
+            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",        "kh_portie": 4},
+            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",            "kh_portie": 26},
+            {"naam": "Havermout",           "portie": "1 kom (45g droog)",      "kh_portie": 27},
+            {"naam": "Speculoos",           "portie": "1 stuk (7g)",            "kh_portie": 5},
+            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",          "kh_portie": 26},
+            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)",     "kh_portie": 27},
+            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",           "kh_portie": 27},
         ],
         "Lunch": [
             {"naam": "Pasta (hoofdmaaltijd)","portie": "120g rauw / 300g gaar", "kh_portie": 75},
             {"naam": "Pasta (bijgerecht)",  "portie": "60g rauw / 150g gaar",  "kh_portie": 37},
-            {"naam": "Rijst (hoofdmaaltijd)","portie": "115g rauw / 290g gaar", "kh_portie": 81},
+            {"naam": "Rijst (hoofdmaaltijd)","portie": "115g rauw / 290g gaar","kh_portie": 81},
             {"naam": "Rijst (bijgerecht)",  "portie": "60g rauw / 150g gaar",  "kh_portie": 42},
             {"naam": "Aardappelen gekookt", "portie": "1 bord (175g netto)",   "kh_portie": 30},
             {"naam": "Groentenmix rauw",    "portie": "1 bord (150g)",         "kh_portie": 5},
@@ -346,44 +328,34 @@ def _stap_carboloading():
             {"naam": "Wit brood",           "portie": "1 snede (35g)",         "kh_portie": 17},
             {"naam": "Bruin brood",         "portie": "1 snede (35g)",         "kh_portie": 16},
             {"naam": "Volkorenbrood",       "portie": "1 snede (35g)",         "kh_portie": 14},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",     "kh_portie": 27},
-            {"naam": "Ontbijtgranen",       "portie": "1 kom (30g)",           "kh_portie": 25},
-            {"naam": "Muesli",              "portie": "1 kom (40g)",           "kh_portie": 30},
-            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",           "kh_portie": 26},
-            {"naam": "Melk (dierlijk)",     "portie": "1 glas (200ml)",        "kh_portie": 9},
-            {"naam": "Plantaardige melk",   "portie": "1 glas (200ml)",        "kh_portie": 9},
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Peer",                "portie": "1 stuk middel (135g netto)", "kh_portie": 19},
-            {"naam": "Kiwi",                "portie": "1 stuk middel (75g netto)",  "kh_portie": 11},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",        "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",       "kh_portie": 4},
-            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
-            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)", "kh_portie": 4},
-            {"naam": "Chocopasta",          "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",  "kh_portie": 30},
+            {"naam": "Appel",               "portie": "1 stuk middel (125g)",  "kh_portie": 15},
             {"naam": "Vruchtensap sinaas",  "portie": "1 glas (200ml)",        "kh_portie": 20},
             {"naam": "Sportdrank",          "portie": "1 bidon (500ml)",       "kh_portie": 35},
+            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)",  "kh_portie": 3},
+            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)",  "kh_portie": 4},
+            {"naam": "Chocopasta",          "portie": "1 koffielepel (4.5g)",  "kh_portie": 3},
         ],
         "Tussendoor NM": [
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Peer",                "portie": "1 stuk middel (135g netto)", "kh_portie": 19},
-            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",  "kh_portie": 6},
-            {"naam": "Rozijnen",            "portie": "1 handje (20g)",     "kh_portie": 15},
-            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",       "kh_portie": 26},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",     "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",    "kh_portie": 4},
-            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",        "kh_portie": 26},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",  "kh_portie": 27},
-            {"naam": "Speculoos",           "portie": "1 stuk (7g)",        "kh_portie": 5},
-            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",      "kh_portie": 26},
-            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)", "kh_portie": 27},
-            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",       "kh_portie": 27},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",   "kh_portie": 30},
+            {"naam": "Appel",               "portie": "1 stuk middel (125g)",   "kh_portie": 15},
+            {"naam": "Peer",                "portie": "1 stuk middel (135g)",   "kh_portie": 19},
+            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",      "kh_portie": 6},
+            {"naam": "Rozijnen",            "portie": "1 handje (20g)",         "kh_portie": 15},
+            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",           "kh_portie": 26},
+            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",         "kh_portie": 6},
+            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",        "kh_portie": 4},
+            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",            "kh_portie": 26},
+            {"naam": "Havermout",           "portie": "1 kom (45g droog)",      "kh_portie": 27},
+            {"naam": "Speculoos",           "portie": "1 stuk (7g)",            "kh_portie": 5},
+            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",          "kh_portie": 26},
+            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)",     "kh_portie": 27},
+            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",           "kh_portie": 27},
         ],
         "Avondmaal": [
             {"naam": "Pasta (hoofdmaaltijd)","portie": "120g rauw / 300g gaar", "kh_portie": 75},
             {"naam": "Pasta (bijgerecht)",  "portie": "60g rauw / 150g gaar",  "kh_portie": 37},
-            {"naam": "Rijst (hoofdmaaltijd)","portie": "115g rauw / 290g gaar", "kh_portie": 81},
+            {"naam": "Rijst (hoofdmaaltijd)","portie": "115g rauw / 290g gaar","kh_portie": 81},
             {"naam": "Rijst (bijgerecht)",  "portie": "60g rauw / 150g gaar",  "kh_portie": 42},
             {"naam": "Aardappelen gekookt", "portie": "1 bord (175g netto)",   "kh_portie": 30},
             {"naam": "Groentenmix rauw",    "portie": "1 bord (150g)",         "kh_portie": 5},
@@ -391,39 +363,27 @@ def _stap_carboloading():
             {"naam": "Wit brood",           "portie": "1 snede (35g)",         "kh_portie": 17},
             {"naam": "Bruin brood",         "portie": "1 snede (35g)",         "kh_portie": 16},
             {"naam": "Volkorenbrood",       "portie": "1 snede (35g)",         "kh_portie": 14},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",     "kh_portie": 27},
-            {"naam": "Ontbijtgranen",       "portie": "1 kom (30g)",           "kh_portie": 25},
-            {"naam": "Muesli",              "portie": "1 kom (40g)",           "kh_portie": 30},
-            {"naam": "Granola (krokant)",   "portie": "1 kom (40g)",           "kh_portie": 26},
-            {"naam": "Melk (dierlijk)",     "portie": "1 glas (200ml)",        "kh_portie": 9},
-            {"naam": "Plantaardige melk",   "portie": "1 glas (200ml)",        "kh_portie": 9},
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Peer",                "portie": "1 stuk middel (135g netto)", "kh_portie": 19},
-            {"naam": "Kiwi",                "portie": "1 stuk middel (75g netto)",  "kh_portie": 11},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",        "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",       "kh_portie": 4},
-            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
-            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)", "kh_portie": 4},
-            {"naam": "Chocopasta",          "portie": "1 koffielepel (4.5g)", "kh_portie": 3},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",  "kh_portie": 30},
             {"naam": "Vruchtensap sinaas",  "portie": "1 glas (200ml)",        "kh_portie": 20},
             {"naam": "Sportdrank",          "portie": "1 bidon (500ml)",       "kh_portie": 35},
             {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)",    "kh_portie": 27},
+            {"naam": "Confituur",           "portie": "1 koffielepel (4.5g)",  "kh_portie": 3},
+            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)",  "kh_portie": 4},
         ],
         "Avond snack": [
-            {"naam": "Banaan",              "portie": "1 stuk middel (130g netto)", "kh_portie": 30},
-            {"naam": "Appel",               "portie": "1 stuk middel (125g netto)", "kh_portie": 15},
-            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",  "kh_portie": 6},
-            {"naam": "Rozijnen",            "portie": "1 handje (20g)",     "kh_portie": 15},
-            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",       "kh_portie": 26},
-            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",     "kh_portie": 6},
-            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",    "kh_portie": 4},
-            {"naam": "Speculoos",           "portie": "1 stuk (7g)",        "kh_portie": 5},
-            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",      "kh_portie": 26},
-            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)", "kh_portie": 27},
-            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",       "kh_portie": 27},
-            {"naam": "Havermout",           "portie": "1 kom (45g droog)",  "kh_portie": 27},
-            {"naam": "Honing",              "portie": "1 eetlpl (20g)",     "kh_portie": 16},
+            {"naam": "Banaan",              "portie": "1 stuk middel (130g)",   "kh_portie": 30},
+            {"naam": "Appel",               "portie": "1 stuk middel (125g)",   "kh_portie": 15},
+            {"naam": "Dadels gedroogd",     "portie": "1 stuk (9g netto)",      "kh_portie": 6},
+            {"naam": "Rozijnen",            "portie": "1 handje (20g)",         "kh_portie": 15},
+            {"naam": "Muesli/granenreep",   "portie": "1 reep (40g)",           "kh_portie": 26},
+            {"naam": "Yoghurt natuur",      "portie": "1 potje (125g)",         "kh_portie": 6},
+            {"naam": "Plattekaas",          "portie": "4 eetlpl (100g)",        "kh_portie": 4},
+            {"naam": "Speculoos",           "portie": "1 stuk (7g)",            "kh_portie": 5},
+            {"naam": "Snoep/winegums",      "portie": "1 zakje (30g)",          "kh_portie": 26},
+            {"naam": "Appelmoes",           "portie": "1 schaaltje (150g)",     "kh_portie": 27},
+            {"naam": "Pannenkoek",          "portie": "1 stuk (60g)",           "kh_portie": 27},
+            {"naam": "Havermout",           "portie": "1 kom (45g droog)",      "kh_portie": 27},
+            {"naam": "Honing",              "portie": "1 koffielepel (4.5g)",   "kh_portie": 4},
         ],
     }
 
@@ -452,71 +412,60 @@ def _stap_carboloading():
                 with col_obj:
                     for m_name, m_cfg in moment_slice:
                         m_target  = round(dag_target * m_cfg["pct"])
-                        moment_kh = 0
+                        status_key = f"cl_status_d{dag_idx}_{m_name}"
+                        is_groen  = st.session_state.get(status_key, False)
 
-                        # Tel eigen producten mee voor label
-                        eigen_key_base = f"eigen_d{dag_idx}_{m_name}"
-                        n_eigen = st.session_state.get(f"{eigen_key_base}_n", 0)
-                        eigen_kh_total = sum(
-                            st.session_state.get(f"{eigen_key_base}_{i}_kh", 0)
-                            for i in range(n_eigen)
-                        )
-
-                        # Standaard producten bijdrage
-                        standaard_kh = sum(
-                            st.session_state.get(f"cl_d{dag_idx}_{m_name}_{p['naam']}", 0)
+                        # Bereken preview KH (huidige waarden uit session_state)
+                        preview_kh = sum(
+                            st.session_state.get(f"cl_d{dag_idx}_{m_name}_{p['naam']}", 0.0)
                             * p["kh_portie"]
                             for p in MOMENT_FOODS.get(m_name, [])
                         )
-                        preview_kh = round(standaard_kh + eigen_kh_total)
-                        pct_prev = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
-                        bar_prev = "#22c55e" if pct_prev >= 90 else ("#fbbf24" if pct_prev >= 60 else "#94a3b8")
+                        over_limiet = preview_kh > m_target
 
-                        # Status bijhouden in session_state
-                        status_key = f"cl_status_d{dag_idx}_{m_name}"
-                        is_groen   = st.session_state.get(status_key, False)
-                        # Gekleurde indicator in het label zelf
-                        dot = "🟢 " if is_groen else ""
-                        exp_label  = f"{dot}**{m_name}**"
+                        # Groene dot verdwijnt automatisch bij overschrijding
+                        if over_limiet and is_groen:
+                            st.session_state[status_key] = False
+                            is_groen = False
+
+                        # Label met groene dot
+                        dot       = "🟢 " if is_groen else ""
+                        exp_label = f"{dot}**{m_name}**"
 
                         with st.expander(exp_label, expanded=False):
 
-                            # ── Progress balk + avatar bij overschrijding BOVENAAN ─
-                            _pct_top = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
-                            _over    = preview_kh > m_target
-                        # Zorg dat bij overschrijding de groene dot verdwijnt
-                        if _over and st.session_state.get(status_key, False):
-                            st.session_state[status_key] = False
-
-                            if _over:
-                                _bar_top = "#ef4444"
-                            elif _pct_top >= 80:
-                                _bar_top = "#22c55e"
-                            elif _pct_top >= 50:
-                                _bar_top = "#fbbf24"
+                            # Progress balk bovenaan
+                            pct_bar = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
+                            if over_limiet:
+                                bar_kleur = "#ef4444"
+                            elif pct_bar >= 80:
+                                bar_kleur = "#22c55e"
+                            elif pct_bar >= 50:
+                                bar_kleur = "#fbbf24"
                             else:
-                                _bar_top = "#f97316"
+                                bar_kleur = "#f97316"
 
-                            if _over:
+                            # Avatar bij overschrijding VOOR de balk
+                            if over_limiet:
                                 st.markdown(
                                     '<div style="display:flex;gap:10px;align-items:center;'
                                     'margin-bottom:8px;background:rgba(239,68,68,0.1);'
                                     'border:1px solid #ef4444;border-radius:10px;padding:8px 12px;">' +
                                     '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
                                     '<span style="color:#fca5a5;font-size:0.80rem;">'
-                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit dagdeel!</span>' +
+                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit dagdeel!</span>'
                                     '</div>',
                                     unsafe_allow_html=True
                                 )
 
                             st.markdown(
-                                f'<div style="background:#1e293b;border-radius:6px;height:8px;margin-bottom:10px;">' +
-                                f'<div style="width:{min(_pct_top,100)}%;height:100%;background:{_bar_top};border-radius:6px;"></div>' +
+                                f'<div style="background:#1e293b;border-radius:6px;height:8px;margin-bottom:10px;">'
+                                f'<div style="width:{pct_bar}%;height:100%;background:{bar_kleur};border-radius:6px;"></div>'
                                 f'</div>',
                                 unsafe_allow_html=True
                             )
 
-                            # ── Standaard producten ───────────────────────
+                            # Producten header
                             st.markdown(
                                 '<div style="font-size:0.7rem;color:#64748b;font-weight:700;'
                                 'letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">'
@@ -524,11 +473,14 @@ def _stap_carboloading():
                                 unsafe_allow_html=True
                             )
 
+                            moment_kh = 0.0
+
+                            # Standaard producten
                             for product in MOMENT_FOODS.get(m_name, []):
                                 ss_key = f"cl_d{dag_idx}_{m_name}_{product['naam']}"
                                 if ss_key not in st.session_state:
                                     saved = data.get("cl_waarden", {})
-                                    st.session_state[ss_key] = float(saved.get(ss_key, 0))
+                                    st.session_state[ss_key] = float(saved.get(ss_key, 0.0))
                                 if not isinstance(st.session_state.get(ss_key), (int, float)):
                                     st.session_state[ss_key] = 0.0
 
@@ -542,13 +494,9 @@ def _stap_carboloading():
                                         unsafe_allow_html=True
                                     )
                                 with pc2:
-                                    val = st.number_input(
-                                        "porties",
-                                        min_value=0.0, max_value=20.0,
-                                        step=0.5, key=ss_key,
-                                        label_visibility="collapsed"
-                                    )
-
+                                    val = st.number_input("p", min_value=0.0, max_value=20.0,
+                                                          step=0.5, key=ss_key,
+                                                          label_visibility="collapsed")
                                 kh = val * product["kh_portie"]
                                 moment_kh += kh
                                 if val > 0:
@@ -559,16 +507,18 @@ def _stap_carboloading():
                                         unsafe_allow_html=True
                                     )
 
-                            # ── Eigen producten ───────────────────────────
-                            st.markdown('<div style="height:10px"></div>', unsafe_allow_html=True)
-                            st.markdown('<hr style="border-color:#1e293b;margin:4px 0 10px 0;">', unsafe_allow_html=True)
+                            # Eigen producten
+                            eigen_key_base = f"eigen_d{dag_idx}_{m_name}"
+                            n_eigen = st.session_state.get(f"{eigen_key_base}_n", 0)
+
+                            st.markdown('<hr style="border-color:#1e293b;margin:8px 0 10px 0;">', unsafe_allow_html=True)
+                            st.caption("Noteer bij eigen producten het aantal koolhydraten per portie (zie verpakking)")
 
                             for i in range(n_eigen):
                                 e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
-                                e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh", 0)
-                                e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0)
+                                e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh",   0.0)
+                                e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0.0)
 
-                                # Labels boven de eerste rij
                                 if i == 0:
                                     lc1, lc2, lc3, lc4 = st.columns([4, 2, 2, 0.6])
                                     with lc1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PRODUCTNAAM</div>', unsafe_allow_html=True)
@@ -577,39 +527,29 @@ def _stap_carboloading():
 
                                 ec1, ec2, ec3, ec4 = st.columns([4, 2, 2, 0.6])
                                 with ec1:
-                                    new_naam = st.text_input(
-                                        "Naam", value=e_naam,
+                                    new_naam = st.text_input("Naam", value=e_naam,
                                         key=f"{eigen_key_base}_{i}_naam_inp",
-                                        placeholder="bv. Cruesli extra",
-                                        label_visibility="collapsed"
-                                    )
+                                        placeholder="bv. Cruesli extra", label_visibility="collapsed")
                                     st.session_state[f"{eigen_key_base}_{i}_naam"] = new_naam
                                 with ec2:
-                                    new_kh = st.number_input(
-                                        "KH/portie", value=float(e_kh),
+                                    new_kh = st.number_input("KH/portie", value=float(e_kh),
                                         min_value=0.0, step=1.0,
                                         key=f"{eigen_key_base}_{i}_kh_inp",
-                                        label_visibility="collapsed",
-                                        help="KH per portie — zie verpakking"
-                                    )
+                                        label_visibility="collapsed", help="KH per portie — zie verpakking")
                                     st.session_state[f"{eigen_key_base}_{i}_kh"] = new_kh
                                 with ec3:
-                                    new_port = st.number_input(
-                                        "Porties", value=float(e_port),
+                                    new_port = st.number_input("Porties", value=float(e_port),
                                         min_value=0.0, step=1.0,
                                         key=f"{eigen_key_base}_{i}_port_inp",
-                                        label_visibility="collapsed",
-                                        help="Aantal porties"
-                                    )
+                                        label_visibility="collapsed")
                                     st.session_state[f"{eigen_key_base}_{i}_port"] = new_port
                                 with ec4:
                                     if st.button("🗑", key=f"{eigen_key_base}_{i}_del",
                                                  help="Verwijder", use_container_width=True):
-                                        # Schuif alle producten na i omhoog
                                         for j in range(i, n_eigen - 1):
                                             for field in ["naam", "kh", "port"]:
-                                                st.session_state[f"{eigen_key_base}_{j}_{field}"] =                                                     st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
-                                        # Verwijder laatste + reset input keys naar 0
+                                                st.session_state[f"{eigen_key_base}_{j}_{field}"] = \
+                                                    st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
                                         for field in ["naam", "kh", "port"]:
                                             st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}", None)
                                             st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}_inp", None)
@@ -621,76 +561,57 @@ def _stap_carboloading():
                                 if new_port > 0 and new_kh > 0:
                                     st.markdown(
                                         f'<div style="font-size:0.72rem;color:#3b82f6;'
-                                        f'margin:-4px 0 4px 0;text-align:right;">→ {new_port:.0f}× {new_kh:.0f}g = <b>{round(eigen_kh_i)}g KH</b></div>',
+                                        f'margin:-4px 0 4px 0;text-align:right;">'
+                                        f'→ {new_port:.0f}× {new_kh:.0f}g = <b>{round(eigen_kh_i)}g KH</b></div>',
                                         unsafe_allow_html=True
                                     )
 
-                            # Toevoegen knop
                             if st.button("➕  Voeg eigen product toe", key=f"{eigen_key_base}_add",
                                          use_container_width=True):
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
-                            # Bevestig dagdeel knop
+                            # Opslaan knop — triggert groene dot
                             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-                            _al_groen = st.session_state.get(status_key, False)
-                            _btn_label = "✅  Bevestigd" if _al_groen else "Dagdeel bevestigen"
-                            _btn_type  = "secondary" if _al_groen else "primary"
-                            # Bereken pct op basis van huidige invulwaarden (preview_kh is actueel)
-                            _pct_now = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
-                            _over_now = preview_kh > m_target
-                            if st.button(_btn_label, key=f"confirm_{dag_idx}_{m_name}",
+                            pct_nu = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
+                            reeds_groen = st.session_state.get(status_key, False)
+                            btn_lbl = "✅  Bevestigd" if reeds_groen else "Dagdeel opslaan"
+                            if st.button(btn_lbl, key=f"save_{dag_idx}_{m_name}",
                                          use_container_width=True):
-                                if _pct_now >= 80 and not _over_now:
+                                if pct_nu >= 80 and moment_kh <= m_target:
                                     st.session_state[status_key] = True
                                 else:
                                     st.session_state[status_key] = False
                                 st.rerun()
 
-
-
-                        # Update groen status op basis van werkelijke moment_kh
-                        _pct_moment = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
-                        if _pct_moment >= 80 and moment_kh <= m_target:
-                            st.session_state[status_key] = True
-                        elif moment_kh > m_target:
-                            st.session_state[status_key] = False
-
                         dag_kh += moment_kh
 
-            # Dag totaal
+            # Dag totaal balk
             dag_pct   = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
             dag_over  = dag_kh > dag_target
-            if dag_over:
-                bar_color = "#ef4444"
-            elif dag_pct >= 80:
-                bar_color = "#22c55e"
-            elif dag_pct >= 50:
-                bar_color = "#fbbf24"
-            else:
-                bar_color = "#f97316"
+            if dag_over:        bar_color = "#ef4444"
+            elif dag_pct >= 80: bar_color = "#22c55e"
+            elif dag_pct >= 50: bar_color = "#fbbf24"
+            else:               bar_color = "#f97316"
 
-            st.markdown(f"""
-            <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;
-                 padding:16px;text-align:center;margin-top:12px;">
-                <div style="font-weight:900;font-size:1rem;color:#f8fafc;margin-bottom:10px;">
-                    TOTAAL DAG {dag_idx}
-                </div>
-                <div style="background:#1e293b;border-radius:8px;height:14px;overflow:hidden;">
-                    <div style="width:{min(dag_pct,100)}%;height:100%;background:{bar_color};
-                         border-radius:8px;transition:width 0.3s;"></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;'
+                f'padding:16px;text-align:center;margin-top:12px;">'
+                f'<div style="font-weight:900;font-size:1rem;color:#f8fafc;margin-bottom:10px;">TOTAAL DAG {dag_idx}</div>'
+                f'<div style="background:#1e293b;border-radius:8px;height:14px;overflow:hidden;">'
+                f'<div style="width:{min(dag_pct,100)}%;height:100%;background:{bar_color};border-radius:8px;"></div>'
+                f'</div></div>',
+                unsafe_allow_html=True
+            )
 
             if dag_over:
                 st.markdown(
-                    '<div style="display:flex;gap:10px;align-items:center;margin-top:8px;' +
-                    'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+                    '<div style="display:flex;gap:10px;align-items:center;margin-top:8px;'
+                    'background:rgba(239,68,68,0.1);border:1px solid #ef4444;'
                     'border-radius:10px;padding:12px 16px;">' +
                     '<img src="' + MASCOT_B64 + '" style="height:48px;width:auto;flex-shrink:0;">' +
-                    '<span style="color:#fca5a5;font-size:0.88rem;">' +
-                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze dag!</span>' +
+                    '<span style="color:#fca5a5;font-size:0.88rem;">'
+                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze dag!</span>'
                     '</div>',
                     unsafe_allow_html=True
                 )
@@ -709,13 +630,13 @@ def _stap_carboloading():
                     cl_waarden[k] = st.session_state.get(k, 0)
         if "coach_data" not in st.session_state:
             st.session_state.coach_data = {}
-        # Bewaar ook de groene status per dagdeel
-        cl_status = {k: v for k, v in st.session_state.items()
-                     if k.startswith("cl_status_")}
+        cl_status = {k: v for k, v in st.session_state.items() if k.startswith("cl_status_")}
         st.session_state.coach_data.update({
-            "cl_waarden": cl_waarden, "carboloading": dag_totalen,
-            "dag_target": dag_target, "factor": factor,
-            "cl_status":  cl_status,
+            "cl_waarden":  cl_waarden,
+            "carboloading": dag_totalen,
+            "dag_target":  dag_target,
+            "factor":      factor,
+            "cl_status":   cl_status,
         })
 
     with col_prev:
