@@ -254,6 +254,11 @@ def _stap_carboloading():
     gewicht    = data.get("gewicht", 70)
     totale_min = data.get("totale_min", 180)
 
+    # Herstel groene status bij terugkeren van andere stap
+    for k, v in data.get("cl_status", {}).items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
     if totale_min > 300:   factor = 12
     elif totale_min > 180: factor = 10
     elif totale_min > 90:  factor = 8
@@ -629,6 +634,13 @@ def _stap_carboloading():
 
 
 
+                        # Update groen status op basis van werkelijke moment_kh
+                        _pct_moment = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
+                        if _pct_moment >= 80 and moment_kh <= m_target:
+                            st.session_state[status_key] = True
+                        elif moment_kh > m_target:
+                            st.session_state[status_key] = False
+
                         dag_kh += moment_kh
 
             # Dag totaal
@@ -682,9 +694,13 @@ def _stap_carboloading():
                     cl_waarden[k] = st.session_state.get(k, 0)
         if "coach_data" not in st.session_state:
             st.session_state.coach_data = {}
+        # Bewaar ook de groene status per dagdeel
+        cl_status = {k: v for k, v in st.session_state.items()
+                     if k.startswith("cl_status_")}
         st.session_state.coach_data.update({
             "cl_waarden": cl_waarden, "carboloading": dag_totalen,
             "dag_target": dag_target, "factor": factor,
+            "cl_status":  cl_status,
         })
 
     with col_prev:
