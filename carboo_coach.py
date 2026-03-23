@@ -632,6 +632,18 @@ def _stap_carboloading():
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
+                            # Bevestig dagdeel knop — triggert rerun zodat groene dot zichtbaar wordt
+                            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+                            _btn_label = "✅  Dagdeel bevestigen" if not st.session_state.get(status_key) else "✅  Bevestigd"
+                            if st.button(_btn_label, key=f"confirm_{dag_idx}_{m_name}",
+                                         use_container_width=True):
+                                _pct_confirm = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
+                                if _pct_confirm >= 80 and moment_kh <= m_target:
+                                    st.session_state[status_key] = True
+                                elif moment_kh > m_target:
+                                    st.session_state[status_key] = False
+                                st.rerun()
+
 
 
                         # Update groen status op basis van werkelijke moment_kh
