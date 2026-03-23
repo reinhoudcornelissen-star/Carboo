@@ -484,11 +484,10 @@ def _stap_carboloading():
                             # ── Progress balk + avatar bij overschrijding BOVENAAN ─
                             _pct_top = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
                             _over    = preview_kh > m_target
-                            # Sla groen status op in session_state (persistent)
-                            if _pct_top >= 80 and not _over:
-                                st.session_state[status_key] = True
-                            elif _over:
-                                st.session_state[status_key] = False
+                        # Zorg dat bij overschrijding de groene dot verdwijnt
+                        if _over and st.session_state.get(status_key, False):
+                            st.session_state[status_key] = False
+
                             if _over:
                                 _bar_top = "#ef4444"
                             elif _pct_top >= 80:
@@ -632,15 +631,19 @@ def _stap_carboloading():
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
-                            # Bevestig dagdeel knop — triggert rerun zodat groene dot zichtbaar wordt
+                            # Bevestig dagdeel knop
                             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-                            _btn_label = "✅  Dagdeel bevestigen" if not st.session_state.get(status_key) else "✅  Bevestigd"
+                            _al_groen = st.session_state.get(status_key, False)
+                            _btn_label = "✅  Bevestigd" if _al_groen else "Dagdeel bevestigen"
+                            _btn_type  = "secondary" if _al_groen else "primary"
+                            # Bereken pct op basis van huidige invulwaarden (preview_kh is actueel)
+                            _pct_now = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
+                            _over_now = preview_kh > m_target
                             if st.button(_btn_label, key=f"confirm_{dag_idx}_{m_name}",
                                          use_container_width=True):
-                                _pct_confirm = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
-                                if _pct_confirm >= 80 and moment_kh <= m_target:
+                                if _pct_now >= 80 and not _over_now:
                                     st.session_state[status_key] = True
-                                elif moment_kh > m_target:
+                                else:
                                     st.session_state[status_key] = False
                                 st.rerun()
 
