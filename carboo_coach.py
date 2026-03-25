@@ -267,7 +267,8 @@ def _stap_carboloading():
     dag_target = round(gewicht * factor)
 
     _coach_bubble(f"""
-    Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.
+    Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.<br><br>
+    Wanneer het balkje groen kleurt, bevestig je onderaan met <b>Dagdeel opslaan</b>. Er zal een groen bolletje verschijnen.
     """)
 
     st.markdown("""
@@ -659,6 +660,10 @@ def _stap_racedag():
     kh_min         = round(gewicht * 1)
     kh_max         = round(gewicht * 4)
 
+    # Herstel status bij terugkeren
+    if "rd_status_bevestigd" not in st.session_state:
+        st.session_state["rd_status_bevestigd"] = data.get("rd_status", False)
+
     start_dt  = datetime.strptime(start_time_str, "%H:%M")
     start_uur = start_dt.hour
 
@@ -677,7 +682,8 @@ def _stap_racedag():
     Perfect! Nu plannen we jouw <b>laatste maaltijd voor de wedstrijd</b>!<br><br>
     Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder een volle of zwaar gevoel in de maag.<br><br>
     ✅ Kies <b>licht verteerbare</b> producten: laag in vezels en vetten.<br>
-    🎯 Kies producten die je maag goed verdraagt en die je al kent uit training.
+    🎯 Kies producten die je maag goed verdraagt en die je al kent uit training.<br><br>
+    Wanneer het balkje groen kleurt, bevestig je met <b>Dagdeel opslaan</b>.
     """)
 
     # Timing dropdown
@@ -853,19 +859,42 @@ def _stap_racedag():
 
     ontbijt_kh = round(ontbijt_kh + eigen_kh_total)
 
-    # Totaalbalk
-    pct       = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
-    bar_color = "#22c55e" if kh_min <= ontbijt_kh <= kh_max else ("#fbbf24" if ontbijt_kh > kh_max else "#ef4444")
-    status_txt = "✅ Binnen richtlijn" if kh_min <= ontbijt_kh <= kh_max else ("⚠️ Boven richtlijn" if ontbijt_kh > kh_max else "❌ Onder richtlijn")
+    # Totaalbalk — zelfde stijl als carboloading
+    pct      = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
+    over     = ontbijt_kh > kh_max
+    if over:          bar_color = "#ef4444"
+    elif pct >= 80:   bar_color = "#22c55e"
+    elif pct >= 50:   bar_color = "#fbbf24"
+    else:             bar_color = "#f97316"
+
+    if over:
+        st.markdown(
+            '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;' +
+            'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+            'border-radius:10px;padding:8px 12px;">' +
+            '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
+            '<span style="color:#fca5a5;font-size:0.80rem;">' +
+            '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze maaltijd!</span>' +
+            '</div>',
+            unsafe_allow_html=True
+        )
+
     st.markdown(
-        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:16px;text-align:center;margin-top:16px;">'
-        f'<div style="font-weight:900;font-size:1rem;color:#f8fafc;margin-bottom:8px;">TOTAAL: {ontbijt_kh}g KH &nbsp; {status_txt}</div>'
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;overflow:hidden;">'
-        f'<div style="width:{pct}%;height:100%;background:{bar_color};border-radius:8px;"></div></div>'
-        f'<div style="font-size:0.78rem;color:#94a3b8;margin-top:6px;">Richtlijn: {kh_min}–{kh_max}g ({pct}%)</div>'
-        f'</div>',
+        f'<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:16px;margin-top:10px;">' +
+        f'<div style="font-weight:900;font-size:1rem;color:#f8fafc;margin-bottom:10px;text-align:center;">LAATSTE MAALTIJD</div>' +
+        f'<div style="background:#1e293b;border-radius:8px;height:14px;overflow:hidden;">' +
+        f'<div style="width:{pct}%;height:100%;background:{bar_color};border-radius:8px;"></div>' +
+        f'</div></div>',
         unsafe_allow_html=True
     )
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    rd_status_key = "rd_status_bevestigd"
+    reeds_groen   = st.session_state.get(rd_status_key, False)
+    btn_lbl       = "✅  Bevestigd" if reeds_groen else "Dagdeel opslaan"
+    if st.button(btn_lbl, key="rd_save", use_container_width=True):
+        st.session_state[rd_status_key] = (pct >= 80 and not over)
+        st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
@@ -884,6 +913,7 @@ def _stap_racedag():
                 "maaltijd_moment": maaltijd_naam,
                 "pre_totaal_kh":   ontbijt_kh,
                 "rd_waarden":      rd_waarden,
+                "rd_status":       st.session_state.get("rd_status_bevestigd", False),
             })
             st.session_state.coach_stap = 5
             st.rerun()
