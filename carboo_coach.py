@@ -791,104 +791,124 @@ def _stap_racedag():
         unsafe_allow_html=True
     )
 
-    # Header
-    st.markdown(
-        f'<div style="font-size:0.7rem;color:#64748b;font-weight:700;letter-spacing:0.1em;'
-        f'text-transform:uppercase;margin-bottom:8px;">'
-        f'Voedingsmiddel · portiegrootte · KH/portie · aantal porties</div>',
-        unsafe_allow_html=True
-    )
-
+    # ontbijt_kh initialiseren (wordt berekend in expander, gebruikt na expander)
     ontbijt_kh = 0
-
-    # Standaard producten
-    for product in producten:
-        ss_key = f"rd_{maaltijd_naam}_{product['naam']}"
-        if ss_key not in st.session_state:
-            st.session_state[ss_key] = int(saved_rd.get(ss_key, 0))
-        if not isinstance(st.session_state.get(ss_key), int):
-            st.session_state[ss_key] = 0
-
-        pc1, pc2 = st.columns([5, 1])
-        with pc1:
-            st.markdown(
-                f'<div style="padding:6px 0 2px;color:#f1f5f9;font-size:0.88rem;font-weight:600;line-height:1.4;">'
-                f'{product["naam"]} '
-                f'<span style="color:#64748b;font-size:0.78rem;font-weight:400;">'
-                f'— {product["portie"]} · {product["kh_portie"]}g KH/portie</span></div>',
-                unsafe_allow_html=True
-            )
-        with pc2:
-            val = st.number_input("p", min_value=0, max_value=20, step=1,
-                                  key=ss_key, label_visibility="collapsed")
-        kh = val * product["kh_portie"]
-        ontbijt_kh += kh
-        if val > 0:
-            st.markdown(
-                f'<div style="font-size:0.72rem;color:#f97316;margin:-4px 0 6px 0;text-align:right;">'
-                f'→ {val}× {product["kh_portie"]}g = <b>{round(kh)}g KH</b></div>',
-                unsafe_allow_html=True
-            )
-
-    # Eigen producten
-    st.markdown('<hr style="border-color:#1e293b;margin:10px 0;">', unsafe_allow_html=True)
-    eigen_key_base = f"rd_eigen_{maaltijd_naam}"
-    n_eigen = st.session_state.get(f"{eigen_key_base}_n", 0)
-
     eigen_kh_total = 0
-    for i in range(n_eigen):
-        e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
-        e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh",   0.0)
-        e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0.0)
 
-        if i == 0:
-            lc1, lc2, lc3, lc4 = st.columns([4, 2, 2, 0.6])
-            with lc1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PRODUCTNAAM</div>', unsafe_allow_html=True)
-            with lc2: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KH/PORTIE (g)</div>', unsafe_allow_html=True)
-            with lc3: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PORTIES</div>', unsafe_allow_html=True)
+    # Expander met label + groen bolletje
+    rd_is_groen = st.session_state.get("rd_status_bevestigd", False)
+    rd_dot      = "🟢 " if rd_is_groen else ""
+    rd_exp_label = f"{rd_dot}**Voedingsmiddelen laatste maaltijd voor de race**"
 
-        ec1, ec2, ec3, ec4 = st.columns([4, 2, 2, 0.6])
-        with ec1:
-            new_naam = st.text_input("Naam", value=e_naam, key=f"{eigen_key_base}_{i}_naam_inp",
-                                     placeholder="bv. Rijstwafel", label_visibility="collapsed")
-            st.session_state[f"{eigen_key_base}_{i}_naam"] = new_naam
-        with ec2:
-            new_kh = st.number_input("KH/portie", value=float(e_kh), min_value=0.0, step=1.0,
-                                     key=f"{eigen_key_base}_{i}_kh_inp",
-                                     label_visibility="collapsed", help="KH per portie — zie verpakking")
-            st.session_state[f"{eigen_key_base}_{i}_kh"] = new_kh
-        with ec3:
-            new_port = st.number_input("Porties", value=float(e_port), min_value=0.0, step=1.0,
-                                       key=f"{eigen_key_base}_{i}_port_inp",
-                                       label_visibility="collapsed")
-            st.session_state[f"{eigen_key_base}_{i}_port"] = new_port
-        with ec4:
-            if st.button("🗑", key=f"{eigen_key_base}_{i}_del", help="Verwijder", use_container_width=True):
-                for j in range(i, n_eigen - 1):
+    with st.expander(rd_exp_label, expanded=False):
+        # Header
+        st.markdown(
+            f'<div style="font-size:0.7rem;color:#64748b;font-weight:700;letter-spacing:0.1em;'
+            f'text-transform:uppercase;margin-bottom:8px;">'
+            f'Voedingsmiddel · portiegrootte · KH/portie · aantal porties</div>',
+            unsafe_allow_html=True
+        )
+
+        ontbijt_kh = 0
+
+        # Standaard producten
+        for product in producten:
+            ss_key = f"rd_{maaltijd_naam}_{product['naam']}"
+            if ss_key not in st.session_state:
+                st.session_state[ss_key] = int(saved_rd.get(ss_key, 0))
+            if not isinstance(st.session_state.get(ss_key), int):
+                st.session_state[ss_key] = 0
+
+            pc1, pc2 = st.columns([5, 1])
+            with pc1:
+                st.markdown(
+                    f'<div style="padding:6px 0 2px;color:#f1f5f9;font-size:0.88rem;font-weight:600;line-height:1.4;">'
+                    f'{product["naam"]} '
+                    f'<span style="color:#64748b;font-size:0.78rem;font-weight:400;">'
+                    f'— {product["portie"]} · {product["kh_portie"]}g KH/portie</span></div>',
+                    unsafe_allow_html=True
+                )
+            with pc2:
+                val = st.number_input("p", min_value=0, max_value=20, step=1,
+                                      key=ss_key, label_visibility="collapsed")
+            kh = val * product["kh_portie"]
+            ontbijt_kh += kh
+            if val > 0:
+                st.markdown(
+                    f'<div style="font-size:0.72rem;color:#f97316;margin:-4px 0 6px 0;text-align:right;">'
+                    f'→ {val}× {product["kh_portie"]}g = <b>{round(kh)}g KH</b></div>',
+                    unsafe_allow_html=True
+                )
+
+        # Eigen producten
+        st.markdown('<hr style="border-color:#1e293b;margin:10px 0;">', unsafe_allow_html=True)
+        eigen_key_base = f"rd_eigen_{maaltijd_naam}"
+        n_eigen = st.session_state.get(f"{eigen_key_base}_n", 0)
+
+        eigen_kh_total = 0
+        for i in range(n_eigen):
+            e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
+            e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh",   0.0)
+            e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0.0)
+
+            if i == 0:
+                lc1, lc2, lc3, lc4 = st.columns([4, 2, 2, 0.6])
+                with lc1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PRODUCTNAAM</div>', unsafe_allow_html=True)
+                with lc2: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KH/PORTIE (g)</div>', unsafe_allow_html=True)
+                with lc3: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">PORTIES</div>', unsafe_allow_html=True)
+
+            ec1, ec2, ec3, ec4 = st.columns([4, 2, 2, 0.6])
+            with ec1:
+                new_naam = st.text_input("Naam", value=e_naam, key=f"{eigen_key_base}_{i}_naam_inp",
+                                         placeholder="bv. Rijstwafel", label_visibility="collapsed")
+                st.session_state[f"{eigen_key_base}_{i}_naam"] = new_naam
+            with ec2:
+                new_kh = st.number_input("KH/portie", value=float(e_kh), min_value=0.0, step=1.0,
+                                         key=f"{eigen_key_base}_{i}_kh_inp",
+                                         label_visibility="collapsed", help="KH per portie — zie verpakking")
+                st.session_state[f"{eigen_key_base}_{i}_kh"] = new_kh
+            with ec3:
+                new_port = st.number_input("Porties", value=float(e_port), min_value=0.0, step=1.0,
+                                           key=f"{eigen_key_base}_{i}_port_inp",
+                                           label_visibility="collapsed")
+                st.session_state[f"{eigen_key_base}_{i}_port"] = new_port
+            with ec4:
+                if st.button("🗑", key=f"{eigen_key_base}_{i}_del", help="Verwijder", use_container_width=True):
+                    for j in range(i, n_eigen - 1):
+                        for field in ["naam", "kh", "port"]:
+                            st.session_state[f"{eigen_key_base}_{j}_{field}"] = \
+                                st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
                     for field in ["naam", "kh", "port"]:
-                        st.session_state[f"{eigen_key_base}_{j}_{field}"] = \
-                            st.session_state.get(f"{eigen_key_base}_{j+1}_{field}", 0 if field != "naam" else "")
-                for field in ["naam", "kh", "port"]:
-                    st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}", None)
-                    st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}_inp", None)
-                st.session_state[f"{eigen_key_base}_n"] = n_eigen - 1
-                st.rerun()
+                        st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}", None)
+                        st.session_state.pop(f"{eigen_key_base}_{n_eigen-1}_{field}_inp", None)
+                    st.session_state[f"{eigen_key_base}_n"] = n_eigen - 1
+                    st.rerun()
 
-        eigen_kh_i = new_kh * new_port
-        eigen_kh_total += eigen_kh_i
-        if new_port > 0 and new_kh > 0:
-            st.markdown(
-                f'<div style="font-size:0.72rem;color:#3b82f6;margin:-4px 0 4px 0;text-align:right;">'
-                f'→ {new_port:.0f}× {new_kh:.0f}g = <b>{round(eigen_kh_i)}g KH</b></div>',
-                unsafe_allow_html=True
-            )
+            eigen_kh_i = new_kh * new_port
+            eigen_kh_total += eigen_kh_i
+            if new_port > 0 and new_kh > 0:
+                st.markdown(
+                    f'<div style="font-size:0.72rem;color:#3b82f6;margin:-4px 0 4px 0;text-align:right;">'
+                    f'→ {new_port:.0f}× {new_kh:.0f}g = <b>{round(eigen_kh_i)}g KH</b></div>',
+                    unsafe_allow_html=True
+                )
 
-    st.caption("Noteer bij eigen producten het aantal koolhydraten per portie (zie verpakking)")
-    if st.button("➕  Voeg eigen product toe", key=f"{eigen_key_base}_add", use_container_width=True):
-        st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
-        st.rerun()
+        st.caption("Noteer bij eigen producten het aantal koolhydraten per portie (zie verpakking)")
+        if st.button("➕  Voeg eigen product toe", key=f"{eigen_key_base}_add", use_container_width=True):
+            st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
+            st.rerun()
 
-    ontbijt_kh = round(ontbijt_kh + eigen_kh_total)
+        ontbijt_kh = round(ontbijt_kh + eigen_kh_total)
+
+        # Opslaan knop binnen expander
+        st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+        _pct_knop    = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
+        _over_knop   = ontbijt_kh > kh_max
+        _reeds_groen = st.session_state.get("rd_status_bevestigd", False)
+        _btn_lbl     = "✅  Bevestigd" if _reeds_groen else "Dagdeel opslaan"
+        if st.button(_btn_lbl, key="rd_save", use_container_width=True):
+            st.session_state["rd_status_bevestigd"] = (_pct_knop >= 25 and not _over_knop)
+            st.rerun()
 
     # Totaalbalk — zelfde stijl als carboloading
     pct      = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
@@ -912,13 +932,7 @@ def _stap_racedag():
 
 
 
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    rd_status_key = "rd_status_bevestigd"
-    reeds_groen   = st.session_state.get(rd_status_key, False)
-    btn_lbl       = "✅  Bevestigd" if reeds_groen else "Dagdeel opslaan"
-    if st.button(btn_lbl, key="rd_save", use_container_width=True):
-        st.session_state[rd_status_key] = (pct >= 80 and not over)
-        st.rerun()
+
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
