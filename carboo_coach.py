@@ -699,43 +699,11 @@ def _stap_racedag():
 
 
 
-    # Voortgangsbalk bovenaan — direct na timing (op basis van session_state keys)
-    _rd_preview_kh = sum(
-        v for k, v in st.session_state.items()
-        if k.startswith(f"rd_{maaltijd_naam}_") and isinstance(v, (int, float))
-    )
-    _rd_pct = min(100, round((_rd_preview_kh / kh_max) * 100)) if kh_max > 0 else 0
-    _rd_over = _rd_preview_kh > kh_max
-    if _rd_over:          _rd_bar = "#ef4444"
-    elif _rd_pct >= 80:   _rd_bar = "#22c55e"
-    elif _rd_pct >= 50:   _rd_bar = "#fbbf24"
-    else:                 _rd_bar = "#f97316"
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:12px 0 16px 0;">' +
-        f'<div style="width:{_rd_pct}%;height:100%;background:{_rd_bar};border-radius:8px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
 
 
 
-    # ── Voortgangsbalk bovenaan ─────────────────────────────────────────────
-    _kh_prev = sum(
-        v for k, v in st.session_state.items()
-        if k.startswith(f"rd_{maaltijd_naam}_") and isinstance(v, (int, float))
-    )
-    _pct_prev  = min(100, round((_kh_prev / kh_max) * 100)) if kh_max > 0 else 0
-    _over_prev = _kh_prev > kh_max
-    if _over_prev:          _bar_prev = "#ef4444"
-    elif _pct_prev >= 80:   _bar_prev = "#22c55e"
-    elif _pct_prev >= 50:   _bar_prev = "#fbbf24"
-    else:                   _bar_prev = "#f97316"
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:8px 0 16px 0;">' +
-        f'<div style="width:{_pct_prev}%;height:100%;background:{_bar_prev};border-radius:8px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
+
+
 
     # Productenlijsten per maaltijdmoment
     RACEDAG_FOODS = {
@@ -797,6 +765,24 @@ def _stap_racedag():
                 seen.add(p["naam"])
                 producten.append(p)
     saved_rd  = data.get("rd_waarden", {})
+
+    # ── Voortgangsbalk ───────────────────────────────────────────────────────
+    _kh_balk = sum(
+        st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p["kh_portie"]
+        for p in producten
+    )
+    _pct_balk  = min(100, round((_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
+    _over_balk = _kh_balk > kh_max
+    if _over_balk:        _kleur_balk = "#ef4444"
+    elif _pct_balk >= 80: _kleur_balk = "#22c55e"
+    elif _pct_balk >= 50: _kleur_balk = "#fbbf24"
+    else:                 _kleur_balk = "#f97316"
+    st.markdown(
+        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:0 0 14px 0;">' +
+        f'<div style="width:{_pct_balk}%;height:100%;background:{_kleur_balk};border-radius:8px;"></div>' +
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
     # Header
     st.markdown(
