@@ -729,10 +729,10 @@ def _stap_racedag():
         unsafe_allow_html=True
     )
 
-    # Voortgangsbalk bovenaan — direct na timing
+    # Voortgangsbalk bovenaan — direct na timing (op basis van session_state keys)
     _rd_preview_kh = sum(
-        st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p.get("kh_portie", 0)
-        for p in RACEDAG_FOODS.get(maaltijd_naam, [])
+        v for k, v in st.session_state.items()
+        if k.startswith(f"rd_{maaltijd_naam}_") and isinstance(v, (int, float))
     )
     _rd_pct = min(100, round((_rd_preview_kh / kh_max) * 100)) if kh_max > 0 else 0
     _rd_over = _rd_preview_kh > kh_max
