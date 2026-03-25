@@ -657,8 +657,10 @@ def _stap_racedag():
     data           = st.session_state.get("coach_data", {})
     start_time_str = data.get("start_time", "09:00")
     gewicht        = data.get("gewicht", 70)
-    kh_min         = round(gewicht * 1)
-    kh_max         = round(gewicht * 4)
+    # KH richtlijn afhankelijk van timing (wetenschappelijk: g/kg/uur voor de start)
+    # Wordt pas correct berekend na timing keuze — hier als fallback
+    kh_min = round(gewicht * 1)
+    kh_max = round(gewicht * 4)
 
     # Herstel status bij terugkeren
     if "rd_status_bevestigd" not in st.session_state:
@@ -696,6 +698,10 @@ def _stap_racedag():
                                   list(onbijt_tips.keys()), key="rd_ontbijt_timing")
     offset       = onbijt_tips[ontbijt_keuze]
     ontbijt_tijd = (start_dt + timedelta(minutes=offset)).strftime("%H:%M")
+
+    # KH richtlijn: 1-4g per kg lichaamsgewicht voor alle tijden
+    kh_min = round(gewicht * 1)
+    kh_max = round(gewicht * 4)
 
 
 
@@ -773,10 +779,11 @@ def _stap_racedag():
     )
     _pct_balk  = min(100, round((_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
     _over_balk = _kh_balk > kh_max
-    if _over_balk:        _kleur_balk = "#ef4444"
-    elif _pct_balk >= 80: _kleur_balk = "#22c55e"
-    elif _pct_balk >= 50: _kleur_balk = "#fbbf24"
-    else:                 _kleur_balk = "#f97316"
+    # Groen = binnen richtlijn (>= kh_min), rood = boven kh_max
+    if _over_balk:           _kleur_balk = "#ef4444"
+    elif _pct_balk >= 25:    _kleur_balk = "#22c55e"
+    elif _pct_balk >= 15:    _kleur_balk = "#fbbf24"
+    else:                    _kleur_balk = "#f97316"
     st.markdown(
         f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:0 0 14px 0;">' +
         f'<div style="width:{_pct_balk}%;height:100%;background:{_kleur_balk};border-radius:8px;"></div>' +
@@ -886,10 +893,10 @@ def _stap_racedag():
     # Totaalbalk — zelfde stijl als carboloading
     pct      = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
     over     = ontbijt_kh > kh_max
-    if over:          bar_color = "#ef4444"
-    elif pct >= 80:   bar_color = "#22c55e"
-    elif pct >= 50:   bar_color = "#fbbf24"
-    else:             bar_color = "#f97316"
+    if over:           bar_color = "#ef4444"
+    elif pct >= 25:    bar_color = "#22c55e"
+    elif pct >= 15:    bar_color = "#fbbf24"
+    else:              bar_color = "#f97316"
 
     if over:
         st.markdown(
