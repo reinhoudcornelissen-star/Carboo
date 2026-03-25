@@ -697,37 +697,7 @@ def _stap_racedag():
     offset       = onbijt_tips[ontbijt_keuze]
     ontbijt_tijd = (start_dt + timedelta(minutes=offset)).strftime("%H:%M")
 
-    # Voortgangsbalk bovenaan op basis van huidige waarden
-    _preview_rd = sum(
-        st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * 0  # placeholder, zie onder
-        for p in []
-    )
-    # Bereken op basis van alle rd_ keys in session_state
-    _rd_kh_preview = sum(
-        v for k, v in st.session_state.items()
-        if k.startswith(f"rd_{maaltijd_naam}_") and isinstance(v, (int, float))
-    )
-    # Eigen producten preview
-    _eigen_rd_base = f"rd_eigen_{maaltijd_naam}"
-    _n_eigen_rd    = st.session_state.get(f"{_eigen_rd_base}_n", 0)
-    for _i in range(_n_eigen_rd):
-        _ekh  = st.session_state.get(f"{_eigen_rd_base}_{_i}_kh",   0.0)
-        _eport = st.session_state.get(f"{_eigen_rd_base}_{_i}_port", 0.0)
-        _rd_kh_preview += _ekh * _eport
 
-    _pct_rd  = min(100, round((_rd_kh_preview / kh_max) * 100)) if kh_max > 0 else 0
-    _over_rd = _rd_kh_preview > kh_max
-    if _over_rd:          _bar_rd = "#ef4444"
-    elif _pct_rd >= 80:   _bar_rd = "#22c55e"
-    elif _pct_rd >= 50:   _bar_rd = "#fbbf24"
-    else:                 _bar_rd = "#f97316"
-
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:6px;height:10px;margin:10px 0 16px 0;">' +
-        f'<div style="width:{_pct_rd}%;height:100%;background:{_bar_rd};border-radius:6px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
 
     # Voortgangsbalk bovenaan — direct na timing (op basis van session_state keys)
     _rd_preview_kh = sum(
@@ -748,6 +718,24 @@ def _stap_racedag():
     )
 
 
+
+    # ── Voortgangsbalk bovenaan ─────────────────────────────────────────────
+    _kh_prev = sum(
+        v for k, v in st.session_state.items()
+        if k.startswith(f"rd_{maaltijd_naam}_") and isinstance(v, (int, float))
+    )
+    _pct_prev  = min(100, round((_kh_prev / kh_max) * 100)) if kh_max > 0 else 0
+    _over_prev = _kh_prev > kh_max
+    if _over_prev:          _bar_prev = "#ef4444"
+    elif _pct_prev >= 80:   _bar_prev = "#22c55e"
+    elif _pct_prev >= 50:   _bar_prev = "#fbbf24"
+    else:                   _bar_prev = "#f97316"
+    st.markdown(
+        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:8px 0 16px 0;">' +
+        f'<div style="width:{_pct_prev}%;height:100%;background:{_bar_prev};border-radius:8px;"></div>' +
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
     # Productenlijsten per maaltijdmoment
     RACEDAG_FOODS = {
@@ -929,13 +917,7 @@ def _stap_racedag():
             unsafe_allow_html=True
         )
 
-    # Balk ook onderaan updaten (actueel na invullen)
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin-top:10px;">' +
-        f'<div style="width:{pct}%;height:100%;background:{bar_color};border-radius:8px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
+
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     rd_status_key = "rd_status_bevestigd"
