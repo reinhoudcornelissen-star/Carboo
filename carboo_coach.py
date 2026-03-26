@@ -276,6 +276,27 @@ def _stap_carboloading():
     div[data-testid="stNumberInput"] input { background-color:#1e293b !important; color:#f8fafc !important; border:1px solid #334155 !important; }
     div[data-testid="stNumberInput"] button { background-color:#334155 !important; color:#f8fafc !important; border:none !important; }
     div[data-testid="stTextInput"] input { background-color:#1e293b !important; color:#f8fafc !important; border:1px solid #334155 !important; }
+    /* Expander header: lichtgrijze achtergrond + donkere tekst — altijd leesbaar */
+    div[data-testid="stExpander"] > details > summary {
+        background-color: #1e293b !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        color: #f1f5f9 !important;
+    }
+    div[data-testid="stExpander"] > details > summary:hover {
+        background-color: #334155 !important;
+        color: #f8fafc !important;
+    }
+    div[data-testid="stExpander"] > details > summary p {
+        color: #f1f5f9 !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stExpander"] > details > summary:hover p {
+        color: #f8fafc !important;
+    }
+    div[data-testid="stExpander"] > details > summary svg {
+        fill: #f1f5f9 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
