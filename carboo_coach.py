@@ -727,6 +727,32 @@ def _stap_racedag():
     Wanneer het balkje groen kleurt, bevestig je met <b>Dagdeel opslaan</b>.
     """)
 
+    # Expander CSS voor leesbaarheid
+    st.markdown("""
+    <style>
+    div[data-testid="stExpander"] > details > summary {
+        background-color: #1e293b !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        color: #f1f5f9 !important;
+    }
+    div[data-testid="stExpander"] > details > summary:hover {
+        background-color: #334155 !important;
+        color: #f8fafc !important;
+    }
+    div[data-testid="stExpander"] > details > summary p {
+        color: #f1f5f9 !important;
+        font-weight: 600 !important;
+    }
+    div[data-testid="stExpander"] > details > summary:hover p {
+        color: #f8fafc !important;
+    }
+    div[data-testid="stExpander"] > details > summary svg {
+        fill: #f1f5f9 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     # Timing dropdown
     onbijt_tips = {
         "3-4 uur voor start (aanbevolen)": -210,
@@ -1230,15 +1256,140 @@ def _stap_raceplan():
         },
     }
 
-    col_prev, col_gen = st.columns(2)
+    # ── Knoppen: Preview + Genereer ─────────────────────────────────────────
+    col_prev, col_preview, col_gen = st.columns([1, 2, 2])
     with col_prev:
         if st.button("← Vorige", key="rp_prev"):
+            st.session_state.coach_data["pool"] = pool
             st.session_state.coach_stap = 4
             st.rerun()
+    with col_preview:
+        if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
+            st.session_state.coach_data["pool"] = pool
+            st.session_state["rp_show_preview"] = True
     with col_gen:
-        if st.button("✅  GENEREER VOLLEDIG PLAN", key="rp_gen", use_container_width=True):
+        if st.button("✅  Genereer plan", key="rp_gen", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             st.session_state.coach_stap = 6
+            st.rerun()
+
+    # ── Preview schema ────────────────────────────────────────────────────────
+    if st.session_state.get("rp_show_preview", False):
+        import math
+        from datetime import datetime, timedelta
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background:#0f172a;border:2px solid #3b82f6;border-radius:14px;
+             padding:14px 18px;margin-bottom:16px;">
+            <div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">
+                👁  PREVIEW RACEPLAN — aanpasbaar per uur
+            </div>
+            <div style="color:#64748b;font-size:0.78rem;">
+                Pas de producten per uur aan. Klik daarna op Genereer plan om door te gaan.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Bereken het plan op basis van huidige pool
+        preview_data = {**st.session_state.get("coach_data", {}), "pool": pool}
+        uren, vocht_pm = _bereken_raceplan(preview_data)
+
+        # Bouw lijst van alle beschikbare producten voor dropdowns
+        alle_producten = []
+        emoji_map = {}
+        if pool.get("drank"):
+            for p in pool["drank"]:
+                naam = p.get("naam", p.get("name",""))
+                alle_producten.append({"label": f"🥤 {naam} ({vocht_pm}ml)", "kh": round(p["kh"]/500*vocht_pm), "emoji": "🥤"})
+                emoji_map[f"🥤 {naam} ({vocht_pm}ml)"] = "🥤"
+        if pool.get("gels"):
+            for p in pool["gels"]:
+                naam = p.get("naam", p.get("name",""))
+                alle_producten.append({"label": f"⚡ {naam}", "kh": p["kh"], "emoji": "⚡"})
+                emoji_map[f"⚡ {naam}"] = "⚡"
+        if pool.get("vast"):
+            for p in pool["vast"]:
+                naam = p.get("naam", p.get("name",""))
+                alle_producten.append({"label": f"🍌 {naam}", "kh": p["kh"], "emoji": "🍌"})
+                emoji_map[f"🍌 {naam}"] = "🍌"
+        if pool.get("cafe"):
+            for p in pool["cafe"]:
+                naam = p.get("naam", p.get("name",""))
+                alle_producten.append({"label": f"☕ {naam}", "kh": p["kh"], "emoji": "☕"})
+                emoji_map[f"☕ {naam}"] = "☕"
+        alle_producten.append({"label": "💧 Water", "kh": 0, "emoji": "💧"})
+        alle_producten.append({"label": "— leeg —", "kh": 0, "emoji": ""})
+
+        prod_labels   = [p["label"] for p in alle_producten]
+        prod_kh_map   = {p["label"]: p["kh"] for p in alle_producten}
+
+        min_labels = ["+20min", "+30min", "+40min", "+45min", "+60min"]
+
+        for uur_d in uren:
+            u_num   = uur_d["uur"]
+            u_start = uur_d["uur_start"]
+            u_min   = uur_d["min_kh"]
+            u_max   = uur_d["max_kh"]
+            geen_kh = uur_d["geen_kh"]
+            items   = uur_d["items"]
+
+            # Kop
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px 8px 0 0;padding:8px 14px;' +
+                f'display:flex;justify-content:space-between;align-items:center;margin-top:10px;">' +
+                f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">UUR {u_num} — {u_start}</span>' +
+                (f'<span style="color:#64748b;font-size:0.75rem;">Target: {u_min}–{u_max}g KH</span>' if not geen_kh else
+                 '<span style="color:#3b82f6;font-size:0.75rem;">Geen KH nodig</span>') +
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+            # Per item: timing dropdown + product dropdown
+            uur_kh_totaal = 0
+            n_items = max(len(items), 2)
+            for i_idx in range(n_items):
+                item = items[i_idx] if i_idx < len(items) else {"min": "+20min", "naam": "— leeg —", "kh": 0}
+                default_prod = next((p["label"] for p in alle_producten
+                                     if item["naam"].split("(")[0].strip() in p["label"]), "— leeg —")
+                c1, c2, c3 = st.columns([1.2, 3.5, 1])
+                with c1:
+                    gekozen_min = st.selectbox("",
+                        min_labels,
+                        index=min_labels.index(item["min"]) if item["min"] in min_labels else 0,
+                        key=f"prev_min_{u_num}_{i_idx}",
+                        label_visibility="collapsed"
+                    )
+                with c2:
+                    gekozen_prod = st.selectbox("",
+                        prod_labels,
+                        index=prod_labels.index(default_prod) if default_prod in prod_labels else len(prod_labels)-1,
+                        key=f"prev_prod_{u_num}_{i_idx}",
+                        label_visibility="collapsed"
+                    )
+                with c3:
+                    kh_val = prod_kh_map.get(gekozen_prod, 0)
+                    st.markdown(
+                        f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;' +
+                        f'color:#f97316;text-align:center;">{kh_val}g</div>',
+                        unsafe_allow_html=True
+                    )
+                uur_kh_totaal += kh_val
+
+            # Totaal per uur
+            bar_c = "#22c55e" if uur_kh_totaal >= u_min else ("#fbbf24" if uur_kh_totaal >= u_min*0.7 else "#f97316")
+            if geen_kh: bar_c = "#3b82f6"
+            st.markdown(
+                f'<div style="background:#0f172a;border-radius:0 0 8px 8px;padding:6px 14px;' +
+                f'display:flex;justify-content:space-between;border-top:1px solid #1e293b;">' +
+                f'<span style="color:#94a3b8;font-size:0.75rem;">Totaal uur {u_num}</span>' +
+                f'<span style="font-weight:700;font-size:0.8rem;color:{bar_c};">{uur_kh_totaal}g KH</span>' +
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+        if st.button("✕  Sluit preview", key="rp_close_preview"):
+            st.session_state["rp_show_preview"] = False
             st.rerun()
 
 
