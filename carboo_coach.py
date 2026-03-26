@@ -572,17 +572,22 @@ def _stap_carboloading():
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
-                            # Opslaan knop — triggert groene dot
+                            # Toggle knop: opslaan ↔ aanpassen
                             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-                            pct_nu = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
+                            pct_nu      = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
                             reeds_groen = st.session_state.get(status_key, False)
-                            btn_lbl = "✅  Bevestigd" if reeds_groen else "Dagdeel opslaan"
+                            if reeds_groen:
+                                btn_lbl  = "✏️  Aanpassen"
+                                btn_type = "secondary"
+                            else:
+                                btn_lbl  = "Dagdeel opslaan"
+                                btn_type = "primary"
                             if st.button(btn_lbl, key=f"save_{dag_idx}_{m_name}",
-                                         use_container_width=True):
-                                if pct_nu >= 80 and moment_kh <= m_target:
-                                    st.session_state[status_key] = True
-                                else:
+                                         use_container_width=True, type=btn_type):
+                                if reeds_groen:
                                     st.session_state[status_key] = False
+                                else:
+                                    st.session_state[status_key] = (pct_nu >= 80 and moment_kh <= m_target)
                                 st.rerun()
 
                         dag_kh += moment_kh
@@ -900,14 +905,22 @@ def _stap_racedag():
 
         ontbijt_kh = round(ontbijt_kh + eigen_kh_total)
 
-        # Opslaan knop binnen expander
+        # Toggle knop: opslaan ↔ aanpassen
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
         _pct_knop    = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
         _over_knop   = ontbijt_kh > kh_max
         _reeds_groen = st.session_state.get("rd_status_bevestigd", False)
-        _btn_lbl     = "✅  Bevestigd" if _reeds_groen else "Dagdeel opslaan"
-        if st.button(_btn_lbl, key="rd_save", use_container_width=True):
-            st.session_state["rd_status_bevestigd"] = (_pct_knop >= 25 and not _over_knop)
+        if _reeds_groen:
+            _btn_lbl  = "🔓  Wijzigen"
+            _btn_type = "secondary"
+        else:
+            _btn_lbl  = "Dagdeel opslaan"
+            _btn_type = "primary"
+        if st.button(_btn_lbl, key="rd_save", use_container_width=True, type=_btn_type):
+            if _reeds_groen:
+                st.session_state["rd_status_bevestigd"] = False
+            else:
+                st.session_state["rd_status_bevestigd"] = (_pct_knop >= 25 and not _over_knop)
             st.rerun()
 
     # Totaalbalk — zelfde stijl als carboloading
