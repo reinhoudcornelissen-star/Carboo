@@ -577,7 +577,7 @@ def _stap_carboloading():
                             pct_nu      = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
                             reeds_groen = st.session_state.get(status_key, False)
                             if reeds_groen:
-                                btn_lbl  = "✏️  Aanpassen"
+                                btn_lbl  = "🔓  Wijzigen"
                                 btn_type = "secondary"
                             else:
                                 btn_lbl  = "Dagdeel opslaan"
@@ -667,9 +667,14 @@ def _stap_racedag():
     kh_min = round(gewicht * 1)
     kh_max = round(gewicht * 4)
 
-    # Herstel status bij terugkeren
+    # Herstel status en waarden bij terugkeren
     if "rd_status_bevestigd" not in st.session_state:
         st.session_state["rd_status_bevestigd"] = data.get("rd_status", False)
+    # Herstel rd_ waarden
+    saved_rd_waarden = data.get("rd_waarden", {})
+    for k, v in saved_rd_waarden.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
 
     start_dt  = datetime.strptime(start_time_str, "%H:%M")
     start_uur = start_dt.hour
@@ -921,6 +926,19 @@ def _stap_racedag():
                 st.session_state["rd_status_bevestigd"] = False
             else:
                 st.session_state["rd_status_bevestigd"] = (_pct_knop >= 25 and not _over_knop)
+            # Bewaar rd_waarden bij klikken zodat ze behouden blijven bij navigatie
+            _rd_waarden_save = {
+                f"rd_{maaltijd_naam}_{p['naam']}": st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0)
+                for p in producten
+            }
+            if "coach_data" not in st.session_state:
+                st.session_state.coach_data = {}
+            st.session_state.coach_data["rd_waarden"]    = _rd_waarden_save
+            st.session_state.coach_data["rd_status"]     = st.session_state.get("rd_status_bevestigd", False)
+            st.session_state.coach_data["ontbijt_kh"]    = ontbijt_kh
+            st.session_state.coach_data["ontbijt_timing"] = ontbijt_keuze
+            st.session_state.coach_data["ontbijt_tijd"]  = ontbijt_tijd
+            st.session_state.coach_data["maaltijd_moment"] = maaltijd_naam
             st.rerun()
 
     # Totaalbalk — zelfde stijl als carboloading
