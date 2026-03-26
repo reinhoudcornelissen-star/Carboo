@@ -417,11 +417,19 @@ def _stap_carboloading():
                         is_groen  = st.session_state.get(status_key, False)
 
                         # Bereken preview KH (huidige waarden uit session_state)
+                        # Standaard producten
                         preview_kh = sum(
                             st.session_state.get(f"cl_d{dag_idx}_{m_name}_{p['naam']}", 0.0)
                             * p["kh_portie"]
                             for p in MOMENT_FOODS.get(m_name, [])
                         )
+                        # Eigen producten meetellen
+                        _eigen_base_prev = f"eigen_d{dag_idx}_{m_name}"
+                        _n_eigen_prev = st.session_state.get(f"{_eigen_base_prev}_n", 0)
+                        for _ei in range(_n_eigen_prev):
+                            _ekh   = st.session_state.get(f"{_eigen_base_prev}_{_ei}_kh",   0.0)
+                            _eport = st.session_state.get(f"{_eigen_base_prev}_{_ei}_port", 0.0)
+                            preview_kh += _ekh * _eport
                         over_limiet = preview_kh > m_target
 
                         # Groene dot verdwijnt automatisch bij overschrijding
@@ -783,10 +791,17 @@ def _stap_racedag():
     saved_rd  = data.get("rd_waarden", {})
 
     # ── Voortgangsbalk + avatar bij overschrijding ──────────────────────────
+    # Standaard producten
     _kh_balk = sum(
         st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p["kh_portie"]
         for p in producten
     )
+    # Eigen producten meetellen in de balk
+    _eigen_rd_n = st.session_state.get(f"rd_eigen_{maaltijd_naam}_n", 0)
+    for _ei in range(_eigen_rd_n):
+        _ekh_rd   = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei}_kh",   0.0)
+        _eport_rd = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei}_port", 0.0)
+        _kh_balk += _ekh_rd * _eport_rd
     _pct_balk  = min(100, round((_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
     _over_balk = _kh_balk > kh_max
     if _over_balk:        _kleur_balk = "#ef4444"
