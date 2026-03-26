@@ -1157,100 +1157,88 @@ def _stap_raceplan():
             '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;">' +
             '<span style="color:#60a5fa;font-size:0.85rem;">'
             '📝 Kies hieronder de producten die je wenst te gebruiken in je race ' +
-            'en ik giet ze in een schema.</span></div>'
+            'en ik giet ze in een voorlopig schema dat je zelf nog kan aanvullen of wijzigen.</span></div>'
         )
     sport_html += '</div>'
     st.markdown(sport_html, unsafe_allow_html=True)
 
     def _prod_blok(label, kleur, emoji, key_n, key_naam, key_kh,
                        default_n, placeholder, default_kh, eenheid="KH/stuk"):
-        """Helper: één productgroep."""
-        st.markdown(
-            f'<div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;'
-            f'padding:14px 16px;margin-bottom:14px;">' +
-            f'<div style="color:{kleur};font-weight:800;font-size:0.82rem;'
-            f'letter-spacing:0.08em;margin-bottom:10px;">{emoji} {label}</div>',
-            unsafe_allow_html=True
-        )
-        n = st.number_input(f"Aantal", 0, 8, default_n, key=key_n, label_visibility="collapsed")
+        n = st.number_input(f"Aantal {label.lower()}", 0, 8, default_n,
+                            key=key_n, label_visibility="collapsed")
         pool_items = []
         for i in range(int(n)):
-            h1, h2, h3 = st.columns([3, 1.5, 0.8])
-            with h1:
-                if i == 0:
-                    st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">PRODUCTNAAM</div>', unsafe_allow_html=True)
+            c1, c2, c3 = st.columns([3, 1.5, 0.8])
+            with c1:
                 naam = st.text_input("naam", key=f"{key_naam}_{i}",
                                      placeholder=placeholder, label_visibility="collapsed")
-            with h2:
-                if i == 0:
-                    st.markdown(f'<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">{eenheid.upper()}</div>', unsafe_allow_html=True)
-                kh = st.number_input("kh", key=f"{key_kh}_{i}",
+            with c2:
+                kh = st.number_input(eenheid, key=f"{key_kh}_{i}",
                                      min_value=0, value=default_kh, label_visibility="collapsed")
-            with h3:
-                if i == 0:
-                    st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">G KH</div>', unsafe_allow_html=True)
+            with c3:
                 st.markdown(
-                    f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;'
+                    f'<div style="padding:8px 4px;font-size:0.85rem;font-weight:700;' +
                     f'color:#f97316;text-align:center;">{kh}g</div>',
-                    unsafe_allow_html=True
-                )
+                    unsafe_allow_html=True)
             if naam:
                 pool_items.append({"naam": naam, "kh": kh})
-        st.markdown('</div>', unsafe_allow_html=True)
         return pool_items
 
-    # ── Rij 1: Sportdrank ─────────────────────────────────────────────────────
-    st.markdown('<div style="color:#3b82f6;font-weight:800;font-size:0.85rem;margin-bottom:6px;">🥤 SPORTDRANK</div>', unsafe_allow_html=True)
+    def _sectie_header(label, kleur, emoji):
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:8px;margin:14px 0 6px 0;">' +
+            f'<span style="font-size:1.1rem;">{emoji}</span>' +
+            f'<span style="color:{kleur};font-weight:800;font-size:0.88rem;'
+            f'letter-spacing:0.08em;">{label}</span></div>',
+            unsafe_allow_html=True)
+
+    # ── 1. Sportdrank ────────────────────────────────────────────────────────
+    _sectie_header("SPORTDRANK", "#3b82f6", "🥤")
+    st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Naam &nbsp;·&nbsp; KH per 500ml &nbsp;·&nbsp; Totaal</div>', unsafe_allow_html=True)
     drank_pool = _prod_blok("Sportdrank", "#3b82f6", "🥤",
                             "rp_n_drank", "rp_drank", "rp_dkh",
                             1, "bijv. Maurten 320", 70, "KH/500ml")
 
-    # ── Rij 2: Energy gels (normaal + cafeïne onder één sectie) ──────────────
-    st.markdown('<div style="color:#60a5fa;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">⚡ ENERGY GELS</div>', unsafe_allow_html=True)
-
+    # ── 2. Energy gels ───────────────────────────────────────────────────────
+    _sectie_header("ENERGY GELS", "#60a5fa", "⚡")
     gel_col1, gel_col2 = st.columns(2)
     with gel_col1:
-        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Gewone gels</div>', unsafe_allow_html=True)
-        gels_pool = _prod_blok("Gels", "#60a5fa", "⚡",
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Gewone gels &nbsp;·&nbsp; KH/gel</div>', unsafe_allow_html=True)
+        gels_pool = _prod_blok("Gel", "#60a5fa", "⚡",
                                "rp_n_gels", "rp_gel", "rp_gkh",
                                1, "bijv. SIS Go Gel", 22, "KH/gel")
     with gel_col2:
-        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Gels met cafeïne</div>', unsafe_allow_html=True)
-        cafe_pool = _prod_blok("Cafeïne gels", "#f59e0b", "☕",
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Gels met cafeïne &nbsp;·&nbsp; KH/gel</div>', unsafe_allow_html=True)
+        cafe_pool = _prod_blok("Cafeïne gel", "#f59e0b", "☕",
                                "rp_n_cafe", "rp_cafe", "rp_ckh",
                                0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
 
-    # ── Rij 3: Vaste voeding ─────────────────────────────────────────────────
-    st.markdown('<div style="color:#10b981;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">🍌 VASTE VOEDING</div>', unsafe_allow_html=True)
-    vast_pool = _prod_blok("Vaste voeding", "#10b981", "🍌",
+    # ── 3. Vaste voeding ─────────────────────────────────────────────────────
+    _sectie_header("VASTE VOEDING", "#10b981", "🍌")
+    st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Naam &nbsp;·&nbsp; KH per portie &nbsp;·&nbsp; Totaal</div>', unsafe_allow_html=True)
+    vast_pool = _prod_blok("Vast voedsel", "#10b981", "🍌",
                            "rp_n_vast", "rp_vast", "rp_vkh",
                            0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
 
-    # ── Rij 4: Supplementen ───────────────────────────────────────────────────
-    st.markdown('<div style="color:#8b5cf6;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">💊 SUPPLEMENTEN</div>', unsafe_allow_html=True)
-    st.markdown('''
-    <div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;
-         padding:14px 16px;margin-bottom:14px;">
-    ''', unsafe_allow_html=True)
-
+    # ── 4. Supplementen ───────────────────────────────────────────────────────
+    _sectie_header("SUPPLEMENTEN", "#8b5cf6", "💊")
     supp_col1, supp_col2 = st.columns(2)
     with supp_col1:
-        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">ORS tabletten</div>', unsafe_allow_html=True)
-        ors_naam  = st.text_input("ORS naam", placeholder="bijv. SIS Hydro, Precision ORS",
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">ORS tabletten</div>', unsafe_allow_html=True)
+        ors_naam  = st.text_input("ORS", placeholder="bijv. SIS Hydro, Precision ORS",
                                   key="rp_ors_naam", label_visibility="collapsed")
-        ors_dosis = st.number_input("ORS tablet per uur", 0, 10, 0,
-                                    key="rp_ors_dosis", label_visibility="collapsed",
-                                    help="Aantal ORS tabletten per uur")
-        st.caption("ORS tablet per uur")
+        ors_dosis = st.number_input("per uur", 0, 10, 0, key="rp_ors_dosis",
+                                    label_visibility="collapsed", help="Aantal ORS tabletten per uur")
+        st.caption("Tabletten per uur")
     with supp_col2:
-        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Cafeïne gum</div>', unsafe_allow_html=True)
-        gum_naam  = st.text_input("Gum naam", placeholder="bijv. Run Gum, Athlete Gum",
-                                  key="rp_gum_naam", label_visibility="collapsed")
-        gum_mg    = st.number_input("Cafeïne per stuk (mg)", 0, 200, 0, 25,
-                                    key="rp_gum_mg", label_visibility="collapsed",
-                                    help="mg cafeïne per stuk kauwgom")
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Cafeïne gum</div>', unsafe_allow_html=True)
+        gum_naam = st.text_input("Gum", placeholder="bijv. Run Gum, Athlete Gum",
+                                 key="rp_gum_naam", label_visibility="collapsed")
+        gum_mg   = st.number_input("mg cafeïne/stuk", 0, 200, 0, 25, key="rp_gum_mg",
+                                   label_visibility="collapsed", help="mg cafeïne per stuk")
         st.caption("mg cafeïne per stuk")
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     pool = {
         "drank": drank_pool,
