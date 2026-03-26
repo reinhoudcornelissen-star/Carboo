@@ -941,7 +941,7 @@ def _stap_racedag():
             st.session_state.coach_data["maaltijd_moment"] = maaltijd_naam
             st.rerun()
 
-    # Totaalbalk — zelfde stijl als carboloading
+    # Totaalbalk
     pct      = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
     over     = ontbijt_kh > kh_max
     if over:           bar_color = "#ef4444"
@@ -949,9 +949,18 @@ def _stap_racedag():
     elif pct >= 15:    bar_color = "#fbbf24"
     else:              bar_color = "#f97316"
 
+    # Balk bovenaan
+    st.markdown(
+        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:10px 0 8px 0;">' +
+        f'<div style="width:{pct}%;height:100%;background:{bar_color};border-radius:8px;"></div>' +
+        f'</div>',
+        unsafe_allow_html=True
+    )
+
+    # Avatar melding direct onder de rode balk
     if over:
         st.markdown(
-            '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;' +
+            '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;' +
             'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
             'border-radius:10px;padding:8px 12px;">' +
             '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
