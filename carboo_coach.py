@@ -782,30 +782,36 @@ def _stap_racedag():
                 producten.append(p)
     saved_rd  = data.get("rd_waarden", {})
 
-    # ── Voortgangsbalk ───────────────────────────────────────────────────────
+    # ── Voortgangsbalk + avatar bij overschrijding ──────────────────────────
     _kh_balk = sum(
         st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p["kh_portie"]
         for p in producten
     )
     _pct_balk  = min(100, round((_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
     _over_balk = _kh_balk > kh_max
-    # Groen = binnen richtlijn (>= kh_min), rood = boven kh_max
-    if _over_balk:           _kleur_balk = "#ef4444"
-    elif _pct_balk >= 25:    _kleur_balk = "#22c55e"
-    elif _pct_balk >= 15:    _kleur_balk = "#fbbf24"
-    else:                    _kleur_balk = "#f97316"
+    if _over_balk:        _kleur_balk = "#ef4444"
+    elif _pct_balk >= 25: _kleur_balk = "#22c55e"
+    elif _pct_balk >= 15: _kleur_balk = "#fbbf24"
+    else:                 _kleur_balk = "#f97316"
     st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:0 0 14px 0;">' +
+        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:0 0 8px 0;">' +
         f'<div style="width:{_pct_balk}%;height:100%;background:{_kleur_balk};border-radius:8px;"></div>' +
         f'</div>',
         unsafe_allow_html=True
     )
+    if _over_balk:
+        st.markdown(
+            '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;' +
+            'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+            'border-radius:10px;padding:8px 12px;">' +
+            '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
+            '<span style="color:#fca5a5;font-size:0.80rem;">' +
+            '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze maaltijd!</span>' +
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-    # ontbijt_kh initialiseren (wordt berekend in expander, gebruikt na expander)
-    ontbijt_kh = 0
-    eigen_kh_total = 0
-
-    # Expander met label + groen bolletje
+        # Expander met label + groen bolletje
     rd_is_groen = st.session_state.get("rd_status_bevestigd", False)
     rd_dot      = "🟢 " if rd_is_groen else ""
     rd_exp_label = f"{rd_dot}**Voedingsmiddelen laatste maaltijd voor de race**"
@@ -940,39 +946,6 @@ def _stap_racedag():
             st.session_state.coach_data["ontbijt_tijd"]  = ontbijt_tijd
             st.session_state.coach_data["maaltijd_moment"] = maaltijd_naam
             st.rerun()
-
-    # Totaalbalk
-    pct      = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
-    over     = ontbijt_kh > kh_max
-    if over:           bar_color = "#ef4444"
-    elif pct >= 25:    bar_color = "#22c55e"
-    elif pct >= 15:    bar_color = "#fbbf24"
-    else:              bar_color = "#f97316"
-
-    # Balk bovenaan
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:10px 0 8px 0;">' +
-        f'<div style="width:{pct}%;height:100%;background:{bar_color};border-radius:8px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
-
-    # Avatar melding direct onder de rode balk
-    if over:
-        st.markdown(
-            '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;' +
-            'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
-            'border-radius:10px;padding:8px 12px;">' +
-            '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
-            '<span style="color:#fca5a5;font-size:0.80rem;">' +
-            '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze maaltijd!</span>' +
-            '</div>',
-            unsafe_allow_html=True
-        )
-
-
-
-
 
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
