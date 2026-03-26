@@ -195,10 +195,12 @@ def _stap_wedstrijd():
             value=datetime.now().date() + timedelta(days=14), key="w_datum")
     with col2:
         start_time = st.time_input("⏰ Starttijd",
-            value=datetime.strptime(data.get("start_time", "09:00"), "%H:%M").time(), key="w_start")
+            value=datetime.strptime(data.get("start_time", "09:00"), "%H:%M").time(),
+            step=60, key="w_start")
     with col3:
         eind_time = st.time_input("🏁 Geschatte eindtijd",
-            value=datetime.strptime(data.get("eind_time", "12:00"), "%H:%M").time(), key="w_eind")
+            value=datetime.strptime(data.get("eind_time", "12:00"), "%H:%M").time(),
+            step=60, key="w_eind")
 
     col4, col5 = st.columns(2)
     with col4:
@@ -1273,125 +1275,360 @@ def _stap_raceplan():
             st.session_state.coach_stap = 6
             st.rerun()
 
-    # ── Preview schema ────────────────────────────────────────────────────────
+    # ── Preview schema ─────────────────────────────────────────────────────────
     if st.session_state.get("rp_show_preview", False):
         import math
         from datetime import datetime, timedelta
 
+        data       = st.session_state.get("coach_data", {})
+        sport      = data.get("sport", "Fietsen")
+        totale_min = data.get("totale_min", 180)
+        temp       = data.get("temp", 18)
+        vochtigheid = data.get("vochtigheid", 50)
+        hoogte     = data.get("hoogte", 0)
+        start_str  = data.get("start_time", "09:00")
+        gewicht    = data.get("gewicht", 70)
+        niveau     = data.get("niveau", "Recreatief")
+        ervaring   = data.get("ervaring", "Eerste wedstrijd")
+        min_kh     = data.get("min_kh", 60)
+        max_kh     = data.get("max_kh", 90)
+        start_dt   = datetime.strptime(start_str, "%H:%M")
+        aantal_uren = math.ceil(totale_min / 60)
+
+        # ── Sport-fase labels ──────────────────────────────────────────────────
+        FASE_LABELS = {
+            "Triatlon": {
+                1: ("🏊", "Zwemmen", "Geen inname mogelijk — start gevoed"),
+                2: ("🚴", "Fietsen", "Hoofdtankmoment — start direct bij T1"),
+                3: ("🚴", "Fietsen", ""),
+                4: ("🚴", "Fietsen", ""),
+                5: ("🏃", "Lopen", "Vloeibaar only, GI-gevoeliger na fietsen"),
+                6: ("🏃", "Lopen", ""),
+                7: ("🏃", "Lopen", ""),
+            },
+            "Duatlon": {
+                1: ("🏃", "Loop 1", "Hoge intensiteit — geen inname mogelijk"),
+                2: ("🚴", "Fietsen", "Hoofdtankmoment — start direct"),
+                3: ("🚴", "Fietsen", ""),
+                4: ("🏃", "Loop 2", "Gel mee vanuit T2"),
+                5: ("🏃", "Loop 2", ""),
+            },
+            "Crossduatlon": {
+                1: ("🏃", "Trail 1", "Technisch terrein — geen inname"),
+                2: ("🚵", "MTB", "Neem in op vlakke stukken, vloeibaar only"),
+                3: ("🚵", "MTB", ""),
+                4: ("🏃", "Trail 2", "Gel mee vanuit T2"),
+            },
+        }
+
+        def get_fase(sport, uur_num, totale_min):
+            if sport not in FASE_LABELS:
+                return None
+            fasen = FASE_LABELS[sport]
+            # Schaal uren naar fases op basis van totale duur
+            if sport == "Triatlon":
+                zwem_uren = 1
+                loop_start = max(3, aantal_uren - max(1, aantal_uren // 3))
+                if uur_num <= zwem_uren:
+                    return fasen.get(1)
+                elif uur_num < loop_start:
+                    return fasen.get(2)
+                else:
+                    return fasen.get(5)
+            return fasen.get(uur_num)
+
+        # ── Geen KH drempel ───────────────────────────────────────────────────
+        geen_kh_drempel = {"Fietsen": 75, "Lopen": 60, "Duatlon": 75, "Crossduatlon": 90}
+        geen_kh = totale_min < geen_kh_drempel.get(sport, 75)
+
+        # ── Globale instellingen ──────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("""
         <div style="background:#0f172a;border:2px solid #3b82f6;border-radius:14px;
-             padding:14px 18px;margin-bottom:16px;">
+             padding:14px 18px;margin-bottom:12px;">
             <div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">
-                👁  PREVIEW RACEPLAN — aanpasbaar per uur
+                👁  PREVIEW RACEPLAN — aanpasbaar
             </div>
             <div style="color:#64748b;font-size:0.78rem;">
-                Pas de producten per uur aan. Klik daarna op Genereer plan om door te gaan.
+                Pas de globale instellingen aan of wijzig producten per uur.
+                Klik daarna op Genereer plan om door te gaan.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Bereken het plan op basis van huidige pool
-        preview_data = {**st.session_state.get("coach_data", {}), "pool": pool}
-        uren, vocht_pm = _bereken_raceplan(preview_data)
+        # Vocht berekening
+        basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 400)
+        f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
+        vocht_uur   = round(basis_vocht * (1 + f_factor) / 10) * 10
 
-        # Bouw lijst van alle beschikbare producten voor dropdowns
-        alle_producten = []
-        emoji_map = {}
+        # ── Globale instelbalk ────────────────────────────────────────────────
+        st.markdown("""
+        <div style="color:#f97316;font-weight:800;font-size:0.8rem;
+             letter-spacing:0.1em;margin-bottom:8px;">⚙️ GLOBALE INSTELLINGEN</div>
+        """, unsafe_allow_html=True)
+
+        g1, g2, g3, g4 = st.columns(4)
+        with g1:
+            vocht_pm = st.number_input("💧 Vocht/moment (ml)", 100, 400,
+                value=st.session_state.get("prev_vocht_pm", round(vocht_uur/3/10)*10),
+                step=25, key="prev_vocht_pm",
+                help=f"Aanbevolen op basis van {temp}°C, {vochtigheid}% vochtigheid, {hoogte}m hoogte")
+        with g2:
+            gel_interval = st.selectbox("⚡ Gel-interval", [20, 30, 40, 45, 60],
+                index=[20,30,40,45,60].index(st.session_state.get("prev_gel_interval", 40)),
+                key="prev_gel_interval",
+                format_func=lambda x: f"elke {x} min",
+                help="Hoe vaak een gel in het schema")
+        with g3:
+            vast_vanaf = st.number_input("🍌 Vast voedsel vanaf uur", 1, max(1, aantal_uren),
+                value=st.session_state.get("prev_vast_vanaf", 1),
+                key="prev_vast_vanaf",
+                help="Vast voedsel alleen inplannen vanaf dit uur")
+        with g4:
+            cafe_vanaf = st.number_input("☕ Cafeïne vanaf uur", 1, max(1, aantal_uren),
+                value=st.session_state.get("prev_cafe_vanaf", min(2, aantal_uren)),
+                key="prev_cafe_vanaf",
+                help="Cafeïne gel inplannen vanaf dit uur")
+
+        # ORS / Natrium waarschuwing
+        if temp > 28 or (temp > 24 and vochtigheid > 75):
+            st.markdown("""
+            <div style="background:rgba(239,68,68,0.1);border:1px solid #ef4444;
+                 border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fca5a5;">
+                ⚠️ <b>ORS NODIG:</b> Hitte + hoge vochtigheid — gebruik ORS tabletten voor zoutbalans.
+            </div>
+            """, unsafe_allow_html=True)
+
+        if hoogte > 1500:
+            st.markdown(f"""
+            <div style="background:rgba(59,130,246,0.1);border:1px solid #3b82f6;
+                 border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#93c5fd;">
+                ⛰️ <b>Hoogte {hoogte}m:</b> Verhoogd vochtverbruik — vochtadvies al automatisch aangepast (+{round(f_factor*100)}%).
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("<hr style='border-color:#1e293b;margin:12px 0'>", unsafe_allow_html=True)
+
+        # ── Bouw lijst van alle producten ─────────────────────────────────────
+        alle_opties = []
+        kh_map      = {}
+        emoji_map   = {}
+
         if pool.get("drank"):
             for p in pool["drank"]:
-                naam = p.get("naam", p.get("name",""))
-                alle_producten.append({"label": f"🥤 {naam} ({vocht_pm}ml)", "kh": round(p["kh"]/500*vocht_pm), "emoji": "🥤"})
-                emoji_map[f"🥤 {naam} ({vocht_pm}ml)"] = "🥤"
+                naam  = p.get("naam", p.get("name", "Sportdrank"))
+                kh_pm = round((p["kh"] / 500) * vocht_pm)
+                lbl   = f"🥤 {naam} ({vocht_pm}ml)"
+                alle_opties.append(lbl)
+                kh_map[lbl]    = kh_pm
+                emoji_map[lbl] = "🥤"
+
         if pool.get("gels"):
             for p in pool["gels"]:
-                naam = p.get("naam", p.get("name",""))
-                alle_producten.append({"label": f"⚡ {naam}", "kh": p["kh"], "emoji": "⚡"})
-                emoji_map[f"⚡ {naam}"] = "⚡"
+                naam = p.get("naam", p.get("name", "Gel"))
+                lbl  = f"⚡ {naam}"
+                alle_opties.append(lbl)
+                kh_map[lbl]    = p["kh"]
+                emoji_map[lbl] = "⚡"
+
         if pool.get("vast"):
             for p in pool["vast"]:
-                naam = p.get("naam", p.get("name",""))
-                alle_producten.append({"label": f"🍌 {naam}", "kh": p["kh"], "emoji": "🍌"})
-                emoji_map[f"🍌 {naam}"] = "🍌"
+                naam = p.get("naam", p.get("name", "Vast"))
+                lbl  = f"🍌 {naam}"
+                alle_opties.append(lbl)
+                kh_map[lbl]    = p["kh"]
+                emoji_map[lbl] = "🍌"
+
         if pool.get("cafe"):
             for p in pool["cafe"]:
-                naam = p.get("naam", p.get("name",""))
-                alle_producten.append({"label": f"☕ {naam}", "kh": p["kh"], "emoji": "☕"})
-                emoji_map[f"☕ {naam}"] = "☕"
-        alle_producten.append({"label": "💧 Water", "kh": 0, "emoji": "💧"})
-        alle_producten.append({"label": "— leeg —", "kh": 0, "emoji": ""})
+                naam = p.get("naam", p.get("name", "Cafeïne gel"))
+                lbl  = f"☕ {naam}"
+                alle_opties.append(lbl)
+                kh_map[lbl]    = p["kh"]
+                emoji_map[lbl] = "☕"
 
-        prod_labels   = [p["label"] for p in alle_producten]
-        prod_kh_map   = {p["label"]: p["kh"] for p in alle_producten}
+        alle_opties += ["💧 Water (150ml)", "— leeg —"]
+        kh_map["💧 Water (150ml)"] = 0
+        kh_map["— leeg —"]        = 0
 
-        min_labels = ["+20min", "+30min", "+40min", "+45min", "+60min"]
+        # Drank label (eerste optie indien beschikbaar)
+        drank_lbl = next((l for l in alle_opties if l.startswith("🥤")), "💧 Water (150ml)")
+        gel_lbl   = next((l for l in alle_opties if l.startswith("⚡")), None)
+        vast_lbl  = next((l for l in alle_opties if l.startswith("🍌")), None)
+        cafe_lbl  = next((l for l in alle_opties if l.startswith("☕")), None)
 
-        for uur_d in uren:
-            u_num   = uur_d["uur"]
-            u_start = uur_d["uur_start"]
-            u_min   = uur_d["min_kh"]
-            u_max   = uur_d["max_kh"]
-            geen_kh = uur_d["geen_kh"]
-            items   = uur_d["items"]
+        # ── Per uur schema ────────────────────────────────────────────────────
+        totaal_kh_race = 0
 
-            # Kop
+        for u in range(aantal_uren):
+            u_num    = u + 1
+            is_last  = (u == aantal_uren - 1)
+            uur_start = start_dt + timedelta(hours=u)
+            cur_min  = round(min_kh * 0.6) if is_last else min_kh
+            cur_max  = round(max_kh * 0.6) if is_last else max_kh
+            fase     = get_fase(sport, u_num, totale_min)
+
+            # Fase label
+            fase_html = ""
+            if fase:
+                fase_icon, fase_naam, fase_tip = fase
+                fase_html = f' &nbsp;<span style="color:#64748b;font-size:0.75rem;">{fase_icon} {fase_naam}'
+                if fase_tip:
+                    fase_html += f' — {fase_tip}'
+                fase_html += '</span>'
+
             st.markdown(
-                f'<div style="background:#1e293b;border-radius:8px 8px 0 0;padding:8px 14px;' +
-                f'display:flex;justify-content:space-between;align-items:center;margin-top:10px;">' +
-                f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">UUR {u_num} — {u_start}</span>' +
-                (f'<span style="color:#64748b;font-size:0.75rem;">Target: {u_min}–{u_max}g KH</span>' if not geen_kh else
-                 '<span style="color:#3b82f6;font-size:0.75rem;">Geen KH nodig</span>') +
+                f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;'
+                f'display:flex;justify-content:space-between;align-items:center;margin-top:12px;">'
+                f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">'
+                f'UUR {u_num} — {uur_start.strftime("%H:%M")}{fase_html}</span>'
+                f'{"<span style=\"color:#64748b;font-size:0.75rem;\">Geen KH nodig</span>" if geen_kh else f"<span style=\"color:#94a3b8;font-size:0.72rem;\">Target: {cur_min}–{cur_max}g KH</span>"}'
                 f'</div>',
                 unsafe_allow_html=True
             )
 
-            # Per item: timing dropdown + product dropdown
-            uur_kh_totaal = 0
-            n_items = max(len(items), 2)
+            # Notitie veld per uur
+            notitie = st.text_input("Notitie", value="",
+                placeholder="Notitie (bv. T2 — wisseling, cola station, ...)",
+                key=f"prev_notitie_{u_num}",
+                label_visibility="collapsed"
+            )
+
+            # Bouw standaard items voor dit uur
+            default_items = []
+            if geen_kh or (fase and "Geen inname" in fase[2]):
+                default_items = [
+                    ("+20min", "💧 Water (150ml)"),
+                    ("+40min", "💧 Water (150ml)"),
+                ]
+            else:
+                # Sportdrank elke 20 min
+                default_items.append(("+20min", drank_lbl))
+                default_items.append(("+40min", drank_lbl))
+
+                # Gel interval
+                gel_timing = f"+{gel_interval}min"
+                if gel_timing not in ["+20min", "+40min"]:
+                    default_items.append((gel_timing, gel_lbl or drank_lbl))
+
+                # Vast voedsel
+                if vast_lbl and u_num >= vast_vanaf and not is_last:
+                    default_items.append(("+30min", vast_lbl))
+
+                # Cafeïne
+                if cafe_lbl and u_num >= cafe_vanaf and u_num % 2 == 0 and not is_last:
+                    default_items.append((f"+{gel_interval}min", cafe_lbl))
+
+                # Water bij elke gel
+                for timing, prod in list(default_items):
+                    if "⚡" in prod or "☕" in prod:
+                        default_items.append((timing, "💧 Water (150ml)"))
+
+                if is_last:
+                    default_items = [("+20min", drank_lbl), ("+40min", "💧 Water (150ml)")]
+
+            # Haal huidige items op (of gebruik default)
+            n_items_key = f"prev_n_items_{u_num}"
+            if n_items_key not in st.session_state:
+                st.session_state[n_items_key] = len(default_items)
+
+            n_items = st.session_state[n_items_key]
+
+            uur_kh = 0
+            timing_opties = ["+20min", "+25min", "+30min", "+35min", "+40min", "+45min", "+50min", "+55min", "+60min"]
+
             for i_idx in range(n_items):
-                item = items[i_idx] if i_idx < len(items) else {"min": "+20min", "naam": "— leeg —", "kh": 0}
-                default_prod = next((p["label"] for p in alle_producten
-                                     if item["naam"].split("(")[0].strip() in p["label"]), "— leeg —")
-                c1, c2, c3 = st.columns([1.2, 3.5, 1])
+                def_timing = default_items[i_idx][0] if i_idx < len(default_items) else "+20min"
+                def_prod   = default_items[i_idx][1] if i_idx < len(default_items) else "— leeg —"
+                if def_prod not in alle_opties:
+                    def_prod = "— leeg —"
+
+                t_key = f"prev_t_{u_num}_{i_idx}"
+                p_key = f"prev_p_{u_num}_{i_idx}"
+
+                if t_key not in st.session_state:
+                    st.session_state[t_key] = def_timing
+                if p_key not in st.session_state:
+                    st.session_state[p_key] = def_prod
+
+                c1, c2, c3, c4 = st.columns([1.2, 3.5, 0.8, 0.5])
                 with c1:
-                    gekozen_min = st.selectbox("",
-                        min_labels,
-                        index=min_labels.index(item["min"]) if item["min"] in min_labels else 0,
-                        key=f"prev_min_{u_num}_{i_idx}",
-                        label_visibility="collapsed"
-                    )
+                    t_idx = timing_opties.index(st.session_state[t_key]) if st.session_state[t_key] in timing_opties else 0
+                    gekozen_t = st.selectbox("", timing_opties, index=t_idx,
+                        key=t_key, label_visibility="collapsed")
                 with c2:
-                    gekozen_prod = st.selectbox("",
-                        prod_labels,
-                        index=prod_labels.index(default_prod) if default_prod in prod_labels else len(prod_labels)-1,
-                        key=f"prev_prod_{u_num}_{i_idx}",
-                        label_visibility="collapsed"
-                    )
+                    p_idx = alle_opties.index(st.session_state[p_key]) if st.session_state[p_key] in alle_opties else len(alle_opties)-1
+                    gekozen_p = st.selectbox("", alle_opties, index=p_idx,
+                        key=p_key, label_visibility="collapsed")
                 with c3:
-                    kh_val = prod_kh_map.get(gekozen_prod, 0)
+                    kh_val = kh_map.get(gekozen_p, 0)
                     st.markdown(
-                        f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;' +
-                        f'color:#f97316;text-align:center;">{kh_val}g</div>',
+                        f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;'
+                        f'color:{"#f97316" if kh_val > 0 else "#475569"};text-align:center;">'
+                        f'{kh_val}g KH</div>',
                         unsafe_allow_html=True
                     )
-                uur_kh_totaal += kh_val
+                with c4:
+                    if st.button("🗑", key=f"prev_del_{u_num}_{i_idx}", help="Verwijder rij"):
+                        # Verschuif items omhoog
+                        for j in range(i_idx, n_items - 1):
+                            st.session_state[f"prev_t_{u_num}_{j}"] = st.session_state.get(f"prev_t_{u_num}_{j+1}", "+20min")
+                            st.session_state[f"prev_p_{u_num}_{j}"] = st.session_state.get(f"prev_p_{u_num}_{j+1}", "— leeg —")
+                        st.session_state[n_items_key] = max(0, n_items - 1)
+                        st.rerun()
+                uur_kh += kh_val
+
+            # Rij toevoegen knop
+            ca1, ca2 = st.columns([4, 1])
+            with ca2:
+                if st.button("➕ Rij", key=f"prev_add_{u_num}", help="Voeg rij toe"):
+                    st.session_state[n_items_key] = n_items + 1
+                    st.rerun()
 
             # Totaal per uur
-            bar_c = "#22c55e" if uur_kh_totaal >= u_min else ("#fbbf24" if uur_kh_totaal >= u_min*0.7 else "#f97316")
-            if geen_kh: bar_c = "#3b82f6"
+            if geen_kh:
+                totaal_kleur = "#3b82f6"
+                totaal_label = "Geen KH nodig"
+            else:
+                totaal_kleur = "#22c55e" if uur_kh >= cur_min else ("#fbbf24" if uur_kh >= cur_min * 0.7 else "#ef4444")
+                totaal_label = f"{uur_kh}g KH  {'✅' if uur_kh >= cur_min else '⚠️'}"
+
+            totaal_kh_race += uur_kh
+            notitie_html = f'<span style="color:#64748b;font-size:0.72rem;font-style:italic;">{notitie}</span>' if notitie else ""
+
             st.markdown(
-                f'<div style="background:#0f172a;border-radius:0 0 8px 8px;padding:6px 14px;' +
-                f'display:flex;justify-content:space-between;border-top:1px solid #1e293b;">' +
-                f'<span style="color:#94a3b8;font-size:0.75rem;">Totaal uur {u_num}</span>' +
-                f'<span style="font-weight:700;font-size:0.8rem;color:{bar_c};">{uur_kh_totaal}g KH</span>' +
+                f'<div style="background:#0f172a;border-radius:0 0 10px 10px;padding:7px 14px;'
+                f'display:flex;justify-content:space-between;align-items:center;">'
+                f'{notitie_html}'
+                f'<span style="font-weight:800;font-size:0.82rem;color:{totaal_kleur};">{totaal_label}</span>'
                 f'</div>',
                 unsafe_allow_html=True
             )
 
-        if st.button("✕  Sluit preview", key="rp_close_preview"):
-            st.session_state["rp_show_preview"] = False
-            st.rerun()
+        # ── Race totaal ───────────────────────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="background:#1e293b;border-radius:12px;padding:14px 18px;'
+            f'display:flex;justify-content:space-between;align-items:center;">'
+            f'<span style="color:#94a3b8;font-size:0.85rem;font-weight:700;">TOTAAL RACE</span>'
+            f'<span style="color:#f8fafc;font-size:1rem;font-weight:900;">{totaal_kh_race}g KH</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
 
+        st.markdown("<br>", unsafe_allow_html=True)
+        c_reset, c_sluit = st.columns(2)
+        with c_reset:
+            if st.button("🔄  Schema resetten", key="rp_reset_preview", use_container_width=True):
+                # Wis alle prev_ keys
+                for k in list(st.session_state.keys()):
+                    if k.startswith("prev_"):
+                        del st.session_state[k]
+                st.rerun()
+        with c_sluit:
+            if st.button("✕  Sluit preview", key="rp_close_preview", use_container_width=True):
+                st.session_state["rp_show_preview"] = False
+                st.rerun()
 
 
 
