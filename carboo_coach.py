@@ -1162,8 +1162,9 @@ def _stap_raceplan():
     sport_html += '</div>'
     st.markdown(sport_html, unsafe_allow_html=True)
 
-    def _product_sectie(label, kleur, emoji, key_n, key_naam, key_kh,
-                        default_n, placeholder_naam, default_kh, eenheid="KH/stuk"):
+    def _prod_blok(label, kleur, emoji, key_n, key_naam, key_kh,
+                       default_n, placeholder, default_kh, eenheid="KH/stuk"):
+        """Helper: één productgroep."""
         st.markdown(
             f'<div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;'
             f'padding:14px 16px;margin-bottom:14px;">' +
@@ -1171,8 +1172,7 @@ def _stap_raceplan():
             f'letter-spacing:0.08em;margin-bottom:10px;">{emoji} {label}</div>',
             unsafe_allow_html=True
         )
-        n = st.number_input(f"Aantal {label.lower()}", 0, 8,
-                            default_n, key=key_n, label_visibility="collapsed")
+        n = st.number_input(f"Aantal", 0, 8, default_n, key=key_n, label_visibility="collapsed")
         pool_items = []
         for i in range(int(n)):
             h1, h2, h3 = st.columns([3, 1.5, 0.8])
@@ -1180,7 +1180,7 @@ def _stap_raceplan():
                 if i == 0:
                     st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">PRODUCTNAAM</div>', unsafe_allow_html=True)
                 naam = st.text_input("naam", key=f"{key_naam}_{i}",
-                                     placeholder=placeholder_naam, label_visibility="collapsed")
+                                     placeholder=placeholder, label_visibility="collapsed")
             with h2:
                 if i == 0:
                     st.markdown(f'<div style="font-size:0.68rem;color:#64748b;font-weight:700;margin-bottom:3px;">{eenheid.upper()}</div>', unsafe_allow_html=True)
@@ -1199,51 +1199,57 @@ def _stap_raceplan():
         st.markdown('</div>', unsafe_allow_html=True)
         return pool_items
 
-    # ── Rij 1: Sportdrank + Energy gels ──────────────────────────────────────
-    rc1, rc2 = st.columns(2)
-    with rc1:
-        drank_pool = _product_sectie("Sportdrank", "#3b82f6", "🥤",
-                                     "rp_n_drank", "rp_drank", "rp_dkh",
-                                     1, "bijv. Maurten 320", 70, "KH/500ml")
-    with rc2:
-        gels_pool  = _product_sectie("Energy gels", "#60a5fa", "⚡",
-                                     "rp_n_gels", "rp_gel", "rp_gkh",
-                                     1, "bijv. SIS Go Gel", 22, "KH/gel")
+    # ── Rij 1: Sportdrank ─────────────────────────────────────────────────────
+    st.markdown('<div style="color:#3b82f6;font-weight:800;font-size:0.85rem;margin-bottom:6px;">🥤 SPORTDRANK</div>', unsafe_allow_html=True)
+    drank_pool = _prod_blok("Sportdrank", "#3b82f6", "🥤",
+                            "rp_n_drank", "rp_drank", "rp_dkh",
+                            1, "bijv. Maurten 320", 70, "KH/500ml")
 
-    # ── Rij 2: Vaste voeding + Gels met cafeïne ──────────────────────────────
-    rc3, rc4 = st.columns(2)
-    with rc3:
-        vast_pool  = _product_sectie("Vaste voeding", "#10b981", "🍌",
-                                     "rp_n_vast", "rp_vast", "rp_vkh",
-                                     0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
-    with rc4:
-        cafe_pool  = _product_sectie("Gels met cafeïne", "#f59e0b", "☕",
-                                     "rp_n_cafe", "rp_cafe", "rp_ckh",
-                                     0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
+    # ── Rij 2: Energy gels (normaal + cafeïne onder één sectie) ──────────────
+    st.markdown('<div style="color:#60a5fa;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">⚡ ENERGY GELS</div>', unsafe_allow_html=True)
 
-    # ── Rij 3: Supplementen (volledige breedte) ───────────────────────────────
+    gel_col1, gel_col2 = st.columns(2)
+    with gel_col1:
+        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Gewone gels</div>', unsafe_allow_html=True)
+        gels_pool = _prod_blok("Gels", "#60a5fa", "⚡",
+                               "rp_n_gels", "rp_gel", "rp_gkh",
+                               1, "bijv. SIS Go Gel", 22, "KH/gel")
+    with gel_col2:
+        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Gels met cafeïne</div>', unsafe_allow_html=True)
+        cafe_pool = _prod_blok("Cafeïne gels", "#f59e0b", "☕",
+                               "rp_n_cafe", "rp_cafe", "rp_ckh",
+                               0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
+
+    # ── Rij 3: Vaste voeding ─────────────────────────────────────────────────
+    st.markdown('<div style="color:#10b981;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">🍌 VASTE VOEDING</div>', unsafe_allow_html=True)
+    vast_pool = _prod_blok("Vaste voeding", "#10b981", "🍌",
+                           "rp_n_vast", "rp_vast", "rp_vkh",
+                           0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
+
+    # ── Rij 4: Supplementen ───────────────────────────────────────────────────
+    st.markdown('<div style="color:#8b5cf6;font-weight:800;font-size:0.85rem;margin:10px 0 6px 0;">💊 SUPPLEMENTEN</div>', unsafe_allow_html=True)
     st.markdown('''
     <div style="background:#0d1829;border:1px solid #1e293b;border-radius:12px;
          padding:14px 16px;margin-bottom:14px;">
-        <div style="color:#8b5cf6;font-weight:800;font-size:0.82rem;
-             letter-spacing:0.08em;margin-bottom:10px;">💊 SUPPLEMENTEN</div>
     ''', unsafe_allow_html=True)
 
-    sc1, sc2, sc3 = st.columns(3)
-    with sc1:
-        cafeine_mg  = st.number_input("Cafeïne (mg)", 0, 1000, 0, 50,
-                                      key="rp_cafeine_mg",
-                                      help="Totale cafeïne-inname gepland tijdens race (mg)")
-        st.caption("Cafeïne (mg)")
-    with sc2:
-        natrium_mg  = st.number_input("Natrium (mg/u)", 0, 2000, 0, 100,
-                                      key="rp_natrium",
-                                      help="Natriumdrank of zout tablet (mg per uur)")
-        st.caption("Natrium (mg/uur)")
-    with sc3:
-        supp_vrij   = st.text_input("Ander supplement", key="rp_supp_vrij",
-                                    placeholder="bijv. Bicarb, bietensap, ...")
-        st.caption("Vrij veld")
+    supp_col1, supp_col2 = st.columns(2)
+    with supp_col1:
+        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">ORS tabletten</div>', unsafe_allow_html=True)
+        ors_naam  = st.text_input("ORS naam", placeholder="bijv. SIS Hydro, Precision ORS",
+                                  key="rp_ors_naam", label_visibility="collapsed")
+        ors_dosis = st.number_input("ORS tablet per uur", 0, 10, 0,
+                                    key="rp_ors_dosis", label_visibility="collapsed",
+                                    help="Aantal ORS tabletten per uur")
+        st.caption("ORS tablet per uur")
+    with supp_col2:
+        st.markdown('<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:4px;">Cafeïne gum</div>', unsafe_allow_html=True)
+        gum_naam  = st.text_input("Gum naam", placeholder="bijv. Run Gum, Athlete Gum",
+                                  key="rp_gum_naam", label_visibility="collapsed")
+        gum_mg    = st.number_input("Cafeïne per stuk (mg)", 0, 200, 0, 25,
+                                    key="rp_gum_mg", label_visibility="collapsed",
+                                    help="mg cafeïne per stuk kauwgom")
+        st.caption("mg cafeïne per stuk")
     st.markdown('</div>', unsafe_allow_html=True)
 
     pool = {
@@ -1252,14 +1258,15 @@ def _stap_raceplan():
         "cafe":  cafe_pool,
         "vast":  vast_pool,
         "supplementen": {
-            "cafeine_mg": cafeine_mg,
-            "natrium_mg": natrium_mg,
-            "vrij":       supp_vrij,
+            "ors_naam":  ors_naam,
+            "ors_dosis": ors_dosis,
+            "gum_naam":  gum_naam,
+            "gum_mg":    gum_mg,
         },
     }
 
-    # ── Knoppen: Preview + Genereer ─────────────────────────────────────────
-    col_prev, col_preview, col_gen = st.columns([1, 2, 2])
+    # ── Knoppen: Vorige + Preview ────────────────────────────────────────────
+    col_prev, col_preview = st.columns([1, 3])
     with col_prev:
         if st.button("← Vorige", key="rp_prev"):
             st.session_state.coach_data["pool"] = pool
@@ -1269,10 +1276,6 @@ def _stap_raceplan():
         if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             st.session_state["rp_show_preview"] = True
-    with col_gen:
-        if st.button("✅  Genereer plan", key="rp_gen", use_container_width=True):
-            st.session_state.coach_data["pool"] = pool
-            st.session_state.coach_stap = 6
             st.rerun()
 
     # ── Preview schema ─────────────────────────────────────────────────────────
@@ -1551,7 +1554,14 @@ def _stap_raceplan():
                 if p_key not in st.session_state:
                     st.session_state[p_key] = def_prod
 
-                c1, c2, c3, c4 = st.columns([1.2, 3.5, 0.8, 0.5])
+                w_key = f"prev_w_{u_num}_{i_idx}"
+                if w_key not in st.session_state:
+                    # Standaard water bij gel/cafeïne
+                    st.session_state[w_key] = "150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
+
+                water_opties = ["—", "100ml", "150ml", "200ml", "250ml", "500ml"]
+
+                c1, c2, c3, c4, c5 = st.columns([1.2, 2.8, 1.2, 0.8, 0.5])
                 with c1:
                     t_idx = timing_opties.index(st.session_state[t_key]) if st.session_state[t_key] in timing_opties else 0
                     gekozen_t = st.selectbox("", timing_opties, index=t_idx,
@@ -1561,6 +1571,11 @@ def _stap_raceplan():
                     gekozen_p = st.selectbox("", alle_opties, index=p_idx,
                         key=p_key, label_visibility="collapsed")
                 with c3:
+                    w_idx = water_opties.index(st.session_state[w_key]) if st.session_state[w_key] in water_opties else 0
+                    gekozen_w = st.selectbox("", water_opties, index=w_idx,
+                        key=w_key, label_visibility="collapsed",
+                        help="Extra water bij dit product")
+                with c4:
                     kh_val = kh_map.get(gekozen_p, 0)
                     st.markdown(
                         f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;'
@@ -1568,12 +1583,12 @@ def _stap_raceplan():
                         f'{kh_val}g KH</div>',
                         unsafe_allow_html=True
                     )
-                with c4:
+                with c5:
                     if st.button("🗑", key=f"prev_del_{u_num}_{i_idx}", help="Verwijder rij"):
-                        # Verschuif items omhoog
                         for j in range(i_idx, n_items - 1):
                             st.session_state[f"prev_t_{u_num}_{j}"] = st.session_state.get(f"prev_t_{u_num}_{j+1}", "+20min")
                             st.session_state[f"prev_p_{u_num}_{j}"] = st.session_state.get(f"prev_p_{u_num}_{j+1}", "— leeg —")
+                            st.session_state[f"prev_w_{u_num}_{j}"] = st.session_state.get(f"prev_w_{u_num}_{j+1}", "—")
                         st.session_state[n_items_key] = max(0, n_items - 1)
                         st.rerun()
                 uur_kh += kh_val
@@ -1629,6 +1644,12 @@ def _stap_raceplan():
             if st.button("✕  Sluit preview", key="rp_close_preview", use_container_width=True):
                 st.session_state["rp_show_preview"] = False
                 st.rerun()
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("✅  GENEREER PLAN", key="rp_gen", use_container_width=True):
+            st.session_state.coach_data["pool"] = pool
+            st.session_state.coach_stap = 6
+            st.rerun()
 
 
 
