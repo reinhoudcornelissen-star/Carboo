@@ -1408,7 +1408,8 @@ def _stap_raceplan():
         cafe_lbl  = next((l for l in alle_opties if l.startswith("☕")), None)
 
         # ── Per uur schema ────────────────────────────────────────────────────
-        totaal_kh_race = 0
+        totaal_kh_race    = 0
+        totaal_vocht_race = 0
 
 
         # Sport-specifieke tips per uur
