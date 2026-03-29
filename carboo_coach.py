@@ -1335,6 +1335,12 @@ def _stap_raceplan():
 
         # ── Globale instellingen ──────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
+        # CSS voor uitlijning preview met rest van pagina
+        st.markdown("""
+        <style>
+        div[data-testid="stExpander"] > details { background-color: #0f172a !important; }
+        </style>
+        """, unsafe_allow_html=True)
         st.markdown(
             '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px;">' +
             f'<img src="{MASCOT_B64}" style="height:72px;width:auto;flex-shrink:0;margin-top:4px;">' +
@@ -1414,6 +1420,14 @@ def _stap_raceplan():
             "Crossduatlon": "🚵 MTB: neem in op vlakke stukken · ⚡ Gel + 💧 water, geen vast op technisch terrein",
         }
         uur_tip = UUR_TIPS.get(sport, "")
+
+        # Kolomtitels
+        t1, t2, t3, tplus, t4, t5, t6 = st.columns([1.2, 2.5, 0.9, 0.3, 1.2, 0.8, 0.4])
+        with t1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">TIJDSTIP</div>', unsafe_allow_html=True)
+        with t2: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KOOLHYDRAATBRON</div>', unsafe_allow_html=True)
+        with t3: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">AANTAL</div>', unsafe_allow_html=True)
+        with t4: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">WATER</div>', unsafe_allow_html=True)
+        with t5: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KH</div>', unsafe_allow_html=True)
 
         for u in range(aantal_uren):
             u_num    = u + 1
@@ -1504,11 +1518,19 @@ def _stap_raceplan():
             # Haal huidige items op (of gebruik default)
             n_items_key = f"prev_n_items_{u_num}"
             if n_items_key not in st.session_state:
-                st.session_state[n_items_key] = len(default_items)
+                # Na reset: lege rijen, anders defaults
+                if st.session_state.get("rp_preview_leeg", False):
+                    st.session_state[n_items_key] = 0
+                else:
+                    st.session_state[n_items_key] = len(default_items)
 
             n_items = st.session_state[n_items_key]
 
-            uur_kh = 0
+            uur_kh    = 0
+            uur_vocht = 0
+            # Wis leeg-flag na verwerking van eerste uur
+            if u == aantal_uren - 1:
+                st.session_state.pop("rp_preview_leeg", None)
             timing_opties = ["20min", "25min", "30min", "35min", "40min", "45min", "50min", "55min", "60min"]
 
             for i_idx in range(n_items):
@@ -1528,9 +1550,9 @@ def _stap_raceplan():
                 w_key = f"prev_w_{u_num}_{i_idx}"
                 if w_key not in st.session_state:
                     # Standaard water bij gel/cafeïne
-                    st.session_state[w_key] = "💧 150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
+                    st.session_state[w_key] = "💧 water 150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
 
-                water_opties = ["— water —", "💧 100ml", "💧 150ml", "💧 200ml", "💧 250ml", "💧 500ml"]
+                water_opties = ["—", "💧 water 100ml", "💧 water 150ml", "💧 water 200ml", "💧 water 250ml", "💧 water 500ml"]
 
                 # Aantal key
                 a_key = f"prev_a_{u_num}_{i_idx}"
@@ -1574,6 +1596,16 @@ def _stap_raceplan():
                             st.session_state[f"prev_w_{u_num}_{j}"] = st.session_state.get(f"prev_w_{u_num}_{j+1}", "—")
                         st.session_state[n_items_key] = max(0, n_items - 1)
                         st.rerun()
+                # Vocht berekening
+                vocht_water = 0
+                if gekozen_w and gekozen_w != "—":
+                    try:
+                        vocht_water = int(gekozen_w.split()[-1].replace("ml","")) * gekozen_a
+                    except: pass
+                vocht_drank = 0
+                if "🥤" in gekozen_p and vocht_pm:
+                    vocht_drank = vocht_pm * gekozen_a
+                uur_vocht += round(vocht_water + vocht_drank)
                 uur_kh += kh_val
 
             # Rij toevoegen knop
@@ -1611,15 +1643,18 @@ def _stap_raceplan():
                     totaal_kleur = "#ef4444"
                 totaal_label = f"{uur_kh}g KH  {'✅' if cur_min <= uur_kh <= cur_max else ('⚠️' if uur_kh > cur_max else '❌')}"
 
-            totaal_kh_race += uur_kh
+            totaal_kh_race    += uur_kh
+            totaal_vocht_race += uur_vocht
             notitie_html = f'<span style="color:#64748b;font-size:0.72rem;font-style:italic;">{notitie}</span>' if notitie else ""
 
             st.markdown(
                 f'<div style="background:#0f172a;border-radius:0 0 10px 10px;padding:7px 14px;'
                 f'display:flex;justify-content:space-between;align-items:center;">'
                 f'{notitie_html}'
+                f'<div style="display:flex;gap:16px;align-items:center;">'
+                f'<span style="color:#3b82f6;font-size:0.78rem;font-weight:700;">💧 {uur_vocht}ml</span>'
                 f'<span style="font-weight:800;font-size:0.82rem;color:{totaal_kleur};">{totaal_label}</span>'
-                f'</div>',
+                f'</div></div>',
                 unsafe_allow_html=True
             )
 
@@ -1629,8 +1664,10 @@ def _stap_raceplan():
             f'<div style="background:#1e293b;border-radius:12px;padding:14px 18px;'
             f'display:flex;justify-content:space-between;align-items:center;">'
             f'<span style="color:#94a3b8;font-size:0.85rem;font-weight:700;">TOTAAL RACE</span>'
+            f'<div style="display:flex;gap:20px;align-items:center;">'
+            f'<span style="color:#3b82f6;font-size:0.9rem;font-weight:700;">💧 {totaal_vocht_race}ml vocht</span>'
             f'<span style="color:#f8fafc;font-size:1rem;font-weight:900;">{totaal_kh_race}g KH</span>'
-            f'</div>',
+            f'</div></div>',
             unsafe_allow_html=True
         )
 
@@ -1639,7 +1676,8 @@ def _stap_raceplan():
             for k in list(st.session_state.keys()):
                 if k.startswith("prev_"):
                     del st.session_state[k]
-            st.session_state["rp_show_preview"] = False
+            st.session_state["rp_preview_leeg"] = True
+            st.session_state["rp_show_preview"] = True
             st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
