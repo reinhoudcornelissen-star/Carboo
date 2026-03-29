@@ -1037,11 +1037,6 @@ def _stap_racedag():
 
 def _stap_raceplan():
     data = st.session_state.get("coach_data", {})
-    _coach_bubble(f"""
-    Bijna klaar! Voeg de <b>producten toe die je tijdens de race</b> wil gebruiken. 
-    Op basis van jouw keuzes en wedstrijdgegevens stel ik een <b>persoonlijk raceplan</b> op.
-    """)
-
     # Sport + duur balk + wetenschappelijke adviezen (geen KH grammen)
     _sport     = data.get("sport", "")
     _tot_min   = data.get("totale_min", 0)
@@ -1056,10 +1051,10 @@ def _stap_raceplan():
             (75,  120):  ["Kies voor een mix van vloeibare en vaste koolhydraatbronnen",
                           "Sportdrank + rijstwafel of reep: combineer gel met vast voedsel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
-            (120, 181):  ["Kies voor een mix van gels, repen en sportdrank",
+            (120, 181):  ["Kies voor een mix van gels, vaste voeding en sportdrank",
                           "Wissel regelmatig af tussen vloeibaar en vast",
                           "Kies producten die je al gebruikt hebt tijdens training"],
-            (181, 9999): ["Kies voor een mix van gels, repen en sportdrank",
+            (181, 9999): ["Kies voor een mix van gels, vaste voeding en sportdrank",
                           "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Kies producten die je al gebruikt hebt tijdens training",
                           "Geen nieuwe producten op racedag - alleen vertrouwde keuzes"],
@@ -1086,7 +1081,7 @@ def _stap_raceplan():
                           "Kies bij voorkeur vloeibare koolhydraatbronnen: sportdrank + gel",
                           "Loop: gel of sportdrank, kies voor vloeibare bronnen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
-            (120, 240):  ["Fiets: kies voor een mix van gels, repen en sportdrank",
+            (120, 240):  ["Fiets: kies voor een mix van gels, vaste voeding en sportdrank",
                           "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Loop: bij voorkeur vloeibaar (gel + water), GI-gevoeliger na fietsen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
@@ -1102,11 +1097,11 @@ def _stap_raceplan():
             (75,  150):  ["Fiets = hoofdtankmoment: kies bij voorkeur vloeibare koolhydraatbronnen",
                           "Gel aan start 2e loop is essentieel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
-            (150, 210):  ["Kies voor een mix van gels, repen en sportdrank op de fiets",
+            (150, 210):  ["Kies voor een mix van gels, vaste voeding en sportdrank op de fiets",
                           "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "2e loop: gel + water, kies voor vloeibare bronnen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
-            (210, 9999): ["Kies voor een mix van gels, repen en sportdrank",
+            (210, 9999): ["Kies voor een mix van gels, vaste voeding en sportdrank",
                           "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Meer GI-stress dan triatlon — plan innametiming op rustige segmenten",
                           "Kies producten die je al gebruikt hebt tijdens training"],
@@ -1160,7 +1155,14 @@ def _stap_raceplan():
             'en ik giet ze in een voorlopig schema dat je zelf nog kan aanvullen of wijzigen.</span></div>'
         )
     sport_html += '</div>'
-    st.markdown(sport_html, unsafe_allow_html=True)
+    # Avatar naast de blauwe kader
+    avatar_html = (
+        '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:16px;">' +
+        f'<img src="{MASCOT_B64}" style="height:80px;width:auto;flex-shrink:0;margin-top:4px;">' +
+        '<div style="flex:1;">' + sport_html + '</div>' +
+        '</div>'
+    )
+    st.markdown(avatar_html, unsafe_allow_html=True)
 
     def _prod_blok(label, kleur, emoji, key_n, key_naam, key_kh,
                        default_n, placeholder, default_kh, eenheid="KH/stuk"):
@@ -1266,8 +1268,7 @@ def _stap_raceplan():
             st.session_state["rp_show_preview"] = True
             st.rerun()
 
-    # ── Preview schema ─────────────────────────────────────────────────────────
-    if st.session_state.get("rp_show_preview", False):
+    # ── Preview schema ─────────────────────────────────────────────────────────    if st.session_state.get("rp_show_preview", False):
         import math
         from datetime import datetime, timedelta
 
@@ -1334,73 +1335,26 @@ def _stap_raceplan():
 
         # ── Globale instellingen ──────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""
-        <div style="background:#0f172a;border:2px solid #3b82f6;border-radius:14px;
-             padding:14px 18px;margin-bottom:12px;">
-            <div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">
-                👁  PREVIEW RACEPLAN — aanpasbaar
-            </div>
-            <div style="color:#64748b;font-size:0.78rem;">
-                Pas de globale instellingen aan of wijzig producten per uur.
-                Klik daarna op Genereer plan om door te gaan.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px;">' +
+            f'<img src="{MASCOT_B64}" style="height:72px;width:auto;flex-shrink:0;margin-top:4px;">' +
+            '<div style="flex:1;background:#0f172a;border:2px solid #3b82f6;border-radius:14px;padding:14px 18px;">' +
+            '<div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">👁  PREVIEW RACEPLAN — aanpasbaar</div>' +
+            '<div style="color:#64748b;font-size:0.78rem;">Pas de globale instellingen aan of wijzig producten per uur. Klik daarna op Genereer plan om door te gaan.</div>' +
+            '</div></div>',
+            unsafe_allow_html=True
+        )
 
         # Vocht berekening
         basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 400)
         f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
         vocht_uur   = round(basis_vocht * (1 + f_factor) / 10) * 10
+        vocht_pm    = round(vocht_uur / 3 / 10) * 10  # per innamemoment
+        gel_interval = 40   # minuten tussen gels
+        vast_vanaf   = 1    # vast voedsel vanaf uur 1
+        cafe_vanaf   = 2    # cafeïne vanaf uur 2
 
-        # ── Globale instelbalk ────────────────────────────────────────────────
-        st.markdown("""
-        <div style="color:#f97316;font-weight:800;font-size:0.8rem;
-             letter-spacing:0.1em;margin-bottom:8px;">⚙️ GLOBALE INSTELLINGEN</div>
-        """, unsafe_allow_html=True)
-
-        g1, g2, g3, g4 = st.columns(4)
-        with g1:
-            vocht_pm = st.number_input("💧 Vocht/moment (ml)", 100, 400,
-                value=st.session_state.get("prev_vocht_pm", round(vocht_uur/3/10)*10),
-                step=25, key="prev_vocht_pm",
-                help=f"Aanbevolen op basis van {temp}°C, {vochtigheid}% vochtigheid, {hoogte}m hoogte")
-        with g2:
-            gel_interval = st.selectbox("⚡ Gel-interval", [20, 30, 40, 45, 60],
-                index=[20,30,40,45,60].index(st.session_state.get("prev_gel_interval", 40)),
-                key="prev_gel_interval",
-                format_func=lambda x: f"elke {x} min",
-                help="Hoe vaak een gel in het schema")
-        with g3:
-            vast_vanaf = st.number_input("🍌 Vast voedsel vanaf uur", 1, max(1, aantal_uren),
-                value=st.session_state.get("prev_vast_vanaf", 1),
-                key="prev_vast_vanaf",
-                help="Vast voedsel alleen inplannen vanaf dit uur")
-        with g4:
-            cafe_vanaf = st.number_input("☕ Cafeïne vanaf uur", 1, max(1, aantal_uren),
-                value=st.session_state.get("prev_cafe_vanaf", min(2, aantal_uren)),
-                key="prev_cafe_vanaf",
-                help="Cafeïne gel inplannen vanaf dit uur")
-
-        # ORS / Natrium waarschuwing
-        if temp > 28 or (temp > 24 and vochtigheid > 75):
-            st.markdown("""
-            <div style="background:rgba(239,68,68,0.1);border:1px solid #ef4444;
-                 border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fca5a5;">
-                ⚠️ <b>ORS NODIG:</b> Hitte + hoge vochtigheid — gebruik ORS tabletten voor zoutbalans.
-            </div>
-            """, unsafe_allow_html=True)
-
-        if hoogte > 1500:
-            st.markdown(f"""
-            <div style="background:rgba(59,130,246,0.1);border:1px solid #3b82f6;
-                 border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#93c5fd;">
-                ⛰️ <b>Hoogte {hoogte}m:</b> Verhoogd vochtverbruik — vochtadvies al automatisch aangepast (+{round(f_factor*100)}%).
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<hr style='border-color:#1e293b;margin:12px 0'>", unsafe_allow_html=True)
-
-        # ── Bouw lijst van alle producten ─────────────────────────────────────
+                # ── Bouw lijst van alle producten ─────────────────────────────────────
         alle_opties = []
         kh_map      = {}
         emoji_map   = {}
@@ -1451,6 +1405,17 @@ def _stap_raceplan():
         # ── Per uur schema ────────────────────────────────────────────────────
         totaal_kh_race = 0
 
+
+        # Sport-specifieke tips per uur
+        UUR_TIPS = {
+            "Fietsen":      "🥤 Sportdrank elke 20 min · ⚡ Gel elke 30–40 min met 💧 150ml water",
+            "Lopen":        "⚡ Gel elke 30–45 min altijd met 💧 water · Nooit gel én sportdrank tegelijk",
+            "Triatlon":     "🚴 Fiets = tankmoment · 🏃 Loop: gel + water, geen vast voedsel",
+            "Duatlon":      "🚴 Fiets = hoofdtankmoment · 🏃 Loop 2: gel mee vanuit T2",
+            "Crossduatlon": "🚵 MTB: neem in op vlakke stukken · ⚡ Gel + 💧 water, geen vast op technisch terrein",
+        }
+        uur_tip = UUR_TIPS.get(sport, "")
+
         for u in range(aantal_uren):
             u_num    = u + 1
             is_last  = (u == aantal_uren - 1)
@@ -1468,12 +1433,31 @@ def _stap_raceplan():
                     fase_html += f' — {fase_tip}'
                 fase_html += '</span>'
 
+            # Tip per uur
+            if geen_kh or (fase and "Geen inname" in fase[2]):
+                _uur_tip = "💧 Enkel water of mondspoeling"
+            elif is_last:
+                _uur_tip = "🏁 Laatste uur — kleine slokjes, geen vast voedsel meer"
+            elif u_num == 1:
+                _uur_tip = "⚡ Start vroeg met innemen — wacht niet op honger of dorst"
+            elif fase and "Zwemmen" in fase[1]:
+                _uur_tip = "🏊 Geen inname mogelijk — start gevoed aan het fietsen"
+            elif fase and "Loop" in fase[1]:
+                _uur_tip = "🏃 Gel + 💧 water — vermijd vast voedsel bij lopen"
+            elif sport == "Lopen":
+                _uur_tip = "🏃 Gel + 💧 water — vloeibaar blijft makkelijker te verteren"
+            else:
+                _uur_tip = "🚴 Combineer sportdrank + gel + 💧 water — wissel KH-bronnen af"
+
             st.markdown(
-                f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;'
-                f'display:flex;justify-content:space-between;align-items:center;margin-top:12px;">'
+                f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;margin-top:12px;">'
+                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
                 f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">'
                 f'UUR {u_num} — {uur_start.strftime("%H:%M")}{fase_html}</span>'
                 f'{"<span style=\"color:#64748b;font-size:0.75rem;\">Geen KH nodig</span>" if geen_kh else f"<span style=\"color:#94a3b8;font-size:0.72rem;\">Target: {cur_min}–{cur_max}g KH</span>"}'
+                f'</div>'
+                + (f'<div style="color:#475569;font-size:0.72rem;margin-top:4px;">{uur_tip}</div>' if uur_tip and not geen_kh else "")
+                + f'<div style="color:#60a5fa;font-size:0.73rem;margin-top:5px;">{_uur_tip}</div>' +
                 f'</div>',
                 unsafe_allow_html=True
             )
@@ -1545,9 +1529,9 @@ def _stap_raceplan():
                 w_key = f"prev_w_{u_num}_{i_idx}"
                 if w_key not in st.session_state:
                     # Standaard water bij gel/cafeïne
-                    st.session_state[w_key] = "150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
+                    st.session_state[w_key] = "💧 150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
 
-                water_opties = ["—", "100ml", "150ml", "200ml", "250ml", "500ml"]
+                water_opties = ["—", "💧 100ml", "💧 150ml", "💧 200ml", "💧 250ml", "💧 500ml"]
 
                 c1, c2, c3, c4, c5 = st.columns([1.2, 2.8, 1.2, 0.8, 0.5])
                 with c1:
@@ -1620,18 +1604,12 @@ def _stap_raceplan():
         )
 
         st.markdown("<br>", unsafe_allow_html=True)
-        c_reset, c_sluit = st.columns(2)
-        with c_reset:
-            if st.button("🔄  Schema resetten", key="rp_reset_preview", use_container_width=True):
-                # Wis alle prev_ keys
-                for k in list(st.session_state.keys()):
-                    if k.startswith("prev_"):
-                        del st.session_state[k]
-                st.rerun()
-        with c_sluit:
-            if st.button("✕  Sluit preview", key="rp_close_preview", use_container_width=True):
-                st.session_state["rp_show_preview"] = False
-                st.rerun()
+        if st.button("🔄  Preview resetten", key="rp_reset_preview", use_container_width=True):
+            for k in list(st.session_state.keys()):
+                if k.startswith("prev_"):
+                    del st.session_state[k]
+            st.session_state["rp_show_preview"] = False
+            st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("✅  GENEREER PLAN", key="rp_gen", use_container_width=True):
