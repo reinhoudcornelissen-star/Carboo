@@ -1392,12 +1392,11 @@ def _stap_raceplan():
                 kh_map[lbl]    = p["kh"]
                 emoji_map[lbl] = "☕"
 
-        alle_opties += ["💧 Water (150ml)", "— leeg —"]
-        kh_map["💧 Water (150ml)"] = 0
-        kh_map["— leeg —"]        = 0
+        alle_opties += ["— leeg —"]
+        kh_map["— leeg —"] = 0
 
         # Drank label (eerste optie indien beschikbaar)
-        drank_lbl = next((l for l in alle_opties if l.startswith("🥤")), "💧 Water (150ml)")
+        drank_lbl = next((l for l in alle_opties if l.startswith("🥤")), "— leeg —")
         gel_lbl   = next((l for l in alle_opties if l.startswith("⚡")), None)
         vast_lbl  = next((l for l in alle_opties if l.startswith("🍌")), None)
         cafe_lbl  = next((l for l in alle_opties if l.startswith("☕")), None)
@@ -1473,22 +1472,22 @@ def _stap_raceplan():
             default_items = []
             if geen_kh or (fase and "Geen inname" in fase[2]):
                 default_items = [
-                    ("+20min", "💧 Water (150ml)"),
-                    ("+40min", "💧 Water (150ml)"),
+                    ("20min", "— leeg —"),
+                    ("40min", "— leeg —"),
                 ]
             else:
                 # Sportdrank elke 20 min
-                default_items.append(("+20min", drank_lbl))
-                default_items.append(("+40min", drank_lbl))
+                default_items.append(("20min", drank_lbl))
+                default_items.append(("40min", drank_lbl))
 
                 # Gel interval
                 gel_timing = f"+{gel_interval}min"
-                if gel_timing not in ["+20min", "+40min"]:
+                if gel_timing not in ["20min", "40min"]:
                     default_items.append((gel_timing, gel_lbl or drank_lbl))
 
                 # Vast voedsel
                 if vast_lbl and u_num >= vast_vanaf and not is_last:
-                    default_items.append(("+30min", vast_lbl))
+                    default_items.append(("30min", vast_lbl))
 
                 # Cafeïne
                 if cafe_lbl and u_num >= cafe_vanaf and u_num % 2 == 0 and not is_last:
@@ -1497,10 +1496,10 @@ def _stap_raceplan():
                 # Water bij elke gel
                 for timing, prod in list(default_items):
                     if "⚡" in prod or "☕" in prod:
-                        default_items.append((timing, "💧 Water (150ml)"))
+                        default_items.append((timing, "— leeg —"))
 
                 if is_last:
-                    default_items = [("+20min", drank_lbl), ("+40min", "💧 Water (150ml)")]
+                    default_items = [("20min", drank_lbl), ("40min", "— leeg —")]
 
             # Haal huidige items op (of gebruik default)
             n_items_key = f"prev_n_items_{u_num}"
@@ -1510,10 +1509,10 @@ def _stap_raceplan():
             n_items = st.session_state[n_items_key]
 
             uur_kh = 0
-            timing_opties = ["+20min", "+25min", "+30min", "+35min", "+40min", "+45min", "+50min", "+55min", "+60min"]
+            timing_opties = ["20min", "25min", "30min", "35min", "40min", "45min", "50min", "55min", "60min"]
 
             for i_idx in range(n_items):
-                def_timing = default_items[i_idx][0] if i_idx < len(default_items) else "+20min"
+                def_timing = default_items[i_idx][0] if i_idx < len(default_items) else "20min"
                 def_prod   = default_items[i_idx][1] if i_idx < len(default_items) else "— leeg —"
                 if def_prod not in alle_opties:
                     def_prod = "— leeg —"
@@ -1531,9 +1530,15 @@ def _stap_raceplan():
                     # Standaard water bij gel/cafeïne
                     st.session_state[w_key] = "💧 150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
 
-                water_opties = ["—", "💧 100ml", "💧 150ml", "💧 200ml", "💧 250ml", "💧 500ml"]
+                water_opties = ["— water —", "💧 100ml", "💧 150ml", "💧 200ml", "💧 250ml", "💧 500ml"]
 
-                c1, c2, c3, c4, c5 = st.columns([1.2, 2.8, 1.2, 0.8, 0.5])
+                # Aantal key
+                a_key = f"prev_a_{u_num}_{i_idx}"
+                if a_key not in st.session_state:
+                    st.session_state[a_key] = 1.0
+
+                # Kolommen: timing | product | aantal | + | water | KH | 🗑
+                c1, c2, c3, cplus, c4, c5, c6 = st.columns([1.2, 2.5, 0.9, 0.3, 1.2, 0.8, 0.4])
                 with c1:
                     t_idx = timing_opties.index(st.session_state[t_key]) if st.session_state[t_key] in timing_opties else 0
                     gekozen_t = st.selectbox("", timing_opties, index=t_idx,
@@ -1543,23 +1548,29 @@ def _stap_raceplan():
                     gekozen_p = st.selectbox("", alle_opties, index=p_idx,
                         key=p_key, label_visibility="collapsed")
                 with c3:
+                    gekozen_a = st.number_input("", min_value=0.5, max_value=10.0,
+                        value=float(st.session_state[a_key]),
+                        step=0.5, key=a_key, label_visibility="collapsed")
+                with cplus:
+                    st.markdown('<div style="padding:8px 2px;text-align:center;color:#64748b;font-size:0.9rem;">+</div>', unsafe_allow_html=True)
+                with c4:
                     w_idx = water_opties.index(st.session_state[w_key]) if st.session_state[w_key] in water_opties else 0
                     gekozen_w = st.selectbox("", water_opties, index=w_idx,
-                        key=w_key, label_visibility="collapsed",
-                        help="Extra water bij dit product")
-                with c4:
-                    kh_val = kh_map.get(gekozen_p, 0)
+                        key=w_key, label_visibility="collapsed")
+                with c5:
+                    kh_val = round(kh_map.get(gekozen_p, 0) * gekozen_a)
                     st.markdown(
-                        f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;'
-                        f'color:{"#f97316" if kh_val > 0 else "#475569"};text-align:center;">'
+                        f'<div style="padding:8px 4px;font-size:0.82rem;font-weight:700;' +
+                        f'color:{"#f97316" if kh_val > 0 else "#475569"};text-align:center;">' +
                         f'{kh_val}g KH</div>',
                         unsafe_allow_html=True
                     )
-                with c5:
+                with c6:
                     if st.button("🗑", key=f"prev_del_{u_num}_{i_idx}", help="Verwijder rij"):
                         for j in range(i_idx, n_items - 1):
-                            st.session_state[f"prev_t_{u_num}_{j}"] = st.session_state.get(f"prev_t_{u_num}_{j+1}", "+20min")
+                            st.session_state[f"prev_t_{u_num}_{j}"] = st.session_state.get(f"prev_t_{u_num}_{j+1}", "20min")
                             st.session_state[f"prev_p_{u_num}_{j}"] = st.session_state.get(f"prev_p_{u_num}_{j+1}", "— leeg —")
+                            st.session_state[f"prev_a_{u_num}_{j}"] = st.session_state.get(f"prev_a_{u_num}_{j+1}", 1.0)
                             st.session_state[f"prev_w_{u_num}_{j}"] = st.session_state.get(f"prev_w_{u_num}_{j+1}", "—")
                         st.session_state[n_items_key] = max(0, n_items - 1)
                         st.rerun()
@@ -1572,13 +1583,33 @@ def _stap_raceplan():
                     st.session_state[n_items_key] = n_items + 1
                     st.rerun()
 
+            # Avatar bij overschrijding
+            if not geen_kh and uur_kh > cur_max:
+                st.markdown(
+                    '<div style="display:flex;gap:10px;align-items:center;margin-top:6px;' +
+                    'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+                    'border-radius:10px;padding:8px 12px;">' +
+                    f'<img src="{MASCOT_B64}" style="height:36px;width:auto;flex-shrink:0;">' +
+                    '<span style="color:#fca5a5;font-size:0.80rem;">' +
+                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit uur!</span>' +
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
             # Totaal per uur
             if geen_kh:
                 totaal_kleur = "#3b82f6"
                 totaal_label = "Geen KH nodig"
             else:
-                totaal_kleur = "#22c55e" if uur_kh >= cur_min else ("#fbbf24" if uur_kh >= cur_min * 0.7 else "#ef4444")
-                totaal_label = f"{uur_kh}g KH  {'✅' if uur_kh >= cur_min else '⚠️'}"
+                if uur_kh > cur_max:
+                    totaal_kleur = "#ef4444"
+                elif uur_kh >= cur_min:
+                    totaal_kleur = "#22c55e"
+                elif uur_kh >= cur_min * 0.7:
+                    totaal_kleur = "#fbbf24"
+                else:
+                    totaal_kleur = "#ef4444"
+                totaal_label = f"{uur_kh}g KH  {'✅' if cur_min <= uur_kh <= cur_max else ('⚠️' if uur_kh > cur_max else '❌')}"
 
             totaal_kh_race += uur_kh
             notitie_html = f'<span style="color:#64748b;font-size:0.72rem;font-style:italic;">{notitie}</span>' if notitie else ""
@@ -1690,14 +1721,14 @@ def _bereken_raceplan(data: dict) -> list:
         items    = []
 
         if geen_kh:
-            items.append({"min": "+20min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
-            items.append({"min": "+40min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
+            items.append({"min": "20min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
+            items.append({"min": "40min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
         else:
             if pool.get("drank"):
                 d = pool["drank"][0]
                 naam_d = d.get("naam", d.get("name", "Sportdrank"))
                 kh_per_m = round((d["kh"] / 500) * vocht_per_m)
-                for label in ["+20min", "+40min", "+60min"]:
+                for label in ["20min", "40min", "60min"]:
                     items.append({"min": label, "emoji": "🥤",
                                   "naam": f"{naam_d} ({vocht_per_m}ml)", "kh": kh_per_m})
                     uur_kh += kh_per_m
@@ -1705,31 +1736,31 @@ def _bereken_raceplan(data: dict) -> list:
             if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
                 c = pool["cafe"][0]
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
-                items.append({"min": "+20min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
+                items.append({"min": "20min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
 
             if "verspreid" in cafe_strat and not is_last and pool.get("cafe") and u % 2 == 1:
                 c = pool["cafe"][0]
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
-                items.append({"min": "+40min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
+                items.append({"min": "40min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
 
             if pool.get("vast") and uur_kh < cur_min:
                 item = pool["vast"][vast_idx % len(pool["vast"])]
                 naam_v = item.get("naam", item.get("name", "Vast voedsel"))
-                items.append({"min": "+30min", "emoji": "🍌", "naam": naam_v, "kh": item["kh"]})
+                items.append({"min": "30min", "emoji": "🍌", "naam": naam_v, "kh": item["kh"]})
                 uur_kh += item["kh"]
                 vast_idx += 1
 
             if pool.get("gels") and uur_kh < cur_min:
                 g = pool["gels"][0]
                 naam_g = g.get("naam", g.get("name", "Gel"))
-                items.append({"min": "+45min", "emoji": "⚡", "naam": naam_g, "kh": g["kh"]})
+                items.append({"min": "45min", "emoji": "⚡", "naam": naam_g, "kh": g["kh"]})
                 uur_kh += g["kh"]
 
             if is_last:
-                items = [i for i in items if i["min"] == "+20min"]
-                items.append({"min": "+40min", "emoji": "💧", "naam": "Water / spoelen", "kh": 0})
+                items = [i for i in items if i["min"] == "20min"]
+                items.append({"min": "40min", "emoji": "💧", "naam": "Water / spoelen", "kh": 0})
 
         uren.append({
             "uur": u + 1, "uur_start": uur_start.strftime("%H:%M"),
