@@ -1267,7 +1267,8 @@ def _stap_raceplan():
         st.session_state["rp_show_preview"] = True
         st.rerun()
 
-    # ── Preview schema ─────────────────────────────────────────────────────────    if st.session_state.get("rp_show_preview", False):
+    # ── Preview schema ─────────────────────────────────────────────────────────
+    if st.session_state.get("rp_show_preview", False):
         import math
         from datetime import datetime, timedelta
 
