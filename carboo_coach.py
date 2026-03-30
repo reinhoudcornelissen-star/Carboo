@@ -1354,7 +1354,10 @@ def _stap_raceplan():
         # Vocht berekening
         basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 400)
         f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
-        vocht_uur   = round(basis_vocht * (1 + f_factor) / 10) * 10
+        # Sport-correctie: lopen/triatlon-lopen zweet meer
+        sport_factor = 1.15 if sport in ["Lopen", "Duatlon", "Crossduatlon"] else 1.0
+        if sport == "Triatlon": sport_factor = 1.1  # gemiddeld over zwem+fiets+loop
+        vocht_uur   = round(basis_vocht * (1 + f_factor) * sport_factor / 10) * 10
         vocht_pm    = round(vocht_uur / 3 / 10) * 10  # per innamemoment
         gel_interval = 40   # minuten tussen gels
         vast_vanaf   = 1    # vast voedsel vanaf uur 1
@@ -1486,41 +1489,18 @@ def _stap_raceplan():
             # Bouw standaard items voor dit uur
             # Laatste uur: 2 momenten (20-40), anders 3 (20-40-60)
             default_items = []
-            if geen_kh or (fase and "Geen inname" in fase[2]):
+            if is_last:
                 default_items = [
-                    ("20min", "— leeg —"),
+                    ("20min", drank_lbl if not geen_kh else "— leeg —"),
                     ("40min", "— leeg —"),
                 ]
-                if not is_last:
-                    default_items.append(("60min", "— leeg —"))
             else:
-                default_items.append(("20min", drank_lbl))
-                default_items.append(("40min", drank_lbl))
-                if not is_last:
-                    default_items.append(("60min", drank_lbl))
+                default_items = [
+                    ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                    ("40min", drank_lbl if not geen_kh else "— leeg —"),
+                    ("60min", "— leeg —"),
+                ]
 
-                # Gel interval
-                gel_timing = f"+{gel_interval}min"
-                if gel_timing not in ["20min", "40min", "60min"]:
-                    default_items.append((gel_timing, gel_lbl or drank_lbl))
-
-                # Vast voedsel
-                if vast_lbl and u_num >= vast_vanaf and not is_last:
-                    default_items.append(("30min", vast_lbl))
-
-                # Cafeïne
-                if cafe_lbl and u_num >= cafe_vanaf and u_num % 2 == 0 and not is_last:
-                    default_items.append((f"+{gel_interval}min", cafe_lbl))
-
-                # Water bij elke gel
-                for timing, prod in list(default_items):
-                    if "⚡" in prod or "☕" in prod:
-                        default_items.append((timing, "— leeg —"))
-
-                if is_last:
-                    default_items = [("20min", drank_lbl), ("40min", "— leeg —")]
-
-            # Haal huidige items op (of gebruik default)
             n_items_key = f"prev_n_items_{u_num}"
             if n_items_key not in st.session_state:
                 # Na reset: lege rijen, anders defaults
@@ -1650,16 +1630,60 @@ def _stap_raceplan():
 
             totaal_kh_race    += uur_kh
             totaal_vocht_race += uur_vocht
-            notitie_html = f'<span style="color:#64748b;font-size:0.72rem;font-style:italic;">{notitie}</span>' if notitie else ""
+
+            # ── KH balk kleur ─────────────────────────────────────────────────
+            if geen_kh:
+                kh_pct   = 100
+                kh_kleur = "#3b82f6"
+            else:
+                kh_pct   = min(100, round((uur_kh / cur_max) * 100)) if cur_max > 0 else 0
+                kh_over  = uur_kh > cur_max
+                if kh_over:              kh_kleur = "#ef4444"
+                elif uur_kh >= cur_min:  kh_kleur = "#22c55e"
+                elif kh_pct >= 50:       kh_kleur = "#fbbf24"
+                elif kh_pct >= 30:       kh_kleur = "#f97316"
+                else:                    kh_kleur = "#334155"
+
+            # ── Vocht balk kleur ──────────────────────────────────────────────
+            vocht_pct   = min(100, round((uur_vocht / vocht_uur) * 100)) if vocht_uur > 0 else 0
+            vocht_over  = uur_vocht > vocht_uur * 1.3
+            if vocht_over:          vocht_kleur = "#ef4444"
+            elif vocht_pct >= 80:   vocht_kleur = "#22c55e"
+            elif vocht_pct >= 50:   vocht_kleur = "#fbbf24"
+            else:                   vocht_kleur = "#f97316"
+
+            # Avatar bij KH overschrijding
+            if not geen_kh and uur_kh > cur_max:
+                st.markdown(
+                    '<div style="display:flex;gap:10px;align-items:center;margin:6px 0;' +
+                    'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+                    'border-radius:10px;padding:8px 12px;">' +
+                    f'<img src="{MASCOT_B64}" style="height:36px;width:auto;flex-shrink:0;">' +
+                    '<span style="color:#fca5a5;font-size:0.80rem;">' +
+                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit uur!</span>' +
+                    '</div>',
+                    unsafe_allow_html=True
+                )
+
+            notitie_html = (
+                f'<div style="color:#64748b;font-size:0.72rem;font-style:italic;'
+                f'padding:4px 0 6px 0;">{notitie}</div>'
+            ) if notitie else ""
 
             st.markdown(
-                f'<div style="background:#0f172a;border-radius:0 0 10px 10px;padding:7px 14px;'
-                f'display:flex;justify-content:space-between;align-items:center;">'
-                f'{notitie_html}'
-                f'<div style="display:flex;gap:16px;align-items:center;">'
-                f'<span style="color:#3b82f6;font-size:0.78rem;font-weight:700;">💧 {uur_vocht}ml</span>'
-                f'<span style="font-weight:800;font-size:0.82rem;color:{totaal_kleur};">{totaal_label}</span>'
-                f'</div></div>',
+                f'<div style="background:#0f172a;border-radius:0 0 10px 10px;padding:10px 14px 10px 14px;">' +
+                notitie_html +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">' +
+                f'<span style="color:#94a3b8;font-size:0.7rem;font-weight:700;width:44px;flex-shrink:0;">KH</span>' +
+                f'<div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">' +
+                f'<div style="width:{kh_pct}%;height:100%;background:{kh_kleur};border-radius:4px;"></div></div>' +
+                '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                f'<span style="color:#94a3b8;font-size:0.7rem;font-weight:700;width:44px;flex-shrink:0;">💧</span>' +
+                f'<div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">' +
+                f'<div style="width:{vocht_pct}%;height:100%;background:{vocht_kleur};border-radius:4px;"></div></div>' +
+                '</div>' +
+                f'</div>',
                 unsafe_allow_html=True
             )
 
