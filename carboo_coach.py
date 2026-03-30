@@ -1256,9 +1256,9 @@ def _stap_raceplan():
     }
 
     # ── Knoppen: Vorige + Preview ────────────────────────────────────────────
-    col_prev, col_preview = st.columns([1, 3])
+    col_prev, col_preview = st.columns(2)
     with col_prev:
-        if st.button("← Vorige", key="rp_prev"):
+        if st.button("← Vorige", key="rp_prev", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             st.session_state.coach_stap = 4
             st.rerun()
@@ -1445,7 +1445,7 @@ def _stap_raceplan():
             fase_html = ""
             if fase:
                 fase_icon, fase_naam, fase_tip = fase
-                fase_html = f' &nbsp;<span style="color:#64748b;font-size:0.75rem;">{fase_icon} {fase_naam}'
+                fase_html = f' &nbsp;<span style="color:#cbd5e1;font-size:0.75rem;">{fase_icon} {fase_naam}'
                 if fase_tip:
                     fase_html += f' — {fase_tip}'
                 fase_html += '</span>'
@@ -1468,13 +1468,11 @@ def _stap_raceplan():
 
             st.markdown(
                 f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;margin-top:12px;">'
-                f'<div style="display:flex;justify-content:space-between;align-items:center;">'
                 f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">'
-                f'UUR {u_num} — {uur_start.strftime("%H:%M")}{fase_html}</span>'
-                f'{"<span style=\"color:#64748b;font-size:0.75rem;\">Geen KH nodig</span>" if geen_kh else f"<span style=\"color:#94a3b8;font-size:0.72rem;\">Target: {cur_min}–{cur_max}g KH</span>"}'
-                f'</div>'
-                + (f'<div style="color:#475569;font-size:0.72rem;margin-top:4px;">{uur_tip}</div>' if uur_tip and not geen_kh else "")
-                + f'<div style="color:#60a5fa;font-size:0.73rem;margin-top:5px;">{_uur_tip}</div>' +
+                f'UUR {u_num} — {uur_start.strftime("%H:%M")}</span>'
+                + (fase_html if fase_html else '')
+                + (f'<div style="color:#94a3b8;font-size:0.72rem;margin-top:4px;">{uur_tip}</div>' if uur_tip and not geen_kh else "")
+                + f'<div style="color:#93c5fd;font-size:0.73rem;margin-top:5px;">{_uur_tip}</div>' +
                 f'</div>',
                 unsafe_allow_html=True
             )
