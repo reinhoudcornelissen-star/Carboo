@@ -1255,18 +1255,15 @@ def _stap_raceplan():
         },
     }
 
-    # ── Knoppen: Vorige + Preview ────────────────────────────────────────────
-    _kc1, _kc2, _kc3, _kc4 = st.columns([1, 1, 1, 1])
-    with _kc1:
-        if st.button("← Vorige", key="rp_prev", use_container_width=True):
-            st.session_state.coach_data["pool"] = pool
-            st.session_state.coach_stap = 4
-            st.rerun()
-    with _kc2:
-        if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
-            st.session_state.coach_data["pool"] = pool
-            st.session_state["rp_show_preview"] = True
-            st.rerun()
+    # ── Knoppen: Vorige boven Preview, breedte = vaste voeding sectie ─────────
+    if st.button("← Vorige", key="rp_prev"):
+        st.session_state.coach_data["pool"] = pool
+        st.session_state.coach_stap = 4
+        st.rerun()
+    if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
+        st.session_state.coach_data["pool"] = pool
+        st.session_state["rp_show_preview"] = True
+        st.rerun()
 
     # ── Preview schema ─────────────────────────────────────────────────────────    if st.session_state.get("rp_show_preview", False):
         import math
