@@ -1256,13 +1256,13 @@ def _stap_raceplan():
     }
 
     # ── Knoppen: Vorige + Preview ────────────────────────────────────────────
-    col_prev, col_preview = st.columns(2)
-    with col_prev:
+    _kc1, _kc2, _kc3, _kc4 = st.columns([1, 1, 1, 1])
+    with _kc1:
         if st.button("← Vorige", key="rp_prev", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             st.session_state.coach_stap = 4
             st.rerun()
-    with col_preview:
+    with _kc2:
         if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             st.session_state["rp_show_preview"] = True
@@ -1643,8 +1643,10 @@ def _stap_raceplan():
                 else:                    kh_kleur = "#334155"
 
             # ── Vocht balk kleur ──────────────────────────────────────────────
-            vocht_pct   = min(100, round((uur_vocht / vocht_uur) * 100)) if vocht_uur > 0 else 0
-            vocht_over  = uur_vocht > vocht_uur * 1.3
+            # Laatste uur: vochttarget op 40 min (2/3 van uur)
+            vocht_target_uur = round(vocht_uur * 2/3) if is_last else vocht_uur
+            vocht_pct   = min(100, round((uur_vocht / vocht_target_uur) * 100)) if vocht_target_uur > 0 else 0
+            vocht_over  = uur_vocht > vocht_target_uur * 1.3
             if vocht_over:          vocht_kleur = "#ef4444"
             elif vocht_pct >= 80:   vocht_kleur = "#22c55e"
             elif vocht_pct >= 50:   vocht_kleur = "#fbbf24"
