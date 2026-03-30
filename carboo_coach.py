@@ -1254,14 +1254,16 @@ def _stap_raceplan():
             "gum_mg":    gum_mg,
         },
     }
+    # Pool altijd opslaan zodat preview er toegang toe heeft
+    if "coach_data" not in st.session_state:
+        st.session_state.coach_data = {}
+    st.session_state.coach_data["pool"] = pool
 
     # ── Knoppen: Vorige boven Preview, breedte = vaste voeding sectie ─────────
     if st.button("← Vorige", key="rp_prev"):
-        st.session_state.coach_data["pool"] = pool
         st.session_state.coach_stap = 4
         st.rerun()
     if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
-        st.session_state.coach_data["pool"] = pool
         st.session_state["rp_show_preview"] = True
         st.rerun()
 
