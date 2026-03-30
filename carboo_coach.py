@@ -1414,16 +1414,16 @@ def _stap_raceplan():
 
         # Sport-specifieke tips per uur
         UUR_TIPS = {
-            "Fietsen":      "🥤 Sportdrank elke 20 min · ⚡ Gel elke 30–40 min met 💧 150ml water",
-            "Lopen":        "⚡ Gel elke 30–45 min altijd met 💧 water · Nooit gel én sportdrank tegelijk",
-            "Triatlon":     "🚴 Fiets = tankmoment · 🏃 Loop: gel + water, geen vast voedsel",
-            "Duatlon":      "🚴 Fiets = hoofdtankmoment · 🏃 Loop 2: gel mee vanuit T2",
-            "Crossduatlon": "🚵 MTB: neem in op vlakke stukken · ⚡ Gel + 💧 water, geen vast op technisch terrein",
+            "Fietsen":      "Kies per intervalmoment één product: sportdrank, gel of vast voedsel. Voeg water toe bij gels.",
+            "Lopen":        "Kies per intervalmoment één product: gel of sportdrank. Neem altijd water bij een gel.",
+            "Triatlon":     "Fietsgedeelte = hoofdtankmoment. Loopgedeelte: kies gels met water, vermijd vast voedsel.",
+            "Duatlon":      "Fiets = hoofdtankmoment. Neem bij T2 een gel mee voor de tweede loopfase.",
+            "Crossduatlon": "Neem in op vlakke MTB-stukken. Kies gels met water, geen vast voedsel op technisch terrein.",
         }
         uur_tip = UUR_TIPS.get(sport, "")
 
         # Kolomtitels
-        t1, t2, t3, tplus, t4, t5, t6 = st.columns([1.2, 2.5, 0.9, 0.3, 1.2, 0.8, 0.4])
+        t1, t2, t3, tplus, t4, t5, t6 = st.columns([1.1, 2.2, 0.8, 0.25, 1.8, 0.7, 0.35])
         with t1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">TIJDSTIP</div>', unsafe_allow_html=True)
         with t2: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">KOOLHYDRAATBRON</div>', unsafe_allow_html=True)
         with t3: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">AANTAL</div>', unsafe_allow_html=True)
@@ -1457,11 +1457,11 @@ def _stap_raceplan():
             elif fase and "Zwemmen" in fase[1]:
                 _uur_tip = "🏊 Geen inname mogelijk — start gevoed aan het fietsen"
             elif fase and "Loop" in fase[1]:
-                _uur_tip = "🏃 Gel + 💧 water — vermijd vast voedsel bij lopen"
+                _uur_tip = "Kies per rij één product. Neem bij een gel altijd water via de waterkolom."
             elif sport == "Lopen":
-                _uur_tip = "🏃 Gel + 💧 water — vloeibaar blijft makkelijker te verteren"
+                _uur_tip = "Kies vloeibare bronnen. Voeg water toe via de waterkolom bij elke gel."
             else:
-                _uur_tip = "🚴 Combineer sportdrank + gel + 💧 water — wissel KH-bronnen af"
+                _uur_tip = "Kies per rij één product. Voeg water toe bij gels via de waterkolom."
 
             st.markdown(
                 f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;margin-top:12px;">'
@@ -1484,20 +1484,24 @@ def _stap_raceplan():
             )
 
             # Bouw standaard items voor dit uur
+            # Laatste uur: 2 momenten (20-40), anders 3 (20-40-60)
             default_items = []
             if geen_kh or (fase and "Geen inname" in fase[2]):
                 default_items = [
                     ("20min", "— leeg —"),
                     ("40min", "— leeg —"),
                 ]
+                if not is_last:
+                    default_items.append(("60min", "— leeg —"))
             else:
-                # Sportdrank elke 20 min
                 default_items.append(("20min", drank_lbl))
                 default_items.append(("40min", drank_lbl))
+                if not is_last:
+                    default_items.append(("60min", drank_lbl))
 
                 # Gel interval
                 gel_timing = f"+{gel_interval}min"
-                if gel_timing not in ["20min", "40min"]:
+                if gel_timing not in ["20min", "40min", "60min"]:
                     default_items.append((gel_timing, gel_lbl or drank_lbl))
 
                 # Vast voedsel
@@ -1561,7 +1565,7 @@ def _stap_raceplan():
                     st.session_state[a_key] = 1.0
 
                 # Kolommen: timing | product | aantal | + | water | KH | 🗑
-                c1, c2, c3, cplus, c4, c5, c6 = st.columns([1.2, 2.5, 0.9, 0.3, 1.2, 0.8, 0.4])
+                c1, c2, c3, cplus, c4, c5, c6 = st.columns([1.1, 2.2, 0.8, 0.25, 1.8, 0.7, 0.35])
                 with c1:
                     t_idx = timing_opties.index(st.session_state[t_key]) if st.session_state[t_key] in timing_opties else 0
                     gekozen_t = st.selectbox("", timing_opties, index=t_idx,
