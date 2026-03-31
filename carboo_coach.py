@@ -1372,8 +1372,8 @@ def _stap_raceplan():
             '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:12px;">' +
             f'<img src="{MASCOT_B64}" style="height:72px;width:auto;flex-shrink:0;margin-top:4px;">' +
             '<div style="flex:1;background:#0f172a;border:2px solid #3b82f6;border-radius:14px;padding:14px 18px;">' +
-            '<div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">👁  PREVIEW RACEPLAN — aanpasbaar</div>' +
-            '<div style="color:#64748b;font-size:0.78rem;">Pas de globale instellingen aan of wijzig producten per uur. Klik daarna op Genereer plan om door te gaan.</div>' +
+            '<div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">PREVIEW RACEPLAN — aanpasbaar</div>' +
+            '<div style="color:#94a3b8;font-size:0.82rem;">Wijzig het plan indien gewenst! Probeer zowel de koolhydraten als het vocht aan te vullen tot de balk groen is!</div>' +
             '</div></div>',
             unsafe_allow_html=True
         )
@@ -1524,10 +1524,11 @@ def _stap_raceplan():
             else:
                 _uur_tip = "Kies per rij één product. Voeg water toe bij gels via de waterkolom."
 
+            rest_label = f" &nbsp;<span style='color:#f97316;font-size:0.75rem;'>⏱ nog {rest_min} min</span>" if is_last and rest_min < 60 else ""
             st.markdown(
                 f'<div style="background:#1e293b;border-radius:10px 10px 0 0;padding:9px 14px;margin-top:12px;">'
                 f'<span style="color:#f8fafc;font-weight:800;font-size:0.9rem;">'
-                f'UUR {u_num} — {uur_start.strftime("%H:%M")}</span>'
+                f'UUR {u_num} — {uur_start.strftime("%H:%M")}{rest_label}</span>'
                 + (fase_html if fase_html else '')
                 + (f'<div style="color:#94a3b8;font-size:0.72rem;margin-top:4px;">{uur_tip}</div>' if uur_tip and not geen_kh else "")
                 + f'<div style="color:#93c5fd;font-size:0.73rem;margin-top:5px;">{_uur_tip}</div>' +
@@ -1543,13 +1544,32 @@ def _stap_raceplan():
             )
 
             # Bouw standaard items voor dit uur
-            # Laatste uur: 2 momenten (20-40), anders 3 (20-40-60)
+            # Resterende minuten laatste uur berekenen
+            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
             default_items = []
             if is_last:
-                default_items = [
-                    ("20min", drank_lbl if not geen_kh else "— leeg —"),
-                    ("40min", "— leeg —"),
-                ]
+                if rest_min < 20:
+                    # Minder dan 20 min over — enkel water/spoelen
+                    default_items = [
+                        ("10min", "— leeg —"),
+                    ]
+                elif rest_min < 36:
+                    # 20–35 min — 1 moment vloeibaar
+                    default_items = [
+                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                    ]
+                elif rest_min < 51:
+                    # 36–50 min — 2 momenten vloeibaar
+                    default_items = [
+                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                        ("35min", "— leeg —"),
+                    ]
+                else:
+                    # > 50 min — normaal schema
+                    default_items = [
+                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                        ("40min", drank_lbl if not geen_kh else "— leeg —"),
+                    ]
             else:
                 default_items = [
                     ("20min", drank_lbl if not geen_kh else "— leeg —"),
@@ -1706,8 +1726,11 @@ def _stap_raceplan():
                 else:                    kh_kleur = "#334155"
 
             # ── Vocht balk kleur ──────────────────────────────────────────────
-            # Laatste uur: vochttarget op 40 min (2/3 van uur)
-            vocht_target_uur = round(vocht_uur * 2/3) if is_last else vocht_uur
+            # Laatste uur: vochttarget op basis van resterende minuten
+            if is_last:
+                vocht_target_uur = round(vocht_uur * (rest_min / 60))
+            else:
+                vocht_target_uur = vocht_uur
             vocht_pct   = min(100, round((uur_vocht / vocht_target_uur) * 100)) if vocht_target_uur > 0 else 0
             vocht_over  = uur_vocht > vocht_target_uur * 1.3
             if vocht_over:          vocht_kleur = "#ef4444"
