@@ -1154,6 +1154,28 @@ def _stap_raceplan():
             '📝 Kies hieronder de producten die je wenst te gebruiken in je race ' +
             'en ik giet ze in een voorlopig schema dat je zelf nog kan aanvullen of wijzigen.</span></div>'
         )
+
+    # ORS / hitte melding in adviesbalk
+    _temp_val  = data.get("temp", 18)
+    _vocht_val = data.get("vochtigheid", 50)
+    _pool_data = data.get("pool", {})
+    _supp_data = _pool_data.get("supplementen", {})
+    _ors_naam  = _supp_data.get("ors_naam", "") if isinstance(_supp_data, dict) else ""
+    if _temp_val > 28 or (_temp_val > 24 and _vocht_val > 75):
+        _ors_msg = f" ORS ({_ors_naam}) wordt automatisch ingepland elke 2 uur." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+        sport_html += (
+            '<div style="margin-top:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;' +
+            'border-radius:8px;padding:8px 12px;">' +
+            f'<span style="color:#fca5a5;font-size:0.82rem;">🔴 <b>Extreme hitte</b> — verhoog vochtinname en gebruik ORS voor zoutbalans.{_ors_msg}</span></div>'
+        )
+    elif _temp_val > 22 and _vocht_val > 70:
+        _ors_msg = f" ORS ({_ors_naam}) wordt automatisch ingepland elke 2 uur." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+        sport_html += (
+            '<div style="margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid #f59e0b;' +
+            'border-radius:8px;padding:8px 12px;">' +
+            f'<span style="color:#fcd34d;font-size:0.82rem;">⚠️ <b>Hitte + vochtigheid</b> — ORS tabletten aangeraden.{_ors_msg}</span></div>'
+        )
+
     sport_html += '</div>'
     # Avatar naast de blauwe kader
     avatar_html = (
@@ -1264,6 +1286,11 @@ def _stap_raceplan():
         st.session_state.coach_stap = 4
         st.rerun()
     if st.button("👁  Preview schema", key="rp_preview", use_container_width=True):
+        # Wis n_items keys zodat defaults opnieuw berekend worden
+        for k in list(st.session_state.keys()):
+            if k.startswith("prev_n_items_") or k.startswith("prev_t_") or k.startswith("prev_p_") or k.startswith("prev_a_") or k.startswith("prev_w_"):
+                del st.session_state[k]
+        st.session_state.pop("rp_preview_leeg", None)
         st.session_state["rp_show_preview"] = True
         st.rerun()
 
@@ -1456,25 +1483,6 @@ def _stap_raceplan():
         }
         uur_tip = UUR_TIPS.get(sport, "")
 
-        # ORS waarschuwing bij hitte
-        _ors_naam = supp.get("ors_naam", "") if isinstance(supp, dict) else ""
-        if temp > 28 or (temp > 24 and vochtigheid > 75):
-            _ors_msg = f" ORS ({_ors_naam}) is automatisch ingepland elke 2 uur op +60min." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
-            st.markdown(
-                f'<div style="background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
-                f'border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fca5a5;">' +
-                f'🔴 <b>Extreme hitte</b> — verhoog vochtinname en gebruik ORS voor zoutbalans.{_ors_msg}</div>',
-                unsafe_allow_html=True
-            )
-        elif temp > 22 and vochtigheid > 70:
-            _ors_msg = f" ORS ({_ors_naam}) is automatisch ingepland elke 2 uur op +60min." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
-            st.markdown(
-                f'<div style="background:rgba(245,158,11,0.1);border:1px solid #f59e0b;' +
-                f'border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fcd34d;">' +
-                f'⚠️ <b>Hitte + vochtigheid gedetecteerd</b> — ORS tabletten aangeraden.{_ors_msg}</div>',
-                unsafe_allow_html=True
-            )
-
         # Kolomtitels
         t1, t2, t3, tplus, t4, t5, t6 = st.columns([1.1, 2.2, 0.8, 0.25, 1.8, 0.7, 0.35])
         with t1: st.markdown('<div style="font-size:0.68rem;color:#64748b;font-weight:700;">TIJDSTIP</div>', unsafe_allow_html=True)
@@ -1574,9 +1582,7 @@ def _stap_raceplan():
 
             uur_kh    = 0
             uur_vocht = 0
-            # Wis leeg-flag na verwerking van eerste uur
-            if u == aantal_uren - 1:
-                st.session_state.pop("rp_preview_leeg", None)
+            # Leeg-flag blijft actief tijdens hele preview render
             timing_opties = ["20min", "25min", "30min", "35min", "40min", "45min", "50min", "55min", "60min"]
 
             for i_idx in range(n_items):
@@ -1667,17 +1673,6 @@ def _stap_raceplan():
                     st.rerun()
 
             # Avatar bij overschrijding
-            if not geen_kh and uur_kh > cur_max:
-                st.markdown(
-                    '<div style="display:flex;gap:10px;align-items:center;margin-top:6px;' +
-                    'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
-                    'border-radius:10px;padding:8px 12px;">' +
-                    f'<img src="{MASCOT_B64}" style="height:36px;width:auto;flex-shrink:0;">' +
-                    '<span style="color:#fca5a5;font-size:0.80rem;">' +
-                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit uur!</span>' +
-                    '</div>',
-                    unsafe_allow_html=True
-                )
 
             # Totaal per uur
             if geen_kh:
@@ -1773,8 +1768,8 @@ def _stap_raceplan():
             for k in list(st.session_state.keys()):
                 if k.startswith("prev_"):
                     del st.session_state[k]
-            st.session_state["rp_preview_leeg"] = True
-            st.session_state["rp_show_preview"] = True
+            st.session_state.pop("rp_preview_leeg", None)
+            st.session_state["rp_show_preview"] = False
             st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
