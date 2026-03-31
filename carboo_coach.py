@@ -1211,7 +1211,7 @@ def _stap_raceplan():
                                1, "bijv. SIS Go Gel", 22, "KH/gel")
     with gel_col2:
         st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Gels met cafeïne &nbsp;·&nbsp; KH/gel</div>', unsafe_allow_html=True)
-        cafe_pool = _prod_blok("Cafeïne gel", "#f59e0b", "☕",
+        cafe_pool = _prod_blok("Cafeïne gel", "#f59e0b", "⚡",
                                "rp_n_cafe", "rp_cafe", "rp_ckh",
                                0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
 
@@ -1354,11 +1354,11 @@ def _stap_raceplan():
         # Vocht berekening
         basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 400)
         f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
-        # Sport-correctie: lopen/triatlon-lopen zweet meer
-        sport_factor = 1.15 if sport in ["Lopen", "Duatlon", "Crossduatlon"] else 1.0
-        if sport == "Triatlon": sport_factor = 1.1  # gemiddeld over zwem+fiets+loop
-        vocht_uur   = round(basis_vocht * (1 + f_factor) * sport_factor / 10) * 10
-        vocht_pm    = round(vocht_uur / 3 / 10) * 10  # per innamemoment
+        # Sportniveau-correctie: enkel Elite/Semi-pro +5%
+        niveau_factor = 1.05 if niveau == "Elite / Semi-pro" else 1.0
+
+        vocht_uur = round(basis_vocht * (1 + f_factor) * niveau_factor / 10) * 10
+        vocht_pm  = round(vocht_uur / 3 / 10) * 10  # per innamemoment
         gel_interval = 40   # minuten tussen gels
         vast_vanaf   = 1    # vast voedsel vanaf uur 1
         cafe_vanaf   = 2    # cafeïne vanaf uur 2
@@ -1388,18 +1388,47 @@ def _stap_raceplan():
         if pool.get("vast"):
             for p in pool["vast"]:
                 naam = p.get("naam", p.get("name", "Vast"))
-                lbl  = f"🍌 {naam}"
+                # Kies emoji op basis van productnaam
+                naam_l = naam.lower()
+                if any(w in naam_l for w in ["reep", "bar", "energiereep"]):
+                    em = "🍫"
+                elif any(w in naam_l for w in ["koek", "wafel", "speculoos", "pannenkoek", "granola", "muesli", "biscuit"]):
+                    em = "🍪"
+                elif any(w in naam_l for w in ["rijstwafel", "rijst"]):
+                    em = "🌾"
+                elif any(w in naam_l for w in ["banaan"]):
+                    em = "🍌"
+                elif any(w in naam_l for w in ["appel", "peer", "fruit", "kiwi", "appelmoes"]):
+                    em = "🍎"
+                elif any(w in naam_l for w in ["dadel", "rozijn", "noot"]):
+                    em = "🌰"
+                else:
+                    em = "🍱"
+                lbl  = f"{em} {naam}"
                 alle_opties.append(lbl)
                 kh_map[lbl]    = p["kh"]
-                emoji_map[lbl] = "🍌"
+                emoji_map[lbl] = em
 
         if pool.get("cafe"):
             for p in pool["cafe"]:
                 naam = p.get("naam", p.get("name", "Cafeïne gel"))
-                lbl  = f"☕ {naam}"
+                lbl  = f"⚡ {naam}"
                 alle_opties.append(lbl)
                 kh_map[lbl]    = p["kh"]
-                emoji_map[lbl] = "☕"
+                emoji_map[lbl] = "⚡"
+
+        # Supplementen toevoegen
+        supp = pool.get("supplementen", {})
+        if supp.get("ors_naam"):
+            lbl = f"💊 {supp['ors_naam']} (ORS)"
+            alle_opties.append(lbl)
+            kh_map[lbl]    = 0
+            emoji_map[lbl] = "💊"
+        if supp.get("gum_naam"):
+            lbl = f"🍬 {supp['gum_naam']} (cafeïne gum)"
+            alle_opties.append(lbl)
+            kh_map[lbl]    = 0
+            emoji_map[lbl] = "🍬"
 
         alle_opties += ["— leeg —"]
         kh_map["— leeg —"] = 0
@@ -1408,7 +1437,9 @@ def _stap_raceplan():
         drank_lbl = next((l for l in alle_opties if l.startswith("🥤")), "— leeg —")
         gel_lbl   = next((l for l in alle_opties if l.startswith("⚡")), None)
         vast_lbl  = next((l for l in alle_opties if l.startswith("🍌")), None)
-        cafe_lbl  = next((l for l in alle_opties if l.startswith("☕")), None)
+        # cafe_lbl = eerste cafeïne gel optie
+        _cafe_namen = [p.get("naam", p.get("name","")) for p in pool.get("cafe", [])]
+        cafe_lbl = next((l for l in alle_opties if any(n in l for n in _cafe_namen)), None)
 
         # ── Per uur schema ────────────────────────────────────────────────────
         totaal_kh_race    = 0
@@ -1424,6 +1455,25 @@ def _stap_raceplan():
             "Crossduatlon": "Neem in op vlakke MTB-stukken. Kies gels met water, geen vast voedsel op technisch terrein.",
         }
         uur_tip = UUR_TIPS.get(sport, "")
+
+        # ORS waarschuwing bij hitte
+        _ors_naam = supp.get("ors_naam", "") if isinstance(supp, dict) else ""
+        if temp > 28 or (temp > 24 and vochtigheid > 75):
+            _ors_msg = f" ORS ({_ors_naam}) is automatisch ingepland elke 2 uur op +60min." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+            st.markdown(
+                f'<div style="background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
+                f'border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fca5a5;">' +
+                f'🔴 <b>Extreme hitte</b> — verhoog vochtinname en gebruik ORS voor zoutbalans.{_ors_msg}</div>',
+                unsafe_allow_html=True
+            )
+        elif temp > 22 and vochtigheid > 70:
+            _ors_msg = f" ORS ({_ors_naam}) is automatisch ingepland elke 2 uur op +60min." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+            st.markdown(
+                f'<div style="background:rgba(245,158,11,0.1);border:1px solid #f59e0b;' +
+                f'border-radius:8px;padding:8px 12px;margin:8px 0;font-size:0.82rem;color:#fcd34d;">' +
+                f'⚠️ <b>Hitte + vochtigheid gedetecteerd</b> — ORS tabletten aangeraden.{_ors_msg}</div>',
+                unsafe_allow_html=True
+            )
 
         # Kolomtitels
         t1, t2, t3, tplus, t4, t5, t6 = st.columns([1.1, 2.2, 0.8, 0.25, 1.8, 0.7, 0.35])
@@ -1499,6 +1549,19 @@ def _stap_raceplan():
                     ("60min", "— leeg —"),
                 ]
 
+            # ── ORS automatisch inplannen bij hitte ──────────────────────────
+            ors_naam  = supp.get("ors_naam", "") if isinstance(supp, dict) else ""
+            ors_actief = ors_naam and (temp > 25 or (temp > 22 and vochtigheid > 70))
+            if ors_actief and not is_last:
+                # Elke 2 uur op +60min, start uur 1
+                if u_num % 2 == 1:
+                    ors_lbl = f"💊 {ors_naam} (ORS)"
+                    # Voeg toe als 60min slot leeg is
+                    if not any(t == "60min" and p != "— leeg —" for t, p in default_items):
+                        # Vervang de lege 60min rij door ORS
+                        default_items = [(t, ors_lbl if t == "60min" else p)
+                                        for t, p in default_items]
+
             n_items_key = f"prev_n_items_{u_num}"
             if n_items_key not in st.session_state:
                 # Na reset: lege rijen, anders defaults
@@ -1533,7 +1596,7 @@ def _stap_raceplan():
                 w_key = f"prev_w_{u_num}_{i_idx}"
                 if w_key not in st.session_state:
                     # Standaard water bij gel/cafeïne
-                    st.session_state[w_key] = "💧 water 150ml" if ("⚡" in st.session_state.get(p_key,"") or "☕" in st.session_state.get(p_key,"")) else "—"
+                    st.session_state[w_key] = "💧 water 150ml" if ("⚡" in st.session_state.get(p_key,"")) else "—"
 
                 water_opties = ["—", "💧 water 100ml", "💧 water 150ml", "💧 water 200ml", "💧 water 250ml", "💧 water 500ml"]
 
@@ -1586,8 +1649,13 @@ def _stap_raceplan():
                         vocht_water = int(gekozen_w.split()[-1].replace("ml","")) * gekozen_a
                     except: pass
                 vocht_drank = 0
-                if "🥤" in gekozen_p and vocht_pm:
-                    vocht_drank = vocht_pm * gekozen_a
+                if "🥤" in gekozen_p:
+                    # Lees ml rechtstreeks uit het label: "🥤 Maurten 320 (200ml)"
+                    try:
+                        import re
+                        ml_match = re.search(r'\((\d+)ml\)', gekozen_p)
+                        vocht_drank = int(ml_match.group(1)) * gekozen_a if ml_match else 0
+                    except: pass
                 uur_vocht += round(vocht_water + vocht_drank)
                 uur_kh += kh_val
 
@@ -1803,13 +1871,13 @@ def _bereken_raceplan(data: dict) -> list:
             if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
                 c = pool["cafe"][0]
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
-                items.append({"min": "20min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
+                items.append({"min": "20min", "emoji": "⚡", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
 
             if "verspreid" in cafe_strat and not is_last and pool.get("cafe") and u % 2 == 1:
                 c = pool["cafe"][0]
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
-                items.append({"min": "40min", "emoji": "☕", "naam": naam_c, "kh": c["kh"]})
+                items.append({"min": "40min", "emoji": "⚡", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
 
             if pool.get("vast") and uur_kh < cur_min:
@@ -2426,7 +2494,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
     leg_items = [["💧","Water / mondspoeling"],["🥤","Sportdrank"],
-                 ["⚡","Energy gel"],["🍌","Vast voedsel"],["☕","Gel + cafeïne"]]
+                 ["⚡","Energy gel"],["🍌","Vast voedsel"],["⚡","Gel + cafeïne"]]
     leg_row = [[Paragraph(f"{s}  {l}", S("LG", fontSize=8, textColor=DONKER, leading=12))
                for s, l in leg_items]]
     leg_t = Table(leg_row, colWidths=[breed/5]*5)
@@ -2573,7 +2641,7 @@ def _stap_samenvatting():
         st.markdown(f"""
         <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:12px 16px; 
              border-radius:8px; color:#92400e; font-size:0.85rem;">
-            ☕ <b>Cafeïne strategie:</b> {cafe_strat}
+            ⚡ <b>Cafeïne strategie:</b> {cafe_strat}
         </div>
         """, unsafe_allow_html=True)
 
