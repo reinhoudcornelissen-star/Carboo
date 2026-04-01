@@ -244,3 +244,31 @@ with fc2:
             if st.button("🚪  Uitloggen", key="btn_logout", use_container_width=True):
                 for k in list(st.session_state.keys()): del st.session_state[k]
                 st.rerun()
+# --- CHATBOT FLOATING BUTTON ---
+# Dit stukje code zorgt voor de knop rechtsonderin
+st.markdown("""
+    <style>
+    div[data-testid="stButton"] > button[key="chat_btn"] {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        background-color: #f97316;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        z-index: 1000;
+        font-size: 24px;
+        border: none;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Als er op de zwevende knop geklikt wordt, toon de chat
+if st.button("💬", key="chat_btn"):
+    st.session_state.module = "chat"
+    st.rerun()
+
+# Als de module op 'chat' staat, voer de functie uit chat.py uit
+if st.session_state.module == "chat":
+    show_chat()
