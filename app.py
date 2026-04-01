@@ -5,6 +5,7 @@ from carboo_coach import render_coach
 from carbomax import render_carbomax
 from raceprep import render_raceprep
 from optimeal import render_optimeal
+from chat import show_chat
 
 st.set_page_config(
     page_title="Carboo — Race Nutrition",
