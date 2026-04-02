@@ -4,7 +4,6 @@ from carboo_coach import render_coach
 from carbomax import render_carbomax
 from raceprep import render_raceprep
 from optimeal import render_optimeal
-from carboo_chat import render_chatbot   # ← nieuw
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -68,23 +67,6 @@ label { color: #94a3b8 !important; font-size: 0.78rem !important; text-transform
 
 /* Selectbox dropdown */
 div[data-baseweb="select"] > div { background:#0f172a !important; border-color:#334155 !important; color:white !important; }
-
-/* Chat FAB knop — klein en rechtsonder */
-div[data-testid="stButton"] button[kind="secondary"][data-test="chat_fab_btn"] {
-    position: fixed !important;
-    bottom: 24px !important;
-    right: 24px !important;
-    width: 50px !important;
-    height: 50px !important;
-    border-radius: 50% !important;
-    background: #f97316 !important;
-    color: white !important;
-    font-size: 20px !important;
-    padding: 0 !important;
-    box-shadow: 0 4px 16px rgba(249,115,22,0.45) !important;
-    z-index: 9999 !important;
-    border: none !important;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -93,8 +75,6 @@ for key, default in [
     ("logged_in", False),
     ("current_user", None),
     ("module", "menu"),
-    ("chat_open", False),
-    ("chat_messages", []),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -110,7 +90,7 @@ naam = user.get("name", "Atleet")
 is_admin = user.get("role") == "admin"
 
 # HEADER
-CARBOO_AVATAR = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+CARBOO_AVATAR = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/wAAR"
 
 st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;
@@ -154,7 +134,6 @@ if module == "menu":
             st.session_state.module = "admin"
             st.rerun()
 
-    # Uitloggen
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("← Uitloggen", key="btn_logout"):
         for k in list(st.session_state.keys()):
@@ -175,6 +154,3 @@ elif module == "optimeal":
 
 elif module == "admin":
     render_admin_panel()
-
-# ─── CHATBOT — altijd zichtbaar als ingelogd ──────────────────────────────────
-render_chatbot()
