@@ -1964,6 +1964,7 @@ def _bereken_raceplan(data: dict) -> list:
 
 
 
+
 def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     """Volledig PDF rapport: info + carboloading + racedag + uur-per-uur + snelkaart."""
     import io, math, base64
@@ -2653,6 +2654,354 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
 
 
+
+def _genereer_html(data: dict, gebruiker_naam: str) -> str:
+    """Genereer volledig HTML rapport van het race nutrition plan."""
+    from datetime import datetime, timedelta, datetime as DT
+    from collections import defaultdict
+    import math
+
+    atleet   = data.get("atleet_naam", gebruiker_naam)
+    sport    = data.get("sport", "—")
+    niveau   = data.get("niveau", "—")
+    gewicht  = data.get("gewicht", "—")
+    datum    = data.get("wedstrijd_datum", "—")
+    start    = data.get("start_time", "—")
+    eind     = data.get("eind_time", "—")
+    totmin   = data.get("totale_min", 0)
+    duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
+    temp     = data.get("temp", "—")
+    vocht    = data.get("vochtigheid", "—")
+    hoogte   = data.get("hoogte", "—")
+    ervaring = data.get("ervaring", "—")
+    dag_target = data.get("dag_target", 0)
+    cl_data    = data.get("carboloading", {})
+    cl_waarden = data.get("cl_waarden", {})
+    rd_waarden = data.get("rd_waarden", {})
+    ont_kh     = data.get("ontbijt_kh", 0)
+    ont_timing = data.get("ontbijt_timing", "—")
+    ont_tijd   = data.get("ontbijt_tijd", "—")
+    maaltijd_mom = data.get("maaltijd_moment", "Ontbijt")
+    min_kh     = data.get("min_kh", 0)
+    max_kh     = data.get("max_kh", 0)
+    temp_val   = data.get("temp", 18)
+    pool       = data.get("pool", {})
+    preview_comments = data.get("preview_comments", {})
+
+    if temp_val > 25:   vocht_advies = "600–800ml (2–3u voor start, warm)"
+    elif temp_val > 15: vocht_advies = "400–600ml (2–3u voor start)"
+    else:               vocht_advies = "300–500ml (2–3u voor start, koel)"
+
+    CL_KH_MAP = {
+        "Wit brood":17,"Bruin brood":16,"Volkorenbrood":14,"Havermout":27,
+        "Ontbijtgranen":25,"Muesli":30,"Granola (krokant)":26,
+        "Melk (dierlijk)":9,"Plantaardige melk":9,"Banaan":30,"Appel":15,
+        "Peer":19,"Kiwi":11,"Yoghurt natuur":6,"Plattekaas":4,
+        "Confituur":3,"Honing":4,"Chocopasta":3,"Koffie met suiker":5,
+        "Vruchtensap sinaas":20,"Sportdrank":35,"Rijstwafels":7,
+        "Energiereep":40,"Rozijnen":15,"Dadels gedroogd":6,
+        "Muesli/granenreep":26,"Speculoos":5,"Snoep/winegums":26,
+        "Appelmoes":27,"Pannenkoek":27,
+        "Pasta (hoofdmaaltijd)":75,"Pasta (bijgerecht)":37,
+        "Rijst (hoofdmaaltijd)":81,"Rijst (bijgerecht)":42,
+        "Aardappelen gekookt":30,"Groentenmix rauw":5,"Groentenmix warm":8,
+    }
+    CL_PORTIE_MAP = {
+        "Wit brood":"sneden","Bruin brood":"sneden","Volkorenbrood":"sneden",
+        "Havermout":"kom","Ontbijtgranen":"kom","Muesli":"kom","Granola (krokant)":"kom",
+        "Melk (dierlijk)":"glas","Plantaardige melk":"glas","Banaan":"stuk","Appel":"stuk",
+        "Peer":"stuk","Kiwi":"stuk","Yoghurt natuur":"potje","Plattekaas":"eetlepels",
+        "Confituur":"koffielepel","Honing":"koffielepel","Chocopasta":"koffielepel",
+        "Koffie met suiker":"tas","Vruchtensap sinaas":"glas","Sportdrank":"bidon",
+        "Pasta (hoofdmaaltijd)":"bord","Pasta (bijgerecht)":"bord",
+        "Rijst (hoofdmaaltijd)":"bord","Rijst (bijgerecht)":"bord",
+        "Aardappelen gekookt":"bord","Groentenmix rauw":"bord","Groentenmix warm":"bord",
+        "Rijstwafels":"stuk","Energiereep":"reep","Rozijnen":"handje",
+        "Appelmoes":"schaaltje","Pannenkoek":"stuk",
+    }
+    MAALTIJDEN = ["Ontbijt","Tussendoor VM","Lunch","Tussendoor NM","Avondmaal","Avond snack"]
+    BADGE = {"🥤":("SD","#3b82f6"),"⚡":("GEL","#f97316"),"🍌":("VAST","#22c55e"),
+             "☕":("CAF","#8b5cf6"),"💧":("H2O","#64748b")}
+
+    def kh_col(pct):
+        if pct >= 90: return "#22c55e"
+        if pct >= 70: return "#fbbf24"
+        return "#ef4444"
+
+    def prog_bar(val, target):
+        pct = min(round(val/target*100), 100) if target > 0 else 0
+        col = kh_col(pct)
+        return (f'<div style="background:#0f172a;border-radius:3px;height:7px;margin:5px 0 2px;overflow:hidden">' +
+                f'<div style="width:{pct}%;height:100%;background:{col};border-radius:3px"></div></div>')
+
+    # ── Carboloading HTML ─────────────────────────────────────────────────────
+    cl_html = ""
+    for dag_num in [1, 2]:
+        dag_vals = cl_data.get(f"dag{dag_num}", {})
+        totaal   = dag_vals.get("totaal", 0)
+        target   = dag_vals.get("target", dag_target)
+        pct      = dag_vals.get("pct", 0)
+        col      = kh_col(pct)
+        lbl      = "2 dagen voor race" if dag_num == 1 else "1 dag voor race"
+
+        rows = ""
+        for m in MAALTIJDEN:
+            items_txt = []
+            for prod, kh_pp in CL_KH_MAP.items():
+                val = cl_waarden.get(f"cl_d{dag_num}_{m}_{prod}", 0)
+                if val and val > 0:
+                    n = int(val) if val == int(val) else val
+                    eenh = CL_PORTIE_MAP.get(prod, "portie")
+                    items_txt.append(f"{n} {eenh} {prod.lower()}")
+            if items_txt:
+                rows += (f'<tr><td class="ml-name">{m}</td>' +
+                         f'<td class="ml-items">{", ".join(items_txt)}</td></tr>')
+
+        cl_html += (
+            f'<div style="margin-bottom:10px">' +
+            f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;' +
+            f'font-weight:bold;color:#94a3b8;display:flex;justify-content:space-between;margin-bottom:4px">' +
+            f'<span>DAG {dag_num} — {lbl}</span></div>' +
+            f'<table class="ml-table"><tbody>{rows}</tbody></table>' +
+            prog_bar(totaal, target) +
+            '</div>'
+        )
+
+    # ── Laatste maaltijd HTML ─────────────────────────────────────────────────
+    rd_items = []
+    rd_kh_tot = 0
+    for k, val in rd_waarden.items():
+        if val and val > 0:
+            parts = k.split("_", 2)
+            prod  = parts[2] if len(parts) > 2 else k
+            kh_pp = CL_KH_MAP.get(prod, 0)
+            n     = int(val) if val == int(val) else val
+            eenh  = CL_PORTIE_MAP.get(prod, "portie")
+            rd_items.append((f"{n} {eenh} {prod.lower()}", round(val*kh_pp)))
+            rd_kh_tot += round(val*kh_pp)
+
+    rd_rows = "".join(
+        f'<tr><td style="padding:4px 8px;font-size:10px">{omschr}</td>' +
+        f'<td style="text-align:right;padding:4px 8px;font-size:10px;color:#f97316;font-weight:bold">{kh}g</td></tr>'
+        for omschr, kh in rd_items
+    )
+    kh_max_rd = round(gewicht * 3) if isinstance(gewicht, (int, float)) else 216
+    lm_prog   = prog_bar(rd_kh_tot, kh_max_rd)
+
+    # ── Raceplan HTML ─────────────────────────────────────────────────────────
+    uren, vocht_per_m = _bereken_raceplan(data)
+
+    raceplan_html = ""
+    for uur_data in uren:
+        u_num   = uur_data["uur"]
+        u_start = uur_data["uur_start"]
+        items   = uur_data["items"]
+        geen_kh = uur_data["geen_kh"]
+        u_kh    = uur_data["uur_kh"]
+        u_min   = uur_data["min_kh"]
+        u_max   = uur_data["max_kh"]
+        comment = preview_comments.get(str(u_num), "")
+        bar_col = "#22c55e" if u_kh >= u_min else ("#fbbf24" if u_kh >= u_min*0.8 else "#ef4444")
+        if geen_kh: bar_col = "#3b82f6"
+        kh_info = "Geen extra KH nodig" if geen_kh else f"KH: {u_kh}g | target {u_min}–{u_max}g"
+
+        item_rows = ""
+        for item in items:
+            bd, col = BADGE.get(item["emoji"], ("?","#888"))
+            kh_txt = f'<span style="color:#f97316;font-weight:bold;margin-left:auto">{item["kh"]}g</span>' if item["kh"] > 0 else ""
+            item_rows += (
+                f'<div class="item-row">' +
+                f'<span class="item-min">{item["min"]}</span>' +
+                f'<span class="item-badge" style="color:{col};border-color:{col}">{bd}</span>' +
+                f'<span class="item-naam">{item["naam"].split("(")[0].strip()}</span>' +
+                f'{kh_txt}</div>'
+            )
+        if comment:
+            item_rows += f'<div class="item-comment">◂ {comment}</div>'
+
+        raceplan_html += (
+            f'<div style="margin-bottom:6px">' +
+            f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;' +
+            f'font-weight:bold;color:#93c5fd;display:flex;justify-content:space-between;margin-bottom:2px">' +
+            f'<span>UUR {u_num} ⏰ {u_start}</span>' +
+            f'<span style="color:{bar_col};font-size:10px">{kh_info}</span></div>' +
+            f'<div style="padding:0 4px">{item_rows}</div></div>'
+        )
+
+    # ── Carboo Racemap HTML ───────────────────────────────────────────────────
+    racemap_rows = ""
+    for uur_data in uren:
+        u_start = uur_data["uur_start"]
+        items   = uur_data["items"]
+        comment = preview_comments.get(str(uur_data["uur"]), "")
+        uur_dt  = DT.strptime(u_start, "%H:%M")
+        per_min = defaultdict(list)
+        for item in items:
+            per_min[item["min"]].append(item)
+        def get_offset(m):
+            return int(m.replace("+","").replace("min",""))
+        gesorteerd = sorted(per_min.items(), key=lambda x: get_offset(x[0]))
+        for i, (ml, min_items) in enumerate(gesorteerd):
+            offset = get_offset(ml)
+            exact  = (uur_dt + timedelta(minutes=offset)).strftime("%H:%M")
+            t_s = "color:#f97316;font-weight:bold" if i == 0 else "color:#475569"
+            d_s = "background:#f97316;width:5px;height:5px" if i == 0 else "background:#334155;width:3px;height:3px;border:1px solid #475569"
+            badges_html = "".join(
+                f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:7px;line-height:10px;display:inline-block;margin-right:1px">{bd}</b>'
+                for item in min_items
+                for bd, col in [BADGE.get(item["emoji"], ("?","#888"))]
+            )
+            cm = f'<i style="color:#fbbf24;font-size:6px;margin-left:2px">{comment}</i>' if comment and i == 0 else ""
+            racemap_rows += (
+                f'<tr>' +
+                f'<td style="text-align:right;padding:0 2px 0 0;font-size:7px;width:30px;white-space:nowrap;{t_s}">{exact}</td>' +
+                f'<td style="width:10px;text-align:center;padding:0;position:relative">' +
+                f'<div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#334155;transform:translateX(-50%)"></div>' +
+                f'<span style="{d_s};border-radius:50%;display:inline-block;position:relative;vertical-align:middle"></span>' +
+                f'</td>' +
+                f'<td style="padding:0 0 0 3px;font-size:7px;line-height:10px">{badges_html}{cm}</td>' +
+                f'</tr>'
+            )
+
+    # ── Volledige HTML ────────────────────────────────────────────────────────
+    html = f"""<!DOCTYPE html>
+<html lang="nl"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carboo Race Nutrition Plan — {atleet}</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:20px}}
+.page{{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}}
+.header{{background:#1e293b;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}}
+.header h1{{font-size:17px;font-weight:900;color:#f97316;letter-spacing:2px}}
+.header p{{font-size:10px;color:#64748b;margin-top:2px}}
+.header-right{{text-align:right;font-size:10px;color:#64748b;line-height:1.6}}
+.header-right b{{color:#f1f5f9;font-size:12px}}
+.info-grid{{background:#1e293b;border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}}
+.info-item .lbl{{font-size:8px;font-weight:bold;color:#64748b;text-transform:uppercase;letter-spacing:.5px}}
+.info-item .val{{font-size:11px;font-weight:bold;color:#f1f5f9;margin-top:1px}}
+.sectie{{background:#1e293b;border-radius:10px;padding:14px 16px}}
+.stitel{{font-size:10px;font-weight:bold;color:#f97316;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #334155}}
+.ml-table{{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:2px}}
+.ml-table tr:nth-child(odd){{background:rgba(255,255,255,0.02)}}
+.ml-name{{width:110px;padding:3px 8px;color:#64748b;font-size:9px;font-weight:bold;vertical-align:top}}
+.ml-items{{padding:3px 8px;color:#cbd5e1;font-size:9.5px}}
+.recept-blok{{background:rgba(30,58,138,0.25);border:1px solid #1e3a8a;border-radius:5px;padding:7px 10px;margin-top:6px}}
+.recept-titel{{font-size:9px;font-weight:bold;color:#93c5fd;margin-bottom:2px}}
+.recept-tekst{{font-size:8.5px;color:#94a3b8;line-height:1.5}}
+.lm-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}}
+.lm-item .lbl{{font-size:8px;color:#64748b;font-weight:bold;text-transform:uppercase}}
+.lm-item .val{{font-size:11px;font-weight:bold;color:#f1f5f9}}
+.voeding-table{{width:100%;border-collapse:collapse;margin-bottom:4px}}
+.voeding-table tr:nth-child(even){{background:rgba(255,255,255,0.02)}}
+.voeding-table th{{text-align:left;padding:5px 8px;font-size:8.5px;color:#64748b;background:#0f172a;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}}
+.item-row{{display:flex;align-items:center;gap:5px;padding:3px 5px;font-size:9px;border-bottom:1px solid rgba(255,255,255,0.03)}}
+.item-min{{width:34px;color:#3b82f6;font-weight:bold;font-size:8px;flex-shrink:0}}
+.item-badge{{font-size:7px;font-weight:bold;border:1px solid;border-radius:2px;padding:0 2px;line-height:12px;flex-shrink:0}}
+.item-naam{{flex:1;color:#cbd5e1}}
+.item-comment{{font-size:8px;color:#fbbf24;padding:2px 5px;font-style:italic}}
+.raceplan-wrap{{display:grid;grid-template-columns:1fr 185px;gap:12px}}
+.racemap-kaart{{background:#0f172a;border-radius:6px;padding:7px 9px}}
+.racemap-kaart h3{{font-size:9px;font-weight:bold;color:#f97316;letter-spacing:1px;margin-bottom:1px}}
+.racemap-kaart .sub{{font-size:6px;color:#475569;margin-bottom:4px}}
+.racemap-kaart table{{width:100%;border-collapse:collapse;line-height:1;border-spacing:0}}
+.racemap-leg{{font-size:6px;color:#64748b;margin-top:4px;border-top:1px solid #1e293b;padding-top:3px;display:flex;flex-wrap:wrap;gap:4px}}
+.footer{{font-size:8px;color:#334155;text-align:center;padding:6px}}
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="header">
+  <div>
+    <h1>CARBOO RACE NUTRITION PLAN</h1>
+    <p>{data.get("wedstrijd_naam","").upper()}</p>
+  </div>
+  <div class="header-right">
+    <b>{atleet}</b><br>
+    {sport} · {duur_str}<br>
+    {datum} · Start {start}
+  </div>
+</div>
+
+<div class="info-grid">
+  <div class="info-item"><div class="lbl">Naam atleet</div><div class="val">{atleet}</div></div>
+  <div class="info-item"><div class="lbl">Discipline</div><div class="val">{sport}</div></div>
+  <div class="info-item"><div class="lbl">Sportniveau</div><div class="val">{niveau}</div></div>
+  <div class="info-item"><div class="lbl">Gewicht</div><div class="val">{gewicht} kg</div></div>
+  <div class="info-item"><div class="lbl">Duur</div><div class="val">{duur_str}</div></div>
+  <div class="info-item"><div class="lbl">Start / Eind</div><div class="val">{start} — {eind}</div></div>
+  <div class="info-item"><div class="lbl">Temp / Vochtigheid</div><div class="val">{temp}°C | {vocht}%</div></div>
+  <div class="info-item"><div class="lbl">Hoogte</div><div class="val">{hoogte} m</div></div>
+  <div class="info-item"><div class="lbl">Ervaring wedstrijdvoeding</div><div class="val">{ervaring}</div></div>
+</div>
+
+<div class="sectie">
+  <div class="stitel">Carboloading — Laatste 48 uur</div>
+  <div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;margin-bottom:10px;display:flex;justify-content:space-between">
+    <span style="color:#64748b;font-weight:bold">DAGDOELSTELLING</span>
+    <span style="color:#f97316;font-weight:bold">{dag_target}g koolhydraten / dag</span>
+  </div>
+  {cl_html}
+  <div style="margin-top:10px">
+    <div class="stitel" style="font-size:9.5px;margin-bottom:8px">Avondmaal Suggestie + Recept</div>
+    <div class="recept-blok">
+      <div class="recept-titel">✦ Pasta bolognese light (dag 1 voor race)</div>
+      <div class="recept-tekst">300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie.<br>Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen.</div>
+    </div>
+    <div class="recept-blok">
+      <div class="recept-titel">✦ Rijst met zalm en gestoomde wortels (dag 2 voor race)</div>
+      <div class="recept-tekst">250g witte rijst · 150g zalm · 150g wortels.<br>Stoom wortels 12 min. Bak zalm 4 min per kant. Licht verteerbaar, hoog in KH en eiwitten.</div>
+    </div>
+  </div>
+</div>
+
+<div class="sectie">
+  <div class="stitel">Laatste Maaltijd — {maaltijd_mom.upper()}</div>
+  <div class="lm-grid">
+    <div class="lm-item"><div class="lbl">Timing</div><div class="val">{ont_timing}</div></div>
+    <div class="lm-item"><div class="lbl">Maaltijd om</div><div class="val">{ont_tijd}</div></div>
+    <div class="lm-item"><div class="lbl">Totaal KH</div><div class="val" style="color:#f97316">{ont_kh}g</div></div>
+    <div class="lm-item"><div class="lbl">Aanbevolen vocht</div><div class="val" style="font-size:10px">{vocht_advies}</div></div>
+  </div>
+  <table class="voeding-table">
+    <tr><th>Voedingsmiddel</th><th style="text-align:right">KH</th></tr>
+    {rd_rows}
+  </table>
+  {lm_prog}
+</div>
+
+<div class="sectie">
+  <div class="stitel">Raceplan</div>
+  <div style="background:#0f172a;border-radius:5px;padding:6px 10px;font-size:9px;color:#93c5fd;margin-bottom:10px">
+    {temp}°C · {vocht}% vochtigheid · Vocht/moment: {vocht_per_m}ml · KH-target: {min_kh}–{max_kh}g/uur
+  </div>
+  <div class="raceplan-wrap">
+    <div>{raceplan_html}</div>
+    <div>
+      <div class="racemap-kaart">
+        <h3>CARBOO RACEMAP</h3>
+        <div class="sub">{sport} · {duur_str} · {start}</div>
+        <table>{racemap_rows}</table>
+        <div class="racemap-leg">
+          <span><b style="color:#3b82f6">SD</b> Drank</span>
+          <span><b style="color:#f97316">GEL</b> Gel</span>
+          <span><b style="color:#22c55e">VAST</b> Vast</span>
+          <span><b style="color:#8b5cf6">CAF</b> Cafeïne</span>
+          <span><b style="color:#64748b">H2O</b> Water</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Gegenereerd door Carboo Race Nutrition.  Dit plan is een richtlijn — gemaakt door sportdiëtisten.</div>
+</div>
+</body></html>"""
+    return html
+
+
 def _stap_samenvatting():
     data = st.session_state.get("coach_data", {})
     naam = st.session_state.get("current_user", {}).get("name", "Atleet")
@@ -2902,22 +3251,22 @@ def _stap_samenvatting():
     </div>
     ''', unsafe_allow_html=True)
 
-    if st.button("📄  GENEREER PLAN (PDF)", key="sum_pdf", use_container_width=True):
+    if st.button("📄  GENEREER PLAN", key="sum_pdf", use_container_width=True):
         with st.spinner("Rapport wordt gegenereerd..."):
             try:
                 gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
-                pdf_bytes    = _genereer_pdf(data, gebruiker_naam)
+                html_str     = _genereer_html(data, gebruiker_naam)
                 atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
                 wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
-                bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
+                bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
                 st.success("✅ Rapport klaar! Klik hieronder om te downloaden.")
                 st.download_button(
-                    label="⬇️  Download PDF",
-                    data=pdf_bytes,
+                    label="⬇️  Download Rapport (HTML)",
+                    data=html_str.encode("utf-8"),
                     file_name=bestandsnaam,
-                    mime="application/pdf",
+                    mime="text/html",
                     use_container_width=True,
-                    key="sum_pdf_download"
+                    key="sum_html_download"
                 )
             except Exception as e:
                 st.error(f"Fout bij genereren rapport: {e}")
