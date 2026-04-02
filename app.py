@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1
 from login import render_login_page, render_admin_panel
 from carboo_coach import render_coach
 from carbomax import render_carbomax
@@ -132,3 +133,34 @@ elif module == "optimeal":
 
 elif module == "admin":
     render_admin_panel()
+
+elif module == "rapport":
+    html = st.session_state.get("rapport_html", "")
+    if html:
+        # Toon rapport inline + download knop bovenaan
+        data = st.session_state.get("coach_data", {})
+        atleet   = data.get("atleet_naam", naam).replace(" ", "_")
+        wedstrijd = data.get("wedstrijd_naam", "race").replace(" ", "_")
+        bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
+
+        col_terug, col_dl = st.columns([1, 1])
+        with col_terug:
+            if st.button("← Terug naar raceplan", key="rapport_terug"):
+                st.session_state.module = "coach"
+                st.session_state.rapport_html = ""
+                st.rerun()
+        with col_dl:
+            st.download_button(
+                label="⬇️  Download rapport",
+                data=html.encode("utf-8"),
+                file_name=bestandsnaam,
+                mime="text/html",
+                use_container_width=True,
+                key="rapport_download"
+            )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.components.v1.html(html, height=3000, scrolling=True)
+    else:
+        st.session_state.module = "coach"
+        st.rerun()
