@@ -1817,12 +1817,12 @@ def _stap_raceplan():
             'border-radius:12px;padding:14px 16px;margin-bottom:12px;">' +
             f'<img src="{MASCOT_B64}" style="height:60px;width:auto;flex-shrink:0;">' +
             '<span style="color:#f1f5f9;font-size:0.88rem;">' +
-            '<b>Ben je helemaal zeker van je plan?</b> Dan mag je drukken op <b>Genereer plan</b>.<br>' +
-            '<span style="color:#f97316;">⚠️ Pas op! Je kan niets meer veranderen als je op Genereer plan drukt!</span>' +
+            '<b>Tevreden met je plan?</b> Klik hieronder om je race nutrition rapport te genereren en te downloaden.<br>' +
+            '<span style="color:#94a3b8;">Je kan nog aanpassingen maken via de rijen hierboven.</span>' +
             '</span></div>',
             unsafe_allow_html=True
         )
-        if st.button("✅  GENEREER PLAN", key="rp_gen", use_container_width=True):
+        if st.button("📄  GENEREER RAPPORT", key="rp_gen", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
             # Bewaar preview comments per uur
             _comments = {}
@@ -1831,8 +1831,25 @@ def _stap_raceplan():
                 if _c:
                     _comments[str(_u)] = _c
             st.session_state.coach_data["preview_comments"] = _comments
-            st.session_state.coach_stap = 6
-            st.rerun()
+            with st.spinner("Rapport wordt gegenereerd..."):
+                try:
+                    gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
+                    data_voor_html = st.session_state.coach_data
+                    html_str     = _genereer_html(data_voor_html, gebruiker_naam)
+                    atleet       = data_voor_html.get("atleet_naam", gebruiker_naam).replace(" ", "_")
+                    wedstrijd    = data_voor_html.get("wedstrijd_naam", "race").replace(" ", "_")
+                    bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
+                    st.success("✅ Rapport klaar!")
+                    st.download_button(
+                        label="⬇️  Download Rapport",
+                        data=html_str.encode("utf-8"),
+                        file_name=bestandsnaam,
+                        mime="text/html",
+                        use_container_width=True,
+                        key="rp_html_download"
+                    )
+                except Exception as e:
+                    st.error(f"Fout bij genereren rapport: {e}")
 
 
 
@@ -3245,7 +3262,7 @@ def _stap_samenvatting():
          border-radius:16px;padding:20px 24px;text-align:center;margin-bottom:16px;">
         <div style="font-size:1.5rem;margin-bottom:8px;">📄</div>
         <div style="font-weight:900;color:#f8fafc;font-size:1rem;margin-bottom:6px;">
-            Genereer jouw PDF Race Nutrition Plan
+            Genereer jouw Race Nutrition Rapport
         </div>
         <div style="color:#64748b;font-size:0.82rem;">
             Alle keuzes, richtlijnen en wetenschappelijke adviezen in één overzichtelijk rapport.
