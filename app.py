@@ -116,10 +116,10 @@ st.markdown(f"""
 module = st.session_state.module
 
 if module == "menu":
-    render_coach()
+    render_coach(user)
 
 elif module == "coach":
-    render_coach()
+    render_coach(user)
 
 elif module == "carbomax":
     render_carbomax()
