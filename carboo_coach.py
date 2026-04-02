@@ -1824,30 +1824,48 @@ def _stap_raceplan():
         )
         if st.button("📄  GENEREER RAPPORT", key="rp_gen", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
-            # Bewaar preview comments per uur
+
+            # ── Bewaar preview comments per uur ──────────────────────────────
             _comments = {}
             for _u in range(1, 25):
                 _c = st.session_state.get(f"prev_notitie_{_u}", "")
                 if _c:
                     _comments[str(_u)] = _c
             st.session_state.coach_data["preview_comments"] = _comments
+
+            # ── Lees de aangepaste preview rijen uit session_state ────────────
+            # Zet prev_t_, prev_p_, prev_a_, prev_w_ om naar preview_uren structuur
+            _preview_uren = {}
+            for _u in range(1, aantal_uren + 1):
+                _n = st.session_state.get(f"prev_n_items_{_u}", 0)
+                _items = []
+                for _i in range(_n):
+                    _prod  = st.session_state.get(f"prev_p_{_u}_{_i}", "— leeg —")
+                    _tijd  = st.session_state.get(f"prev_t_{_u}_{_i}", "20min")
+                    _antal = st.session_state.get(f"prev_a_{_u}_{_i}", 1.0)
+                    _water = st.session_state.get(f"prev_w_{_u}_{_i}", "—")
+                    _kh    = round(kh_map.get(_prod, 0) * _antal)
+                    _emoji = emoji_map.get(_prod, "💧")
+                    # Haal productnaam op uit label (zonder emoji prefix)
+                    _naam = _prod.split(" ", 1)[1] if " " in _prod and _prod != "— leeg —" else _prod
+                    if _prod != "— leeg —":
+                        _items.append({
+                            "min":   _tijd,
+                            "emoji": _emoji,
+                            "naam":  _naam,
+                            "kh":    _kh,
+                        })
+                _preview_uren[str(_u)] = _items
+            st.session_state.coach_data["preview_uren"] = _preview_uren
+
             with st.spinner("Rapport wordt gegenereerd..."):
                 try:
                     gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
                     data_voor_html = st.session_state.coach_data
-                    html_str     = _genereer_html(data_voor_html, gebruiker_naam)
-                    atleet       = data_voor_html.get("atleet_naam", gebruiker_naam).replace(" ", "_")
-                    wedstrijd    = data_voor_html.get("wedstrijd_naam", "race").replace(" ", "_")
-                    bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
-                    st.success("✅ Rapport klaar!")
-                    st.download_button(
-                        label="⬇️  Download Rapport",
-                        data=html_str.encode("utf-8"),
-                        file_name=bestandsnaam,
-                        mime="text/html",
-                        use_container_width=True,
-                        key="rp_html_download"
-                    )
+                    html_str = _genereer_html(data_voor_html, gebruiker_naam)
+                    st.session_state["rapport_html"] = html_str
+                    st.session_state["module"] = "rapport"
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Fout bij genereren rapport: {e}")
 
@@ -2806,18 +2824,27 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     lm_prog   = prog_bar(rd_kh_tot, kh_max_rd)
 
     # ── Raceplan HTML ─────────────────────────────────────────────────────────
-    uren, vocht_per_m = _bereken_raceplan(data)
+    # Gebruik preview_uren (door gebruiker aangepast) indien beschikbaar
+    # Anders terugvallen op _bereken_raceplan
+    uren_berekend, vocht_per_m = _bereken_raceplan(data)
+    preview_uren = data.get("preview_uren", {})
 
     raceplan_html = ""
-    for uur_data in uren:
+    for uur_data in uren_berekend:
         u_num   = uur_data["uur"]
         u_start = uur_data["uur_start"]
-        items   = uur_data["items"]
-        geen_kh = uur_data["geen_kh"]
-        u_kh    = uur_data["uur_kh"]
         u_min   = uur_data["min_kh"]
         u_max   = uur_data["max_kh"]
+        geen_kh = uur_data["geen_kh"]
         comment = preview_comments.get(str(u_num), "")
+
+        # Gebruik aangepaste items als beschikbaar, anders berekend
+        if str(u_num) in preview_uren and preview_uren[str(u_num)]:
+            items = preview_uren[str(u_num)]
+        else:
+            items = uur_data["items"]
+
+        u_kh    = sum(i["kh"] for i in items)
         bar_col = "#22c55e" if u_kh >= u_min else ("#fbbf24" if u_kh >= u_min*0.8 else "#ef4444")
         if geen_kh: bar_col = "#3b82f6"
         kh_info = "Geen extra KH nodig" if geen_kh else f"KH: {u_kh}g | target {u_min}–{u_max}g"
@@ -2847,10 +2874,15 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
     # ── Carboo Racemap HTML ───────────────────────────────────────────────────
     racemap_rows = ""
-    for uur_data in uren:
+    for uur_data in uren_berekend:
         u_start = uur_data["uur_start"]
-        items   = uur_data["items"]
-        comment = preview_comments.get(str(uur_data["uur"]), "")
+        u_num_rm = uur_data["uur"]
+        # Gebruik preview items voor racemap ook
+        if str(u_num_rm) in preview_uren and preview_uren[str(u_num_rm)]:
+            items = preview_uren[str(u_num_rm)]
+        else:
+            items   = uur_data["items"]
+        comment = preview_comments.get(str(u_num_rm), "")
         uur_dt  = DT.strptime(u_start, "%H:%M")
         per_min = defaultdict(list)
         for item in items:
