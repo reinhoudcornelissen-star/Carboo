@@ -1543,32 +1543,46 @@ def _stap_raceplan():
                 label_visibility="collapsed"
             )
 
-            # Bouw standaard items voor dit uur
-            # Resterende minuten laatste uur berekenen
+            # Resterende minuten laatste uur
             rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
+
+            # KH target laatste uur schalen naar resterende tijd
+            if is_last:
+                if rest_min < 15:
+                    cur_min = 0
+                    cur_max = 0
+                elif rest_min < 31:
+                    cur_min = 15
+                    cur_max = 20
+                elif rest_min < 46:
+                    cur_min = 30
+                    cur_max = 40
+                else:
+                    pass  # normaal target (al berekend)
+
+            # Standaard items op basis van rest_min
             default_items = []
             if is_last:
-                if rest_min < 20:
-                    # Minder dan 20 min over — enkel water/spoelen
+                if geen_kh or rest_min < 15:
                     default_items = [
-                        ("10min", "— leeg —"),
+                        ("5min", "— leeg —"),
                     ]
-                elif rest_min < 36:
-                    # 20–35 min — 1 moment vloeibaar
+                elif rest_min < 31:
+                    # 15–30 min: 1 moment — sportdrank of gel+water
                     default_items = [
-                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                        ("15min", drank_lbl),
                     ]
-                elif rest_min < 51:
-                    # 36–50 min — 2 momenten vloeibaar
+                elif rest_min < 46:
+                    # 31–45 min: 2 momenten vloeibaar
                     default_items = [
-                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
+                        ("20min", drank_lbl),
                         ("35min", "— leeg —"),
                     ]
                 else:
-                    # > 50 min — normaal schema
+                    # > 45 min: 2 momenten normaal
                     default_items = [
-                        ("20min", drank_lbl if not geen_kh else "— leeg —"),
-                        ("40min", drank_lbl if not geen_kh else "— leeg —"),
+                        ("20min", drank_lbl),
+                        ("40min", drank_lbl),
                     ]
             else:
                 default_items = [
@@ -1603,7 +1617,7 @@ def _stap_raceplan():
             uur_kh    = 0
             uur_vocht = 0
             # Leeg-flag blijft actief tijdens hele preview render
-            timing_opties = ["20min", "25min", "30min", "35min", "40min", "45min", "50min", "55min", "60min"]
+            timing_opties = ["5min", "10min", "15min", "20min", "25min", "30min", "35min", "40min", "45min", "50min", "55min", "60min"]
 
             for i_idx in range(n_items):
                 def_timing = default_items[i_idx][0] if i_idx < len(default_items) else "20min"
@@ -1728,7 +1742,8 @@ def _stap_raceplan():
             # ── Vocht balk kleur ──────────────────────────────────────────────
             # Laatste uur: vochttarget op basis van resterende minuten
             if is_last:
-                vocht_target_uur = round(vocht_uur * (rest_min / 60))
+                _rest = totale_min % 60 if totale_min % 60 != 0 else 60
+                vocht_target_uur = round(vocht_uur * (_rest / 60))
             else:
                 vocht_target_uur = vocht_uur
             vocht_pct   = min(100, round((uur_vocht / vocht_target_uur) * 100)) if vocht_target_uur > 0 else 0
@@ -1796,8 +1811,26 @@ def _stap_raceplan():
             st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(
+            '<div style="display:flex;gap:14px;align-items:center;' +
+            'background:rgba(249,115,22,0.08);border:1px solid #f97316;' +
+            'border-radius:12px;padding:14px 16px;margin-bottom:12px;">' +
+            f'<img src="{MASCOT_B64}" style="height:60px;width:auto;flex-shrink:0;">' +
+            '<span style="color:#f1f5f9;font-size:0.88rem;">' +
+            '<b>Ben je helemaal zeker van je plan?</b> Dan mag je drukken op <b>Genereer plan</b>.<br>' +
+            '<span style="color:#f97316;">⚠️ Pas op! Je kan niets meer veranderen als je op Genereer plan drukt!</span>' +
+            '</span></div>',
+            unsafe_allow_html=True
+        )
         if st.button("✅  GENEREER PLAN", key="rp_gen", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
+            # Bewaar preview comments per uur
+            _comments = {}
+            for _u in range(1, 25):
+                _c = st.session_state.get(f"prev_notitie_{_u}", "")
+                if _c:
+                    _comments[str(_u)] = _c
+            st.session_state.coach_data["preview_comments"] = _comments
             st.session_state.coach_stap = 6
             st.rerun()
 
@@ -1925,6 +1958,12 @@ def _bereken_raceplan(data: dict) -> list:
     return uren, vocht_per_m
 
 
+
+
+
+
+
+
 def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     """Volledig PDF rapport: info + carboloading + racedag + uur-per-uur + snelkaart."""
     import io, math, base64
@@ -1954,7 +1993,6 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     GEEL    = colors.HexColor("#fbbf24")
     ROOD    = colors.HexColor("#ef4444")
     LORANJE = colors.HexColor("#fff7ed")
-    LBLAUW  = colors.HexColor("#eff6ff")
 
     W, H  = A4
     breed = W - 3.2*cm
@@ -1979,21 +2017,17 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     story = []
 
-    # ── Mascot afbeelding laden ───────────────────────────────────────────────
+    # Mascot laden
     try:
-        mascot_b64 = MASCOT_B64.split(",", 1)[1]
-        mascot_bytes = base64.b64decode(mascot_b64)
+        mascot_bytes = base64.b64decode(MASCOT_B64.split(",", 1)[1])
         mascot_io = io.BytesIO(mascot_bytes)
         mascot_img = Image(mascot_io, width=1.2*cm, height=1.4*cm)
     except Exception:
         mascot_img = None
 
     def maak_header(titel_tekst, subtitel_tekst=""):
-        """Bouw header met mascot logo."""
         if mascot_img:
-            hdr_data = [[mascot_img,
-                         Paragraph(titel_tekst, s_titel),
-                         Paragraph("", s_body)]]
+            hdr_data = [[mascot_img, Paragraph(titel_tekst, s_titel), Paragraph("", s_body)]]
             hdr_t = Table(hdr_data, colWidths=[1.6*cm, breed-3.2*cm, 1.6*cm])
         else:
             hdr_data = [[Paragraph(titel_tekst, s_titel)]]
@@ -2017,11 +2051,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             blokken.append(sub_t)
         return blokken
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # PAGINA 1 — ALGEMEEN + CARBOLOADING + RACEDAG
-    # ══════════════════════════════════════════════════════════════════════════
+    # ── PAGINA 1 ──────────────────────────────────────────────────────────────
     wedstrijd_naam = data.get("wedstrijd_naam", "")
-    for blok in maak_header("CARBOO RACE NUTRITION PLAN", wedstrijd_naam.upper()):
+    for blok in maak_header("RACE NUTRITION PLAN", wedstrijd_naam.upper()):
         story.append(blok)
     story.append(Spacer(1, 10))
 
@@ -2074,70 +2106,55 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(Paragraph("CARBOLOADING — LAATSTE 48 UUR", s_sectie))
     story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
 
-    if dag_target:
-        doel = Table([[Paragraph("DAGDOELSTELLING", s_label),
-                       Paragraph(f"{dag_target}g koolhydraten per dag", s_waarde)]],
-                     colWidths=[breed*0.35, breed*0.65])
-        doel.setStyle(TableStyle([
-            ("BACKGROUND",(0,0),(-1,-1),LORANJE),
-            ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),
-            ("LEFTPADDING",(0,0),(-1,-1),10),
-            ("BOX",(0,0),(-1,-1),1,ORANJE),
-        ]))
-        story.append(doel)
-        story.append(Spacer(1, 5))
-
-    # KH_PORTIE map voor carboloading producten
     CL_KH_MAP = {
         "Wit brood":17,"Bruin brood":16,"Volkorenbrood":14,"Havermout":27,
         "Ontbijtgranen":25,"Muesli":30,"Granola (krokant)":26,
         "Melk (dierlijk)":9,"Plantaardige melk":9,"Banaan":30,"Appel":15,
         "Peer":19,"Kiwi":11,"Yoghurt natuur":6,"Plattekaas":4,
         "Confituur":3,"Honing":4,"Chocopasta":3,"Koffie met suiker":5,
-        "Vruchtensap sinaas":20,"Sportdrank":35,
-        "Rijstwafels":7,"Energiereep":40,"Rozijnen":15,"Dadelstroop":18,
-        "Appel":20,"Dadels gedroogd":6,"Muesli/granenreep":26,
-        "Speculoos":5,"Snoep/winegums":26,"Appelmoes":27,"Pannenkoek":27,
+        "Vruchtensap sinaas":20,"Sportdrank":35,"Rijstwafels":7,
+        "Energiereep":40,"Rozijnen":15,"Dadels gedroogd":6,
+        "Muesli/granenreep":26,"Speculoos":5,"Snoep/winegums":26,
+        "Appelmoes":27,"Pannenkoek":27,
         "Pasta (hoofdmaaltijd)":75,"Pasta (bijgerecht)":37,
         "Rijst (hoofdmaaltijd)":81,"Rijst (bijgerecht)":42,
         "Aardappelen gekookt":30,"Groentenmix rauw":5,"Groentenmix warm":8,
     }
     CL_PORTIE_MAP = {
-        "Wit brood":"1 snede","Bruin brood":"1 snede","Volkorenbrood":"1 snede",
-        "Havermout":"1 kom","Ontbijtgranen":"1 kom","Muesli":"1 kom",
-        "Granola (krokant)":"1 kom","Melk (dierlijk)":"1 glas",
-        "Plantaardige melk":"1 glas","Banaan":"1 stuk","Appel":"1 stuk",
-        "Peer":"1 stuk","Kiwi":"1 stuk","Yoghurt natuur":"1 potje",
-        "Plattekaas":"4 eetlepels","Confituur":"1 koffielepel","Honing":"1 koffielepel",
-        "Chocopasta":"1 koffielepel","Koffie met suiker":"1 tas","Vruchtensap sinaas":"1 glas",
-        "Sportdrank":"1 bidon","Rijstwafels":"1 stuk","Energiereep":"1 reep",
-        "Rozijnen":"1 handje","Muesli/granenreep":"1 reep","Appelmoes":"1 schaaltje",
-        "Pannenkoek":"1 stuk","Dadels gedroogd":"1 stuk","Speculoos":"1 stuk",
-        "Snoep/winegums":"1 zakje",
-        "Pasta (hoofdmaaltijd)":"1 bord","Pasta (bijgerecht)":"1 bord",
-        "Rijst (hoofdmaaltijd)":"1 bord","Rijst (bijgerecht)":"1 bord",
-        "Aardappelen gekookt":"1 bord","Groentenmix rauw":"1 bord",
-        "Groentenmix warm":"1 bord",
+        "Wit brood":"snede","Bruin brood":"snede","Volkorenbrood":"snede",
+        "Havermout":"kom","Ontbijtgranen":"kom","Muesli":"kom",
+        "Granola (krokant)":"kom","Melk (dierlijk)":"glas",
+        "Plantaardige melk":"glas","Banaan":"stuk","Appel":"stuk",
+        "Peer":"stuk","Kiwi":"stuk","Yoghurt natuur":"potje",
+        "Plattekaas":"eetlepel","Confituur":"koffielepel","Honing":"koffielepel",
+        "Chocopasta":"koffielepel","Koffie met suiker":"tas","Vruchtensap sinaas":"glas",
+        "Sportdrank":"bidon","Rijstwafels":"stuk","Energiereep":"reep",
+        "Rozijnen":"handje","Dadels gedroogd":"stuk","Muesli/granenreep":"reep",
+        "Speculoos":"stuk","Snoep/winegums":"zakje","Appelmoes":"schaaltje",
+        "Pannenkoek":"stuk",
+        "Pasta (hoofdmaaltijd)":"bord","Pasta (bijgerecht)":"bord",
+        "Rijst (hoofdmaaltijd)":"bord","Rijst (bijgerecht)":"bord",
+        "Aardappelen gekookt":"bord","Groentenmix rauw":"bord","Groentenmix warm":"bord",
     }
-
-    MAALTIJDEN_VOLGORDE = ["Ontbijt","Tussendoor VM","Lunch","Tussendoor NM","Avondmaal","Avond snack"]
+    MAALTIJDEN = ["Ontbijt","Tussendoor VM","Lunch","Tussendoor NM","Avondmaal","Avond snack"]
+    MAALTIJD_PCT = {"Ontbijt":0.25,"Tussendoor VM":0.083,"Lunch":0.25,
+                    "Tussendoor NM":0.083,"Avondmaal":0.25,"Avond snack":0.083}
 
     for dag_num in [1, 2]:
-        dag_label = f"DAG {dag_num} — {'2 dagen voor race' if dag_num == 1 else '1 dag voor race'}"
+        dag_label = f"DAG {dag_num} — {'2 dagen voor race' if dag_num==1 else '1 dag voor race'}"
         dag_vals  = cl_data.get(f"dag{dag_num}", {})
         totaal    = dag_vals.get("totaal", 0)
         target    = dag_vals.get("target", dag_target)
         pct       = dag_vals.get("pct", 0)
         bar_c     = GROEN if pct >= 90 else (GEEL if pct >= 70 else ROOD)
 
-        # Dag header
         dag_hdr = Table([[
             Paragraph(dag_label, S("DH", fontSize=9, fontName="Helvetica-Bold",
                                    textColor=WIT, leading=13)),
-            Paragraph(f"{totaal}g / {target}g  ({pct}%)",
+            Paragraph(f"{totaal}g / {target}g",
                       S("DT", fontSize=9, fontName="Helvetica-Bold",
                         textColor=bar_c, alignment=TA_RIGHT, leading=13)),
-        ]], colWidths=[breed*0.6, breed*0.4])
+        ]], colWidths=[breed*0.7, breed*0.3])
         dag_hdr.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1),MIDDEL),
             ("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6),
@@ -2145,49 +2162,33 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         ]))
         story.append(dag_hdr)
 
-        # Per maaltijdmoment: gekozen producten
-        maaltijd_rows = [[
-            Paragraph("MAALTIJDMOMENT", s_kop),
-            Paragraph("GEKOZEN VOEDINGSMIDDELEN", s_kop),
-            Paragraph("KH", s_kop),
-        ]]
-        for m_naam in MAALTIJDEN_VOLGORDE:
-            moment_items = []
+        # Per maaltijdmoment
+        ml_rows = [[Paragraph("MAALTIJDMOMENT", s_kop),
+                    Paragraph("GEKOZEN VOEDINGSMIDDELEN", s_kop),
+                    Paragraph("KH", s_kop)]]
+        for m_naam in MAALTIJDEN:
+            items_txt = []
+            m_kh_tot  = 0
             for prod_naam, kh_pp in CL_KH_MAP.items():
                 key = f"cl_d{dag_num}_{m_naam}_{prod_naam}"
                 val = cl_waarden.get(key, 0)
                 if val and val > 0:
-                    portie_eenheid = CL_PORTIE_MAP.get(prod_naam, "portie")
-                    # Maak leesbare beschrijving
-                    omschr = _portie_omschrijving(prod_naam, portie_eenheid + " (x)", int(val))
-                    kh_tot = round(val * kh_pp)
-                    moment_items.append(f"{omschr}  →  {kh_tot}g KH")
-
-            # Eigen producten
-            eigen_key = f"eigen_d{dag_num}_{m_naam}"
-            n_eigen = 0
-            for k, v in cl_waarden.items():
-                if k.startswith(eigen_key) and "_naam" in k:
-                    n_eigen += 1
-            for i in range(n_eigen):
-                e_naam = cl_waarden.get(f"{eigen_key}_{i}_naam", "")
-                e_kh   = cl_waarden.get(f"{eigen_key}_{i}_kh", 0)
-                e_port = cl_waarden.get(f"{eigen_key}_{i}_port", 0)
-                if e_naam and e_port > 0:
-                    moment_items.append(f"{e_port:.0f}× {e_naam}  →  {round(e_kh*e_port)}g KH")
-
-            if moment_items:
-                m_target = round(dag_target * {"Ontbijt":0.25,"Tussendoor VM":0.083,
-                    "Lunch":0.25,"Tussendoor NM":0.083,"Avondmaal":0.25,"Avond snack":0.083
-                }.get(m_naam, 0.15))
-                maaltijd_rows.append([
+                    eenheid = CL_PORTIE_MAP.get(prod_naam, "portie")
+                    n = int(val) if val == int(val) else val
+                    mv = "meervoud" if n > 1 else "enkelvoud"
+                    e_mv = eenheid + "s" if n > 1 and not eenheid.endswith("s") else eenheid
+                    items_txt.append(f"{n} {e_mv} {prod_naam.lower()}")
+                    m_kh_tot += val * kh_pp
+            if items_txt:
+                m_target = round(dag_target * MAALTIJD_PCT.get(m_naam, 0.15))
+                ml_rows.append([
                     Paragraph(m_naam, s_body),
-                    Paragraph("<br/>".join(moment_items), s_body),
-                    Paragraph(f"doel: {m_target}g", S("MT", fontSize=7.5, textColor=GRIJS, leading=11)),
+                    Paragraph(", ".join(items_txt), s_body),
+                    Paragraph(f"{round(m_kh_tot)}g", S("MK", fontSize=8,
+                        fontName="Helvetica-Bold", textColor=ORANJE, leading=12)),
                 ])
-
-        if len(maaltijd_rows) > 1:
-            ml_t = Table(maaltijd_rows, colWidths=[breed*0.22, breed*0.6, breed*0.18])
+        if len(ml_rows) > 1:
+            ml_t = Table(ml_rows, colWidths=[breed*0.22, breed*0.63, breed*0.15])
             ml_t.setStyle(TableStyle([
                 ("BACKGROUND",(0,0),(-1,0),DONKER),
                 ("ROWBACKGROUNDS",(0,1),(-1,-1),[LGRIJS,WIT]),
@@ -2198,23 +2199,20 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 ("INNERGRID",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
             ]))
             story.append(ml_t)
-        else:
-            story.append(Table([[Paragraph("Geen voedingsmiddelen ingevoerd voor deze dag.", s_body)]],
-                               colWidths=[breed]))
-        story.append(Spacer(1, 6))
+        story.append(Spacer(1, 5))
 
-    # Carboloading tips
+    # Tips + avondmaal suggestie
     cl_tips = [
-        "Kies licht verteerbare producten: pasta, rijst, wit brood, banaan, havermout.",
-        "Beperk vezels, vetten en rauwe groenten in de 24u voor de race.",
-        "Drink voldoende water maar vermijd overhydratie.",
-        "Sla geen maaltijden over — verdeel je koolhydraten over 5-6 momenten per dag.",
+        "Kies licht verteerbare producten: pasta, rijst, wit brood, banaan.",
+        "Beperk vezels & vetten en rauwe groenten in de 24u voor de race.",
+        "Drink voldoende — kleine slokjes gespreid over de dag.",
+        "Verdeel je koolhydraten over 5–6 momenten per dag.",
     ]
-    cl_tip_rows = [[Paragraph("ALGEMENE TIPS CARBOLOADING", s_kop)]]
+    tip_rows = [[Paragraph("TIPS CARBOLOADING", s_kop)]]
     for tip in cl_tips:
-        cl_tip_rows.append([Paragraph(f"  →  {tip}", s_tip)])
-    cl_tip_t = Table(cl_tip_rows, colWidths=[breed])
-    cl_tip_t.setStyle(TableStyle([
+        tip_rows.append([Paragraph(f"  →  {tip}", s_tip)])
+    tip_t = Table(tip_rows, colWidths=[breed])
+    tip_t.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(0,0),MIDDEL),
         ("ROWBACKGROUNDS",(0,1),(-1,-1),[LGRIJS,WIT]),
         ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
@@ -2222,7 +2220,36 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         ("BOX",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
         ("INNERGRID",(0,0),(-1,-1),0.3,colors.HexColor("#e2e8f0")),
     ]))
-    story.append(cl_tip_t)
+    story.append(tip_t)
+    story.append(Spacer(1, 5))
+
+    avond_suggs = [
+        ("Pasta bolognese light (dag 1 voor race)",
+         "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie. "
+         "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. "
+         "Laag in vezels en vetten — ideaal als avondmaal 2 dagen voor de race."),
+        ("Rijst met zalm en gestoomde wortels (dag 2 voor race)",
+         "250g witte rijst · 150g zalm · 150g wortels. "
+         "Stoom wortels 12 min. Bak zalm 4 min per kant. "
+         "Licht verteerbaar, hoog in KH en eiwitten — perfecte avondmaaltijd de dag voor de race."),
+    ]
+    rec_rows = [[Paragraph("AVONDMAAL SUGGESTIE + RECEPT", s_kop)]]
+    for titel, recept in avond_suggs:
+        rec_rows.append([Paragraph(f"  ✦  {titel}", S("RT", fontSize=8, fontName="Helvetica-Bold",
+                                                        textColor=colors.HexColor("#1e40af"), leading=11))])
+        rec_rows.append([Paragraph(f"      {recept}", S("RB", fontSize=7.5,
+                                                          textColor=colors.HexColor("#334155"),
+                                                          leading=11, leftIndent=12))])
+    rec_t = Table(rec_rows, colWidths=[breed])
+    rec_t.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(0,0),colors.HexColor("#1e3a5f")),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[colors.HexColor("#eff6ff"),WIT]),
+        ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
+        ("LEFTPADDING",(0,0),(-1,-1),8),
+        ("BOX",(0,0),(-1,-1),0.5,colors.HexColor("#bfdbfe")),
+        ("INNERGRID",(0,0),(-1,-1),0.3,colors.HexColor("#dbeafe")),
+    ]))
+    story.append(rec_t)
     story.append(Spacer(1, 10))
 
     # ── Laatste maaltijd ──────────────────────────────────────────────────────
@@ -2231,61 +2258,49 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     ont_tijd     = data.get("ontbijt_tijd", "—")
     ont_kh       = data.get("ontbijt_kh", 0)
     rd_waarden   = data.get("rd_waarden", {})
+    temp_val     = data.get("temp", 18)
 
-    # Vocht richtlijn tijdens laatste maaltijd
-    temp_val = data.get("temp", 18)
-    if temp_val > 25:
-        vocht_advies = "600–800ml in de 2-3u voor de start (warm weer)"
-    elif temp_val > 15:
-        vocht_advies = "400–600ml in de 2-3u voor de start"
-    else:
-        vocht_advies = "300–500ml in de 2-3u voor de start (koel weer)"
+    if temp_val > 25:   vocht_advies = "600–800ml in de 2–3u voor de start (warm weer)"
+    elif temp_val > 15: vocht_advies = "400–600ml in de 2–3u voor de start"
+    else:               vocht_advies = "300–500ml in de 2–3u voor de start (koel weer)"
 
     story.append(Paragraph(f"LAATSTE MAALTIJD — {maaltijd_mom.upper()}", s_sectie))
     story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
 
-    rd_info_rows = [
+    rd_info = Table([
         [Paragraph("TIMING", s_label), Paragraph(ont_timing, s_waarde),
          Paragraph("MAALTIJD OM", s_label), Paragraph(ont_tijd, s_waarde)],
         [Paragraph("TOTAAL KH", s_label), Paragraph(f"{ont_kh}g", s_waarde),
          Paragraph("AANBEVOLEN VOCHT", s_label), Paragraph(vocht_advies, s_body)],
-    ]
-    rd_t = Table(rd_info_rows, colWidths=[breed*0.18, breed*0.32, breed*0.22, breed*0.28])
-    rd_t.setStyle(TableStyle([
+    ], colWidths=[breed*0.18, breed*0.32, breed*0.22, breed*0.28])
+    rd_info.setStyle(TableStyle([
         ("ROWBACKGROUNDS",(0,0),(-1,-1),[LGRIJS,WIT]),
         ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
         ("LEFTPADDING",(0,0),(-1,-1),7),
         ("BOX",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
         ("INNERGRID",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
     ]))
-    story.append(rd_t)
+    story.append(rd_info)
 
-    # Gekozen voedingsmiddelen racedag
-    ONTBIJT_PORTIE_MAP = {**CL_PORTIE_MAP,
-        "Pasta (hoofdmaaltijd)":"1 bord","Pasta (bijgerecht)":"1 bord",
-        "Rijst (hoofdmaaltijd)":"1 bord","Rijst (bijgerecht)":"1 bord",
-        "Aardappelen gekookt":"1 bord","Groentenmix rauw":"1 bord",
-        "Groentenmix warm":"1 bord","Sportdrank":"1 bidon",
-    }
-
+    # Voedingsmiddelen racedag — balk zonder grammen
     rd_items = []
     for k, val in rd_waarden.items():
         if val and val > 0:
-            # Key formaat: rd_Ontbijt_Havermout of rd_Lunch_Pasta
             parts = k.split("_", 2)
             prod_naam = parts[2] if len(parts) > 2 else k
             kh_pp    = CL_KH_MAP.get(prod_naam, 0)
-            portie_e = ONTBIJT_PORTIE_MAP.get(prod_naam, "portie")
-            omschr   = _portie_omschrijving(prod_naam, portie_e + " (x)", int(val))
-            rd_items.append((omschr, round(val * kh_pp)))
+            eenheid  = CL_PORTIE_MAP.get(prod_naam, "portie")
+            n = int(val) if val == int(val) else val
+            e_mv = eenheid + "s" if n > 1 and not eenheid.endswith("s") else eenheid
+            rd_items.append((f"{n} {e_mv} {prod_naam.lower()}", round(val * kh_pp)))
 
     if rd_items:
         story.append(Spacer(1, 5))
-        rd_rows = [[Paragraph("VOEDINGSMIDDEL — HOEVEELHEID", s_kop),
-                    Paragraph("KH", s_kop)]]
+        rd_rows = [[Paragraph("VOEDINGSMIDDEL — HOEVEELHEID", s_kop), Paragraph("KH", s_kop)]]
+        rd_kh_tot = 0
         for omschr, kh in rd_items:
-            rd_rows.append([Paragraph(omschr, s_body),
-                            Paragraph(f"{kh}g", s_body)])
+            rd_rows.append([Paragraph(omschr, s_body), Paragraph(f"{kh}g", s_body)])
+            rd_kh_tot += kh
         rd_food_t = Table(rd_rows, colWidths=[breed*0.78, breed*0.22])
         rd_food_t.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,0),DONKER),
@@ -2296,14 +2311,33 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ("INNERGRID",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
         ]))
         story.append(rd_food_t)
+        # Kleurenbalk — geen grammen
+        kh_max_rd = round(data.get("gewicht", 70) * 4)
+        rd_pct    = min(100, round((rd_kh_tot / kh_max_rd)*100)) if kh_max_rd > 0 else 0
+        rd_over   = rd_kh_tot > kh_max_rd
+        if rd_over:            balk_c = ROOD
+        elif rd_pct >= 25:     balk_c = GROEN
+        elif rd_pct >= 15:     balk_c = GEEL
+        else:                  balk_c = ORANJE
+        vul = max(0, min(rd_pct, 100)) / 100
+        balk = Table([["", ""]], colWidths=[breed*vul if vul > 0 else 0.01, breed*(1-vul) if vul < 1 else 0.01])
+        balk.setStyle(TableStyle([
+            ("BACKGROUND",(0,0),(0,0),balk_c),
+            ("BACKGROUND",(1,0),(1,0),colors.HexColor("#1e293b")),
+            ("ROWHEIGHT",(0,0),(-1,-1),0.25*cm),
+            ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0),
+            ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
+        ]))
+        story.append(balk)
 
-    # Racedag tips (zonder cafeïne tip)
+    # Receptsuggesties verwijderd — niet nodig bij laatste maaltijd
+
     rd_tips = [
         "Kies producten die je al getest hebt in training — geen nieuw voedsel op racedag.",
         "Kies licht verteerbaar: laag in vezels en vetten.",
         "Drink geen grote hoeveelheden vocht vlak voor de start — kleine slokjes.",
     ]
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1,4))
     rd_tip_rows = [[Paragraph("TIPS LAATSTE MAALTIJD", s_kop)]]
     for tip in rd_tips:
         rd_tip_rows.append([Paragraph(f"  →  {tip}", s_tip)])
@@ -2318,12 +2352,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     ]))
     story.append(rd_tip_t)
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # PAGINA 2 — UUR-PER-UUR RACEPLAN
-    # ══════════════════════════════════════════════════════════════════════════
+    # ── PAGINA 2 — RACEPLAN ────────────────────────────────────────────────────
     story.append(PageBreak())
-    for blok in maak_header("UUR-PER-UUR RACEPLAN",
-                             f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
+    for blok in maak_header("RACEPLAN", f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
         story.append(blok)
     story.append(Spacer(1, 8))
 
@@ -2331,15 +2362,17 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     max_kh = data.get("max_kh", 0)
     pool   = data.get("pool", {})
     supp   = pool.get("supplementen", {})
+
+    # Lees preview comments
+    preview_comments = data.get("preview_comments") or data.get("notities") or {}
+
     uren, vocht_per_m = _bereken_raceplan(data)
 
-    # Info balk
-    info_txt = f"{temp}°C  ·  {vocht}% vochtigheid  ·  Vocht per innamemoment: {vocht_per_m}ml"
+    info_txt = f"{temp}°C  ·  {vocht}% vochtigheid  ·  Vocht/moment: {vocht_per_m}ml"
     if min_kh and max_kh:
         info_txt += f"  ·  KH-target: {min_kh}–{max_kh}g/uur"
     ib = Table([[Paragraph(info_txt, S("IB", fontSize=8, textColor=colors.HexColor("#93c5fd"),
-                                        alignment=TA_CENTER, leading=12))]],
-               colWidths=[breed])
+                                        alignment=TA_CENTER, leading=12))]], colWidths=[breed])
     ib.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,-1),MIDDEL),
         ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),
@@ -2347,7 +2380,6 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(ib)
     story.append(Spacer(1, 8))
 
-    # Per uur
     for uur_data in uren:
         u_num   = uur_data["uur"]
         u_start = uur_data["uur_start"]
@@ -2357,12 +2389,13 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         items   = uur_data["items"]
         geen_kh = uur_data["geen_kh"]
         is_last = uur_data["is_last"]
+        comment = preview_comments.get(str(u_num), "")
 
         bar_c = GROEN if u_kh >= u_min else (GEEL if u_kh >= u_min*0.8 else ROOD)
         if geen_kh: bar_c = BLAUW
 
         kh_info = ("Geen extra KH nodig" if geen_kh else
-                   f"Berekend: {u_kh}g KH  |  Target: {u_min}–{u_max}g")
+                   f"Berekend: {u_kh}g  |  Target: {u_min}–{u_max}g")
 
         uur_kop = Table([[
             Paragraph(f"UUR {u_num}   ⏰ {u_start}", s_uur_kop),
@@ -2377,18 +2410,35 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
         item_rows = []
         for item in items:
+            EMOJI_BADGE = {
+                "🥤": ("SD",  "#3b82f6"), "⚡": ("GEL", "#f97316"),
+                "🍌": ("VAST","#22c55e"), "☕": ("CAF", "#8b5cf6"),
+                "💧": ("H2O", "#64748b"), "🧃": ("SD",  "#3b82f6"),
+            }
+            bd, bd_hex = EMOJI_BADGE.get(item["emoji"], ("?", "#64748b"))
             item_rows.append([
                 Paragraph(item["min"], S("MIN", fontSize=8, fontName="Helvetica-Bold",
                                           textColor=BLAUW, leading=12)),
-                Paragraph(f"{item['emoji']}  {item['naam']}", s_body),
+                Paragraph(
+                    f'<font color="{bd_hex}"><b>[{bd}]</b></font>  {item["naam"]}',
+                    s_body),
                 Paragraph(f"{item['kh']}g" if item["kh"] > 0 else "—",
                           S("KHI", fontSize=8, textColor=ORANJE if item["kh"] > 0 else GRIJS,
                             fontName="Helvetica-Bold", leading=12, alignment=TA_RIGHT)),
             ])
         if not item_rows:
             item_rows.append([Paragraph("", s_body),
-                              Paragraph("💧  Water", s_body),
+                              Paragraph('<font color="#64748b"><b>[H2O]</b></font>  Water', s_body),
                               Paragraph("—", s_body)])
+
+        if comment:
+            item_rows.append([
+                Paragraph("»", S("IC", fontSize=9, fontName="Helvetica-Bold",
+                                  textColor=GEEL, leading=12)),
+                Paragraph(comment, S("CM", fontSize=7.5, textColor=colors.HexColor("#f59e0b"),
+                                      fontName="Helvetica-Oblique", leading=11)),
+                Paragraph("", s_body),
+            ])
 
         items_t = Table(item_rows, colWidths=[breed*0.15, breed*0.67, breed*0.18])
         items_t.setStyle(TableStyle([
@@ -2402,22 +2452,19 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         story.append(KeepTogether([uur_kop, items_t, Spacer(1, 6)]))
 
     # Supplementen
-    if supp and any([supp.get("cafeine_mg"), supp.get("natrium_mg"), supp.get("vrij")]):
+    if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
         story.append(Spacer(1, 4))
         story.append(Paragraph("SUPPLEMENTEN", s_sectie))
         story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
         supp_rows = []
-        if supp.get("cafeine_mg"):
-            supp_rows.append([Paragraph("Cafeïne (totaal)", s_body),
-                               Paragraph(f"{supp['cafeine_mg']} mg", s_waarde)])
-        if supp.get("natrium_mg"):
-            supp_rows.append([Paragraph("Natrium (per uur)", s_body),
-                               Paragraph(f"{supp['natrium_mg']} mg/uur", s_waarde)])
-        if supp.get("vrij"):
-            supp_rows.append([Paragraph("Overige", s_body),
-                               Paragraph(supp["vrij"], s_waarde)])
+        if supp.get("ors_naam"):
+            supp_rows.append([Paragraph("ORS tabletten", s_body),
+                               Paragraph(f"{supp['ors_naam']} — {supp.get('ors_dosis',0)} tablet/uur", s_waarde)])
+        if supp.get("gum_naam"):
+            supp_rows.append([Paragraph("Cafeïne gum", s_body),
+                               Paragraph(f"{supp['gum_naam']} — {supp.get('gum_mg',0)} mg/stuk", s_waarde)])
         if supp_rows:
-            st_t = Table(supp_rows, colWidths=[breed*0.4, breed*0.6])
+            st_t = Table(supp_rows, colWidths=[breed*0.3, breed*0.7])
             st_t.setStyle(TableStyle([
                 ("ROWBACKGROUNDS",(0,0),(-1,-1),[LGRIJS,WIT]),
                 ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
@@ -2426,93 +2473,159 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             story.append(st_t)
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # PAGINA 3 — SNELKAART (stuurbuis / arm)
-    # ══════════════════════════════════════════════════════════════════════════
+    # ── PAGINA 3 — SNELKAART ──────────────────────────────────────────────────
     story.append(PageBreak())
-    for blok in maak_header("SNELKAART — STUURBUIS / ARM",
+    for blok in maak_header("CARBOO RACEMAP",
                              f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
         story.append(blok)
     story.append(Spacer(1, 8))
     story.append(Paragraph(
-        "Knip uit en bevestig op de stuurbuis of schrijf de emojis op je arm. Eén blokje = één uur.",
+        "Carboo Racemap — tijdlijn voor stuurbuis of arm.",
         S("INS", fontSize=8, textColor=GRIJS, alignment=TA_CENTER, leading=12)
     ))
-    story.append(Spacer(1, 10))
+    story.append(Spacer(1, 6))
 
-    MAX_COLS = 4
-    sym_rows = []
-    sym_row  = []
+    # Verticale tijdlijn per tijdsinterval
+
+    # Bouw de tijdlijn als één grote tabel
+    # Rijen = alle innamamomenten van alle uren, met tijdstip links en emoji rechts
+    tl_rows = []
 
     for uur_data in uren:
         u_num   = uur_data["uur"]
         u_start = uur_data["uur_start"]
         items   = uur_data["items"]
         geen_kh = uur_data["geen_kh"]
+        is_last = uur_data["is_last"]
+
+        # Uur-header rij
+        tl_rows.append(("uur_header", u_num, u_start, items, geen_kh, is_last))
+
+    # Render als tabel: COL1=tijdstip, COL2=lijn, COL3=emoji
+    COL_TIJD = breed * 0.22
+    COL_LIJN = breed * 0.08
+    COL_EMOJI = breed * 0.70
+
+    tl_data = []
+    tl_stijlen = []
+
+    ORANJE_DOT = "●"
+    rij = 0
+
+    for uur_data in uren:
+        u_num   = uur_data["uur"]
+        u_start = uur_data["uur_start"]
+        items   = uur_data["items"]
+        geen_kh = uur_data["geen_kh"]
+        is_last = uur_data["is_last"]
         u_kh    = uur_data["uur_kh"]
 
-        if geen_kh:
-            emoji_str = "💧"
-            prod_str  = "Water"
-        else:
-            ec = {}
-            for item in items:
-                ec[item["emoji"]] = ec.get(item["emoji"], 0) + 1
-            emoji_str = "  ".join(f"{e}×{n}" if n > 1 else e for e, n in ec.items())
-            namen = list({item["naam"].split("(")[0].strip()[:14]
-                         for item in items if item["kh"] > 0})
-            prod_str = " / ".join(namen[:2])
+        # Groepeer items per tijdstip
+        from collections import defaultdict
+        items_per_min = defaultdict(list)
+        for item in items:
+            items_per_min[item["min"]].append(item)
 
-        kh_txt = f"{u_kh}g KH" if not geen_kh and u_kh > 0 else "—"
+        # Sorteervolgorde
+        min_volgorde = ["+20min", "+30min", "+40min", "+45min", "+60min"]
+        gesorteerd = [(m, items_per_min[m]) for m in min_volgorde if m in items_per_min]
+        for m, its in items_per_min.items():
+            if m not in min_volgorde:
+                gesorteerd.append((m, its))
 
-        cel = [
-            [Paragraph(f"UUR {u_num}   {u_start}",
-                       S("UC", fontSize=7, fontName="Helvetica-Bold",
-                         textColor=ORANJE, leading=10, alignment=TA_CENTER))],
-            [Paragraph(emoji_str, S("EM", fontSize=16, leading=22, alignment=TA_CENTER))],
-            [Paragraph(prod_str, S("NM", fontSize=6.5, textColor=GRIJS,
-                                    alignment=TA_CENTER, leading=9))],
-            [Paragraph(kh_txt, S("KT", fontSize=7, fontName="Helvetica-Bold",
-                                   textColor=BLAUW, alignment=TA_CENTER, leading=10))],
+        if not gesorteerd:
+            gesorteerd = [("+20min", [{"emoji": "💧", "naam": "Water", "kh": 0}])]
+
+        # Start tijdstip berekenen
+        from datetime import datetime as DT, timedelta as TD
+        uur_dt = DT.strptime(u_start, "%H:%M")
+
+        for i, (min_label, min_items) in enumerate(gesorteerd):
+            # Bereken exacte tijd
+            minuten_offset = int(min_label.replace("+","").replace("min","")) if min_label != "+60min" else 60
+            exact_tijd = (uur_dt + TD(minutes=minuten_offset)).strftime("%H:%M")
+
+            # Tijdstip cel
+            if i == 0:
+                tijd_cel = Paragraph(
+                    f"<b>{u_start}</b><br/><font size='7' color='#64748b'>{exact_tijd}</font>",
+                    S("TC", fontSize=9, fontName="Helvetica-Bold", textColor=ORANJE,
+                      leading=12, alignment=TA_RIGHT)
+                )
+            else:
+                tijd_cel = Paragraph(
+                    f"<font size='8' color='#64748b'>{exact_tijd}</font>",
+                    S("TC2", fontSize=8, textColor=GRIJS, leading=11, alignment=TA_RIGHT)
+                )
+
+            # Dot cel
+            dot_cel = Paragraph(
+                "●",
+                S("DC", fontSize=10, textColor=ORANJE if i == 0 else GRIJS,
+                  alignment=TA_CENTER, leading=14)
+            )
+
+            # Badge + naam cel (emoji niet rendeerbaar in PDF)
+            BADGE_MAP = {
+                "🥤": ("SD",  "#3b82f6"), "⚡": ("GEL", "#f97316"),
+                "🍌": ("VAST","#22c55e"), "☕": ("CAF", "#8b5cf6"),
+                "💧": ("H2O", "#64748b"), "🧃": ("SD",  "#3b82f6"),
+            }
+            badge_parts = []
+            for item in min_items:
+                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
+                kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
+                naam_kort = item["naam"].split("(")[0].strip()[:20]
+                badge_parts.append(
+                    f'<font color="{bd_hex}"><b>[{bd}]</b></font>  '
+                    f'<font size="8">{naam_kort}</font>{kh_txt}'
+                )
+            sym_cel = Paragraph("    ".join(badge_parts),
+                                S("SC", fontSize=8.5, textColor=DONKER, leading=12))
+
+            tl_data.append([tijd_cel, dot_cel, sym_cel])
+
+            # Lijnstijl
+            if i == 0:
+                tl_stijlen.append(("BACKGROUND", (0, rij), (0, rij), colors.HexColor("#fff7ed")))
+                tl_stijlen.append(("TOPPADDING", (0, rij), (-1, rij), 4))
+            else:
+                tl_stijlen.append(("TOPPADDING", (0, rij), (-1, rij), 2))
+
+            tl_stijlen.append(("BOTTOMPADDING", (0, rij), (-1, rij), 2))
+            tl_stijlen.append(("LEFTPADDING",   (0, rij), (-1, rij), 5))
+            tl_stijlen.append(("RIGHTPADDING",  (0, rij), (-1, rij), 5))
+            tl_stijlen.append(("VALIGN",        (0, rij), (-1, rij), "MIDDLE"))
+            rij += 1
+
+        # Scheidingslijn na elk uur
+        if not is_last:
+            tl_data.append([
+                Paragraph("", s_body),
+                Paragraph("·", S("SEP", fontSize=6, textColor=GRIJS, alignment=TA_CENTER)),
+                Paragraph("", s_body),
+            ])
+            tl_stijlen.append(("TOPPADDING",    (0, rij), (-1, rij), 1))
+            tl_stijlen.append(("BOTTOMPADDING", (0, rij), (-1, rij), 1))
+            tl_stijlen.append(("LEFTPADDING",   (0, rij), (-1, rij), 0))
+            rij += 1
+
+    if tl_data:
+        tl_stijlen += [
+            ("BOX",       (0,0), (-1,-1), 1, ORANJE),
+            ("LINEAFTER",  (0,0), (0,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("LINEAFTER",  (1,0), (1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("BACKGROUND", (1,0), (1,-1), colors.HexColor("#1e293b")),
         ]
-        sym_row.append(cel)
-        if len(sym_row) == MAX_COLS:
-            sym_rows.append(sym_row)
-            sym_row = []
+        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_EMOJI])
+        tl_t.setStyle(TableStyle(tl_stijlen))
+        story.append(tl_t)
 
-    if sym_row:
-        while len(sym_row) < MAX_COLS:
-            sym_row.append([[Paragraph("", s_body)]])
-        sym_rows.append(sym_row)
 
-    col_w = breed / MAX_COLS
-    for row in sym_rows:
-        flat = []
-        for cel in row:
-            cel_tbl = Table(cel, colWidths=[col_w * 0.88])
-            cel_tbl.setStyle(TableStyle([
-                ("ALIGN",(0,0),(-1,-1),"CENTER"),
-                ("TOPPADDING",(0,0),(-1,-1),3),
-                ("BOTTOMPADDING",(0,0),(-1,-1),3),
-            ]))
-            flat.append(cel_tbl)
-        row_tbl = Table([flat], colWidths=[col_w]*MAX_COLS)
-        row_tbl.setStyle(TableStyle([
-            ("BOX",(0,0),(-1,-1),1.5,ORANJE),
-            ("INNERGRID",(0,0),(-1,-1),0.5,ORANJE),
-            ("TOPPADDING",(0,0),(-1,-1),6),
-            ("BOTTOMPADDING",(0,0),(-1,-1),6),
-            ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-            ("BACKGROUND",(0,0),(-1,-1),WIT),
-        ]))
-        story.append(row_tbl)
-        story.append(Spacer(1, 5))
-
-    # Legende
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
-    leg_items = [["💧","Water / mondspoeling"],["🥤","Sportdrank"],
-                 ["⚡","Energy gel"],["🍌","Vast voedsel"],["⚡","Gel + cafeïne"]]
+    leg_items = [["[H2O]","Water / mondspoeling"],["[SD]","Sportdrank"],
+                 ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"]]
     leg_row = [[Paragraph(f"{s}  {l}", S("LG", fontSize=8, textColor=DONKER, leading=12))
                for s, l in leg_items]]
     leg_t = Table(leg_row, colWidths=[breed/5]*5)
@@ -2525,12 +2638,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     ]))
     story.append(leg_t)
 
-    # Footer
     story.append(Spacer(1, 12))
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS))
     story.append(Spacer(1, 4))
     story.append(Paragraph(
-        "Gegenereerd door Carboo Race Nutrition  •  carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app  •  "
+        "Race Nutrition Plan  •  carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app  •  "
         "Dit plan is een richtlijn — overleg met een sportdiëtist voor gepersonaliseerd advies.",
         s_footer
     ))
@@ -2790,22 +2902,25 @@ def _stap_samenvatting():
     </div>
     ''', unsafe_allow_html=True)
 
-    try:
-        gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
-        pdf_bytes    = _genereer_pdf(data, gebruiker_naam)
-        atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
-        wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
-        bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
-        st.download_button(
-            label="📄  GENEREER PLAN (PDF)",
-            data=pdf_bytes,
-            file_name=bestandsnaam,
-            mime="application/pdf",
-            use_container_width=True,
-            key="sum_pdf_download"
-        )
-    except Exception as e:
-        st.error(f"Fout bij genereren PDF: {e}")
+    if st.button("📄  GENEREER PLAN (PDF)", key="sum_pdf", use_container_width=True):
+        with st.spinner("Rapport wordt gegenereerd..."):
+            try:
+                gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
+                pdf_bytes    = _genereer_pdf(data, gebruiker_naam)
+                atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
+                wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
+                bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
+                st.success("✅ Rapport klaar! Klik hieronder om te downloaden.")
+                st.download_button(
+                    label="⬇️  Download PDF",
+                    data=pdf_bytes,
+                    file_name=bestandsnaam,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="sum_pdf_download"
+                )
+            except Exception as e:
+                st.error(f"Fout bij genereren rapport: {e}")
 
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
