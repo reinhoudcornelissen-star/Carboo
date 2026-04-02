@@ -3164,32 +3164,34 @@ def _stap_samenvatting():
 
                 if pool.get("drank"):
                     d = pool["drank"][0]
+                    _d_naam = d.get("naam", d.get("name", "Sportdrank"))
                     kh_per_m = round((d["kh"] / 500) * vocht_per_m)
                     for m in [1, 2, 3]:
-                        moment_items[m].append({"label": f"🥤 {vocht_per_m}ml <b>{d['name']}</b> ({kh_per_m}g)", "kh": kh_per_m})
+                        moment_items[m].append({"label": f"🥤 {vocht_per_m}ml <b>{_d_naam}</b> ({kh_per_m}g)", "kh": kh_per_m})
                         uur_kh += kh_per_m
 
                 cafe_strat = data.get("cafeine_strategie", "")
                 if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
                     c = pool["cafe"][0]
-                    moment_items[1].append({"label": f"⚡ <b>{c['name']}</b> ({c['kh']}g)", "kh": c["kh"]})
+                    _c_naam = c.get("naam", c.get("name", "Cafeïne gel"))
+                    moment_items[1].append({"label": f"⚡ <b>{_c_naam}</b> ({c['kh']}g)", "kh": c["kh"]})
                     uur_kh += c["kh"]
                     cafeine_gebruikt = True
 
                 if "verspreid" in cafe_strat and not is_last and pool.get("cafe") and u % 2 == 1:
                     c = pool["cafe"][0]
-                    moment_items[2].append({"label": f"⚡ <b>{c['name']}</b> ({c['kh']}g)", "kh": c["kh"]})
+                    moment_items[2].append({"label": f"⚡ <b>{c.get('naam', c.get('name','Cafeïne gel'))}</b> ({c['kh']}g)", "kh": c["kh"]})
                     uur_kh += c["kh"]
 
                 if pool.get("vast") and uur_kh < cur_min_kh:
                     item = pool["vast"][vast_idx % len(pool["vast"])]
-                    moment_items[2].append({"label": f"🍱 <b>{item['name']}</b> ({item['kh']}g)", "kh": item["kh"]})
+                    moment_items[2].append({"label": f"🍱 <b>{item.get('naam', item.get('name','Vast'))}</b> ({item['kh']}g)", "kh": item["kh"]})
                     uur_kh += item["kh"]
                     vast_idx += 1
 
                 if pool.get("gels") and uur_kh < cur_min_kh:
                     g = pool["gels"][0]
-                    moment_items[3].append({"label": f"🧪 <b>{g['name']}</b> ({g['kh']}g)", "kh": g["kh"]})
+                    moment_items[3].append({"label": f"🧪 <b>{g.get('naam', g.get('name','Gel'))}</b> ({g['kh']}g)", "kh": g["kh"]})
                     uur_kh += g["kh"]
 
                 status_color = "#22c55e" if uur_kh >= cur_min_kh else "#f59e0b"
