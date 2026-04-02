@@ -4,6 +4,7 @@ from carboo_coach import render_coach
 from carbomax import render_carbomax
 from raceprep import render_raceprep
 from optimeal import render_optimeal
+from carboo_assets import MASCOT_B64 as CARBOO_AVATAR
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -90,18 +91,23 @@ naam = user.get("name", "Atleet")
 is_admin = user.get("role") == "admin"
 
 # HEADER
-CARBOO_AVATAR = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/wAAR"
-
 st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:space-between;
-            background:#1e293b;border-radius:14px;padding:14px 22px;margin-bottom:18px;
-            border:1px solid #334155">
-  <div style="font-size:1.7rem;font-weight:900;letter-spacing:3px;color:#f8fafc">
-    CAR<span style="color:#f97316">BOO</span>
+<div style="display:flex; align-items:center; justify-content:space-between;
+            background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:16px;
+            padding:16px 24px; margin-bottom:20px; border:1px solid #334155;">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <img src="{CARBOO_AVATAR}" style="width:44px; height:44px; border-radius:50%;
+         border:2px solid #f97316; object-fit:cover;">
+    <div>
+      <div style="font-size:1.5rem; font-weight:900; letter-spacing:3px; color:#f8fafc;">
+        CAR<span style="color:#f97316;">BOO</span>
+      </div>
+      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">RACE NUTRITION COACH</div>
+    </div>
   </div>
-  <div style="font-size:0.82rem;color:#64748b">
-    Ingelogd als <b style="color:#f8fafc">{naam}</b>
-    {'&nbsp;&nbsp;<span style="background:#f97316;color:white;border-radius:4px;padding:1px 7px;font-size:0.72rem">ADMIN</span>' if is_admin else ''}
+  <div style="text-align:right; font-size:0.82rem; color:#64748b;">
+    Ingelogd als <b style="color:#f8fafc;">{naam}</b>
+    {'&nbsp;&nbsp;<span style="background:#f97316;color:white;border-radius:4px;padding:1px 7px;font-size:0.72rem;">ADMIN</span>' if is_admin else ''}
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -110,35 +116,7 @@ st.markdown(f"""
 module = st.session_state.module
 
 if module == "menu":
-    st.markdown(f"<div style='font-size:1.1rem;color:#94a3b8;margin-bottom:20px'>Welkom, <b style='color:#f8fafc'>{naam}</b> 👋 — Kies een module:</div>", unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("🏆 Carboo Coach\nRace Nutrition Wizard", key="btn_coach"):
-            st.session_state.module = "coach"
-            st.rerun()
-        if st.button("🧪 CarboMax\nCarboloading Calculator", key="btn_carbomax"):
-            st.session_state.module = "carbomax"
-            st.rerun()
-    with c2:
-        if st.button("🗓 RacePrep\nWedstrijd Voorbereiding", key="btn_raceprep"):
-            st.session_state.module = "raceprep"
-            st.rerun()
-        if st.button("🥗 OptiMeal\nMaaltijdoptimalisatie", key="btn_optimeal"):
-            st.session_state.module = "optimeal"
-            st.rerun()
-
-    if is_admin:
-        st.markdown("---")
-        if st.button("⚙️ Admin Panel", key="btn_admin"):
-            st.session_state.module = "admin"
-            st.rerun()
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("← Uitloggen", key="btn_logout"):
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
-        st.rerun()
+    render_coach()
 
 elif module == "coach":
     render_coach()
