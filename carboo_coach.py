@@ -2785,14 +2785,20 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     BADGE = {"🥤":("SD","#3b82f6"),"⚡":("GEL","#f97316"),"🍌":("VAST","#22c55e"),
              "☕":("CAF","#8b5cf6"),"💧":("H2O","#64748b")}
 
-    def kh_col(pct):
-        if pct >= 90: return "#22c55e"
-        if pct >= 70: return "#fbbf24"
+    def kh_col(pct, grens_groen=90, grens_geel=70):
+        if pct >= grens_groen: return "#22c55e"
+        if pct >= grens_geel:  return "#fbbf24"
         return "#ef4444"
 
-    def prog_bar(val, target):
-        pct = min(round(val/target*100), 100) if target > 0 else 0
-        col = kh_col(pct)
+    def prog_bar(val, target, grens_groen=90, grens_geel=70, over_rood=True):
+        if target == 0:
+            return ""
+        pct = min(round(val/target*100), 100)
+        over = val > target
+        if over and over_rood:
+            col = "#ef4444"
+        else:
+            col = kh_col(pct, grens_groen, grens_geel)
         return (f'<div style="background:#0f172a;border-radius:3px;height:7px;margin:5px 0 2px;overflow:hidden">' +
                 f'<div style="width:{pct}%;height:100%;background:{col};border-radius:3px"></div></div>')
 
@@ -2862,8 +2868,16 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         f'<td style="text-align:right;padding:4px 8px;font-size:10px;color:#f97316;font-weight:bold">{kh}g</td></tr>'
         for omschr, kh in rd_items
     )
-    kh_max_rd = round(gewicht * 3) if isinstance(gewicht, (int, float)) else 216
-    lm_prog   = prog_bar(rd_kh_tot, kh_max_rd)
+    # Laatste maaltijd balk: grens = kh_max (gewicht*4), groen bij ≥25% (zelfde als in wizard)
+    kh_max_rd = round(gewicht * 4) if isinstance(gewicht, (int, float)) else 288
+    lm_pct    = round(rd_kh_tot / kh_max_rd * 100) if kh_max_rd > 0 else 0
+    lm_over   = rd_kh_tot > kh_max_rd
+    if lm_over:          lm_col = "#ef4444"
+    elif lm_pct >= 25:   lm_col = "#22c55e"
+    elif lm_pct >= 15:   lm_col = "#fbbf24"
+    else:                lm_col = "#f97316"
+    lm_prog = (f'<div style="background:#0f172a;border-radius:3px;height:7px;margin:5px 0 2px;overflow:hidden">' +
+               f'<div style="width:{min(lm_pct,100)}%;height:100%;background:{lm_col};border-radius:3px"></div></div>')
 
     # ── Raceplan HTML ─────────────────────────────────────────────────────────
     # Gebruik preview_uren (door gebruiker aangepast) indien beschikbaar
