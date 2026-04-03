@@ -1,420 +1,329 @@
 import streamlit as st
-import json
-import os
 import hashlib
-from datetime import datetime
+from supabase import create_client
 
 
-USERS_FILE = "users.json"
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
-# ─── HELPER FUNCTIONS ────────────────────────────────────────────────────────
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        # Maak standaard admin gebruiker aan als het bestand niet bestaat
-        default_users = [
-            {
-                "username": "admin",
-                "password": hash_password("admin123"),
-                "name": "Admin",
-                "role": "admin",
-                "created": datetime.now().isoformat()
-            }
-        ]
-        save_users(default_users)
-        return default_users
+def _stuur_registratie_mail(naam: str, email: str):
+    """Stuur notificatie mail naar admin bij nieuwe registratie."""
     try:
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
+        ontvanger = "info@sportlab-achterbos.be"
+        afzender  = st.secrets.get("MAIL_FROM", "noreply@carboo.app")
+        ww_mail   = st.secrets.get("MAIL_PASSWORD", "")
+        smtp_host = st.secrets.get("MAIL_HOST", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("MAIL_PORT", 587))
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"🏃 Nieuwe Carboo registratie: {naam}"
+        msg["From"]    = afzender
+        msg["To"]      = ontvanger
+
+        html_body = f"""
+        <html><body style="font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:20px;">
+        <div style="max-width:500px;margin:0 auto;background:#1e293b;border-radius:10px;padding:20px;">
+            <div style="font-size:20px;font-weight:900;color:#f97316;margin-bottom:16px;">
+                CAR<span style="color:#f1f5f9">BOO</span> — Nieuwe registratie
+            </div>
+            <p style="color:#94a3b8;margin-bottom:8px;">Er is een nieuw account aangemaakt:</p>
+            <table style="width:100%;border-collapse:collapse;">
+                <tr>
+                    <td style="padding:8px;color:#64748b;font-size:12px;font-weight:bold;">NAAM</td>
+                    <td style="padding:8px;color:#f1f5f9;font-weight:bold;">{naam}</td>
+                </tr>
+                <tr style="background:rgba(255,255,255,0.03)">
+                    <td style="padding:8px;color:#64748b;font-size:12px;font-weight:bold;">E-MAIL</td>
+                    <td style="padding:8px;color:#f1f5f9;">{email}</td>
+                </tr>
+            </table>
+            <div style="margin-top:16px;padding:12px;background:#0f172a;border-radius:8px;
+                        font-size:13px;color:#94a3b8;">
+                Log in op het admin panel om credits toe te voegen aan deze gebruiker.
+            </div>
+        </div>
+        </body></html>
+        """
+
+        msg.attach(MIMEText(html_body, "html"))
+
+        if ww_mail:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(afzender, ww_mail)
+                server.sendmail(afzender, ontvanger, msg.as_string())
+    except Exception as e:
+        # Mail fout is niet kritiek — registratie gaat door
+        print(f"Mail fout (niet kritiek): {e}")
+
+# ─── Supabase connectie ───────────────────────────────────────────────────────
+def _get_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+def _hash(ww: str) -> str:
+    return hashlib.sha256(ww.encode()).hexdigest()
+
+# ─── User ophalen ─────────────────────────────────────────────────────────────
+def _get_user(email: str):
+    try:
+        sb = _get_supabase()
+        r  = sb.table("carboo_users").select("*").eq("email", email.lower().strip()).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        st.error(f"Database fout: {e}")
+        return None
+
+def _get_user_by_id(user_id: str):
+    try:
+        sb = _get_supabase()
+        r  = sb.table("carboo_users").select("*").eq("id", user_id).execute()
+        return r.data[0] if r.data else None
     except Exception:
-        return []
+        return None
 
+# ─── Credits ──────────────────────────────────────────────────────────────────
+def get_credits(user_id: str) -> int:
+    """Haal actuele credits op uit Supabase."""
+    user = _get_user_by_id(user_id)
+    return user["credits"] if user else 0
 
-def save_users(users):
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f, indent=2)
+def gebruik_credit(user_id: str, beschrijving: str = "Rapport gegenereerd") -> bool:
+    """Trek 1 credit af. Geeft True terug als gelukt."""
+    try:
+        sb = _get_supabase()
+        user = _get_user_by_id(user_id)
+        if not user or user["credits"] <= 0:
+            return False
+        # Credit aftrekken
+        sb.table("carboo_users").update({"credits": user["credits"] - 1}).eq("id", user_id).execute()
+        # Transactie loggen
+        sb.table("carboo_transacties").insert({
+            "user_id":     user_id,
+            "type":        "gebruik",
+            "credits":     -1,
+            "beschrijving": beschrijving,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij credit aftrek: {e}")
+        return False
 
+def voeg_credits_toe(user_id: str, aantal: int, beschrijving: str = "Credits toegevoegd") -> bool:
+    """Voeg credits toe aan een gebruiker."""
+    try:
+        sb = _get_supabase()
+        user = _get_user_by_id(user_id)
+        if not user:
+            return False
+        sb.table("carboo_users").update({"credits": user["credits"] + aantal}).eq("id", user_id).execute()
+        sb.table("carboo_transacties").insert({
+            "user_id":     user_id,
+            "type":        "aankoop",
+            "credits":     aantal,
+            "beschrijving": beschrijving,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij credits toevoegen: {e}")
+        return False
 
-def check_credentials(username, password):
-    users = load_users()
-    hashed = hash_password(password)
-    for user in users:
-        if user["username"] == username and user["password"] == hashed:
-            return user
-    return None
-
-
-def register_user(username, password, name, role="user"):
-    users = load_users()
-    # Controleer of gebruiker al bestaat
-    for u in users:
-        if u["username"] == username:
-            return False, "Gebruikersnaam bestaat al."
-    new_user = {
-        "username": username,
-        "password": hash_password(password),
-        "name": name,
-        "role": role,
-        "created": datetime.now().isoformat()
-    }
-    users.append(new_user)
-    save_users(users)
-    return True, "Registratie succesvol!"
-
-
-# ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
-
+# ─── Login pagina ─────────────────────────────────────────────────────────────
 def render_login_page():
-    # Volledig scherm dark styling
     st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;900&family=Rajdhani:wght@400;600;700&display=swap');
-
-    html, body, [class*="css"] {
-        font-family: 'Exo 2', sans-serif;
-        background-color: #030710 !important;
-        color: #e2e8f0;
-    }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    .stApp { background: #030710 !important; }
-
-    /* Verwijder lege ruimte en blauwe balk bovenaan */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
-    }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stDecoration"] { display: none !important; visibility: hidden !important; height: 0 !important; }
-    [data-testid="stHeader"] { display: none !important; height: 0 !important; }
-    .stApp > header { display: none !important; }
-    div[data-testid="stDecoration"] { display: none !important; }
-    /* Verberg Streamlit blauwe balk bovenaan volledig */
-    #root > div:first-child { padding-top: 0 !important; }
-
-    /* Verberg Streamlit top decoratie balk volledig */
-    [data-testid="stAppViewBlockContainer"] { padding-top: 0 !important; }
-    .stMainBlockContainer { padding-top: 1rem !important; }
-    [data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"]:first-child { display: none !important; }
-    /* Verberg het eerste markdown blok (lege ruimte / balk) */
-    .element-container:has(> .stMarkdown:empty) { display: none !important; }
-    /* Streamlit versie-specifieke header verbergen */
-    .st-emotion-cache-zq5wmm { display: none !important; }
-    .st-emotion-cache-1wbqy5l { display: none !important; }
-    div[class*="StatusWidget"] { display: none !important; }
-
-    /* Grid achtergrond */
-    .stApp::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background-image:
-            linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px);
-        background-size: 60px 60px;
-        pointer-events: none;
-        z-index: 0;
-    }
-
-    /* Login card - volledig transparant, geen zichtbare container */
-    .login-card {
-        background: transparent;
-        border: none;
-        border-radius: 0;
-        padding: 0;
-        backdrop-filter: none;
-        box-shadow: none;
-        position: relative;
-        overflow: visible;
-        margin-top: 0;
-    }
-    .login-card::before { display: none; }
-
-    /* Brand */
-    .brand-name {
-        font-family: 'Rajdhani', sans-serif;
-        font-size: 3rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        background: linear-gradient(135deg, #fff 30%, #fb923c 70%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        line-height: 1;
-        margin-bottom: 0;
-    }
-    .brand-subtitle {
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.25em;
-        color: #3b82f6;
-        text-transform: uppercase;
-        margin-bottom: 1.5rem;
-        opacity: 0.85;
-    }
-
-    /* Inputs */
-    .stTextInput > div > div > input {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(59,130,246,0.2) !important;
-        border-radius: 10px !important;
-        color: #e2e8f0 !important;
-        font-family: 'Exo 2', sans-serif !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: #3b82f6 !important;
-        background: rgba(59,130,246,0.08) !important;
-        box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
-    }
-    .stTextInput label {
-        color: #64748b !important;
-        font-size: 0.72rem !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.12em !important;
-        text-transform: uppercase !important;
-    }
-
-    /* Login knop */
-    .stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #2563eb 100%) !important;
-        background-size: 200% 100% !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 10px !important;
-        font-family: 'Rajdhani', sans-serif !important;
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.18em !important;
-        text-transform: uppercase !important;
-        padding: 0.75rem !important;
-        box-shadow: 0 4px 20px rgba(37,99,235,0.4) !important;
-        transition: all 0.3s !important;
-    }
-    .stButton > button:hover {
-        box-shadow: 0 6px 30px rgba(37,99,235,0.6) !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Divider tekst */
-    .divider-text {
-        text-align: center;
-        color: #64748b;
-        font-size: 0.7rem;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        margin: 1rem 0;
-        position: relative;
-    }
-    .divider-text::before,
-    .divider-text::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        width: 40%;
-        height: 1px;
-        background: rgba(59,130,246,0.15);
-    }
-    .divider-text::before { left: 0; }
-    .divider-text::after { right: 0; }
-
-    /* Register link */
-    .register-text {
-        text-align: center;
-        font-size: 0.78rem;
-        color: #64748b;
-        margin-top: 0.5rem;
-    }
-    .register-text a {
-        color: #fb923c;
-        font-weight: 600;
-        text-decoration: none;
-    }
-
-    /* Error/success meldingen */
-    .stAlert {
-        border-radius: 8px !important;
-    }
-
-    /* Verberg ALLES bovenaan - balk + lege ruimte */
-    [data-testid="stDecoration"] { display: none !important; height: 0 !important; min-height: 0 !important; }
-    [data-testid="stHeader"] { display: none !important; height: 0 !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    header[data-testid="stHeader"] { display: none !important; }
-    .stApp > header { display: none !important; }
-    /* Compacte padding */
-    .block-container {
-        padding-top: 3rem !important;
-        margin-top: 0 !important;
-        max-width: 600px !important;
-    }
-    /* Verberg het eerste lege element (veroorzaakt het blauwe vlak) */
-    .stApp [data-testid="stVerticalBlock"] > div:first-child > [data-testid="stVerticalBlock"] > div:first-child {
-        display: none !important;
-    }
-
-    /* Avatar float animatie */
-    @keyframes hover-float {
-        0%, 100% { transform: translateY(0px) rotate(-1deg); }
-        50% { transform: translateY(-6px) rotate(1deg); }
-    }
-    </style>
+    <div style="max-width:420px;margin:60px auto 0 auto;">
+      <div style="text-align:center;margin-bottom:30px;">
+        <div style="font-size:2.5rem;font-weight:900;letter-spacing:4px;color:#f8fafc;">
+          CAR<span style="color:#f97316;">BOO</span>
+        </div>
+        <div style="font-size:0.8rem;color:#64748b;letter-spacing:2px;margin-top:4px;">
+          RACE NUTRITION COACH
+        </div>
+      </div>
+    </div>
     """, unsafe_allow_html=True)
 
-    # Nieuwe Carboo mascotte (hardcoded)
-    import re
-    from carboo_assets import MASCOT_B64 as avatar_src
+    tab_login, tab_register = st.tabs(["  Inloggen  ", "  Registreren  "])
 
-    # Gecentreerde login card — geen linker kolom meer
-    col_pad_l, col_login, col_pad_r = st.columns([1, 2, 1])
+    with tab_login:
+        st.markdown("<br>", unsafe_allow_html=True)
+        email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
+        ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
 
-    with col_login:
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-
-        # Avatar RECHTS van CARBOO titel, klein
-        if avatar_src:
-            st.markdown(f'''
-            <div style="display:flex;align-items:center;gap:2px;margin-bottom:4px;">
-                <div style="line-height:1;">
-                    <div class="brand-name" style="margin-right:0;">CARBOO</div>
-                    <div class="brand-subtitle">Race Nutrition Platform</div>
-                </div>
-                <img src="{avatar_src}"
-                     style="height:90px;width:auto;flex-shrink:0;
-                            margin-left:2px;
-                            filter:drop-shadow(0 0 12px rgba(37,99,235,0.7)) drop-shadow(0 0 24px rgba(249,115,22,0.4));">
-            </div>
-            ''', unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="brand-name">CARBOO</div>', unsafe_allow_html=True)
-            st.markdown('<div class="brand-subtitle">Race Nutrition Platform</div>', unsafe_allow_html=True)
-
-        # Toon registratie of login
-        if st.session_state.get("show_register", False):
-            _render_register_form()
-        else:
-            _render_login_form()
-
-        st.markdown('</div>', unsafe_allow_html=True)
-
-
-def _render_login_form():
-    username = st.text_input("Gebruikersnaam", key="login_username", placeholder="Voer gebruikersnaam in")
-    password = st.text_input("Wachtwoord", type="password", key="login_password", placeholder="Voer wachtwoord in")
-
-    # Vergeten wachtwoord link
-    st.markdown('<div style="text-align:right;margin-bottom:1rem;">'
-                '<a href="#" style="font-size:0.72rem;color:#3b82f6;text-decoration:none;opacity:0.8;">'
-                'Wachtwoord vergeten?</a></div>', unsafe_allow_html=True)
-
-    if st.button("INLOGGEN", key="btn_login"):
-        if not username or not password:
-            st.error("Vul gebruikersnaam en wachtwoord in.")
-        else:
-            user = check_credentials(username, password)
-            if user:
-                st.session_state.logged_in = True
-                st.session_state.current_user = user
-                st.rerun()  # ← DE FIX: pagina herladen na inloggen
+        if st.button("Inloggen →", key="login_btn", use_container_width=True):
+            if not email or not ww:
+                st.error("Vul alle velden in.")
             else:
-                st.error("Onjuiste gebruikersnaam of wachtwoord.")
+                user = _get_user(email)
+                if not user:
+                    st.error("Gebruiker niet gevonden.")
+                elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
+                    # Ondersteun ook ongehashte wachtwoorden (tijdelijk voor admin)
+                    st.error("Verkeerd wachtwoord.")
+                else:
+                    st.session_state.logged_in    = True
+                    st.session_state.current_user = {
+                        "id":     user["id"],
+                        "name":   user["naam"],
+                        "email":  user["email"],
+                        "role":   user["rol"],
+                        "credits": user["credits"],
+                    }
+                    st.rerun()
 
-    st.markdown('<div class="divider-text">of</div>', unsafe_allow_html=True)
+    with tab_register:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;">Maak een account aan. De beheerder voegt credits toe na verificatie.</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="register-text">Nog geen account? '
-                '</div>', unsafe_allow_html=True)
+        r_naam  = st.text_input("Naam", key="reg_naam", placeholder="Voornaam en naam")
+        r_email = st.text_input("E-mailadres", key="reg_email", placeholder="jouw@email.com")
+        r_ww    = st.text_input("Wachtwoord", type="password", key="reg_ww")
+        r_ww2   = st.text_input("Herhaal wachtwoord", type="password", key="reg_ww2")
 
-    if st.button("Registreer hier", key="btn_show_register"):
-        st.session_state.show_register = True
-        st.rerun()
-
-
-def _render_register_form():
-    st.markdown('<div style="color:#3b82f6;font-weight:700;font-size:0.85rem;'
-                'letter-spacing:0.1em;text-transform:uppercase;margin-bottom:1rem;">'
-                'Nieuw account aanmaken</div>', unsafe_allow_html=True)
-
-    name = st.text_input("Volledige naam", key="reg_name", placeholder="Jouw naam")
-    username = st.text_input("Gebruikersnaam", key="reg_username", placeholder="Kies een gebruikersnaam")
-    password = st.text_input("Wachtwoord", type="password", key="reg_password", placeholder="Kies een wachtwoord")
-    password2 = st.text_input("Bevestig wachtwoord", type="password", key="reg_password2", placeholder="Herhaal wachtwoord")
-
-    if st.button("REGISTREREN", key="btn_register"):
-        if not name or not username or not password or not password2:
-            st.error("Vul alle velden in.")
-        elif password != password2:
-            st.error("Wachtwoorden komen niet overeen.")
-        elif len(password) < 6:
-            st.error("Wachtwoord moet minimaal 6 tekens zijn.")
-        else:
-            success, msg = register_user(username, password, name)
-            if success:
-                st.success(msg + " Je kunt nu inloggen.")
-                st.session_state.show_register = False
-                st.rerun()
+        if st.button("Account aanmaken →", key="reg_btn", use_container_width=True):
+            if not all([r_naam, r_email, r_ww, r_ww2]):
+                st.error("Vul alle velden in.")
+            elif r_ww != r_ww2:
+                st.error("Wachtwoorden komen niet overeen.")
+            elif len(r_ww) < 6:
+                st.error("Wachtwoord moet minstens 6 tekens zijn.")
+            elif _get_user(r_email):
+                st.error("Dit e-mailadres is al geregistreerd.")
             else:
-                st.error(msg)
+                try:
+                    sb = _get_supabase()
+                    result = sb.table("carboo_users").insert({
+                        "email":      r_email.lower().strip(),
+                        "naam":       r_naam.strip(),
+                        "wachtwoord": _hash(r_ww),
+                        "rol":        "user",
+                        "credits":    0,
+                    }).execute()
 
-    st.markdown('<div class="divider-text">of</div>', unsafe_allow_html=True)
+                    if result.data:
+                        new_user = result.data[0]
+                        # Stuur mail naar admin
+                        _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
+                        st.success("✅ Account aangemaakt! Je kan nu inloggen.")
+                        st.info("De beheerder wordt op de hoogte gebracht en voegt credits toe.")
+                except Exception as e:
+                    st.error(f"Fout bij registratie: {e}")
 
-    if st.button("← Terug naar inloggen", key="btn_back_login"):
-        st.session_state.show_register = False
-        st.rerun()
 
-
-# ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
-
+# ─── Admin panel ──────────────────────────────────────────────────────────────
 def render_admin_panel():
-    st.markdown("## 👥 Gebruikersbeheer")
+    st.markdown('<div style="font-size:1.2rem;font-weight:900;color:#f97316;margin-bottom:20px;">⚙️ ADMIN PANEL</div>', unsafe_allow_html=True)
 
-    users = load_users()
+    try:
+        sb = _get_supabase()
+        users = sb.table("carboo_users").select("*").order("aangemaakt", desc=True).execute().data
+    except Exception as e:
+        st.error(f"Fout: {e}")
+        return
 
-    # Tabel van gebruikers
-    if users:
-        st.markdown("### Huidige gebruikers")
-        for i, user in enumerate(users):
-            col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
-            with col1:
-                st.write(f"**{user.get('name', '-')}**")
-            with col2:
-                st.write(user.get('username', '-'))
-            with col3:
-                role_color = "🔴" if user.get('role') == 'admin' else "🔵"
-                st.write(f"{role_color} {user.get('role', 'user')}")
-            with col4:
-                if user.get('username') != st.session_state.current_user.get('username'):
-                    if st.button("🗑️", key=f"del_user_{i}"):
-                        users.pop(i)
-                        save_users(users)
-                        st.success(f"Gebruiker verwijderd.")
-                        st.rerun()
-    else:
-        st.info("Geen gebruikers gevonden.")
-
-    st.divider()
-
-    # Nieuwe gebruiker toevoegen
-    st.markdown("### Nieuwe gebruiker toevoegen")
-    col1, col2 = st.columns(2)
+    # ── Statistieken ──────────────────────────────────────────────────────────
+    totaal_users   = len([u for u in users if u["rol"] == "user"])
+    totaal_credits = sum(u["credits"] for u in users if u["rol"] == "user")
+    col1, col2, col3 = st.columns(3)
     with col1:
-        new_name = st.text_input("Naam", key="admin_new_name")
-        new_user = st.text_input("Gebruikersnaam", key="admin_new_user")
+        st.metric("Gebruikers", totaal_users)
     with col2:
-        new_pass = st.text_input("Wachtwoord", type="password", key="admin_new_pass")
-        new_role = st.selectbox("Rol", ["user", "admin"], key="admin_new_role")
+        st.metric("Totaal credits", totaal_credits)
+    with col3:
+        try:
+            trans = sb.table("carboo_transacties").select("*").eq("type", "gebruik").execute().data
+            st.metric("Rapporten gegenereerd", len(trans))
+        except:
+            st.metric("Rapporten", "—")
 
-    if st.button("Gebruiker toevoegen", key="btn_add_user"):
-        if not new_name or not new_user or not new_pass:
-            st.error("Vul alle velden in.")
-        else:
-            success, msg = register_user(new_user, new_pass, new_name, new_role)
-            if success:
-                st.success(msg)
-                st.rerun()
+    st.markdown("---")
+
+    # ── Gebruiker toevoegen ───────────────────────────────────────────────────
+    with st.expander("➕ Nieuwe gebruiker toevoegen"):
+        c1, c2 = st.columns(2)
+        with c1:
+            n_naam  = st.text_input("Naam", key="admin_naam")
+            n_email = st.text_input("E-mail", key="admin_email")
+        with c2:
+            n_ww      = st.text_input("Wachtwoord", key="admin_ww", type="password")
+            n_credits = st.number_input("Credits", 0, 999, 5, key="admin_credits")
+            n_rol     = st.selectbox("Rol", ["user", "admin"], key="admin_rol")
+
+        if st.button("Gebruiker aanmaken", key="admin_add", use_container_width=True):
+            if not all([n_naam, n_email, n_ww]):
+                st.error("Vul alle velden in.")
+            elif _get_user(n_email):
+                st.error("E-mail bestaat al.")
             else:
-                st.error(msg)
+                try:
+                    result = sb.table("carboo_users").insert({
+                        "email":      n_email.lower().strip(),
+                        "naam":       n_naam.strip(),
+                        "wachtwoord": _hash(n_ww),
+                        "rol":        n_rol,
+                        "credits":    n_credits,
+                    }).execute()
+                    if result.data:
+                        sb.table("carboo_transacties").insert({
+                            "user_id":     result.data[0]["id"],
+                            "type":        "admin",
+                            "credits":     n_credits,
+                            "beschrijving": "Credits toegevoegd door admin",
+                        }).execute()
+                        st.success(f"✅ {n_naam} aangemaakt met {n_credits} credits.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Fout: {e}")
+
+    st.markdown("---")
+
+    # ── Gebruikersoverzicht ────────────────────────────────────────────────────
+    st.markdown('<div style="font-weight:800;color:#f8fafc;margin-bottom:10px;">GEBRUIKERS</div>', unsafe_allow_html=True)
+
+    for user in users:
+        if user["rol"] == "admin":
+            continue
+        with st.expander(f"👤 {user['naam']}  —  {user['email']}  —  {user['credits']} credits"):
+            col_a, col_b, col_c = st.columns([2, 1, 1])
+            with col_a:
+                st.markdown(f'<div style="font-size:0.8rem;color:#64748b;">Aangemaakt: {str(user["aangemaakt"])[:10]}</div>', unsafe_allow_html=True)
+            with col_b:
+                extra = st.number_input("Credits toevoegen", 0, 100, 5, key=f"add_c_{user['id']}")
+                if st.button("➕ Toevoegen", key=f"add_btn_{user['id']}", use_container_width=True):
+                    if voeg_credits_toe(user["id"], extra, "Credits toegevoegd door admin"):
+                        st.success(f"✅ {extra} credits toegevoegd.")
+                        st.rerun()
+            with col_c:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("🗑 Verwijderen", key=f"del_{user['id']}", use_container_width=True):
+                    try:
+                        sb.table("carboo_transacties").delete().eq("user_id", user["id"]).execute()
+                        sb.table("carboo_users").delete().eq("id", user["id"]).execute()
+                        st.success("Gebruiker verwijderd.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Fout: {e}")
+
+            # Transactie geschiedenis
+            try:
+                trans = sb.table("carboo_transacties").select("*").eq("user_id", user["id"]).order("datum", desc=True).limit(5).execute().data
+                if trans:
+                    st.markdown('<div style="font-size:0.75rem;color:#64748b;margin-top:8px;">LAATSTE TRANSACTIES</div>', unsafe_allow_html=True)
+                    for t in trans:
+                        kleur = "#22c55e" if t["credits"] > 0 else "#ef4444"
+                        st.markdown(
+                            f'<div style="font-size:0.78rem;display:flex;justify-content:space-between;padding:2px 0;">'
+                            f'<span style="color:#94a3b8">{str(t["datum"])[:10]} — {t["beschrijving"]}</span>'
+                            f'<span style="color:{kleur};font-weight:bold">{t["credits"]:+d}</span></div>',
+                            unsafe_allow_html=True
+                        )
+            except:
+                pass
+
+    # ── Terug ─────────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Terug naar menu", key="admin_terug"):
+        st.session_state.module = "menu"
+        st.rerun()
