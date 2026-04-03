@@ -2837,7 +2837,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
         cl_html += (
             f'<div style="margin-bottom:10px">' +
-            f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;' +
+            f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:12px;' +
             f'font-weight:bold;color:#94a3b8;display:flex;justify-content:space-between;margin-bottom:4px">' +
             f'<span>DAG {dag_num} — {lbl}</span></div>' +
             f'<table class="ml-table"><tbody>{rows}</tbody></table>' +
@@ -2864,8 +2864,8 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         rd_kh_tot += kh_tot_it
 
     rd_rows = "".join(
-        f'<tr><td style="padding:4px 8px;font-size:10px">{omschr}</td>' +
-        f'<td style="text-align:right;padding:4px 8px;font-size:10px;color:#f97316;font-weight:bold">{kh}g</td></tr>'
+        f'<tr><td style="padding:4px 8px;font-size:12px">{omschr}</td>' +
+        f'<td style="text-align:right;padding:4px 8px;font-size:12px;color:#f97316;font-weight:bold">{kh}g</td></tr>'
         for omschr, kh in rd_items
     )
     # Laatste maaltijd balk: grens = kh_max (gewicht*4), groen bij ≥25% (zelfde als in wizard)
@@ -2909,23 +2909,68 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         for item in items:
             bd, col = BADGE.get(item["emoji"], ("?","#888"))
             kh_txt = f'<span style="color:#f97316;font-weight:bold;margin-left:auto">{item["kh"]}g</span>' if item["kh"] > 0 else ""
+            naam_kort = item["naam"].split("(")[0].strip()
+            # Water badge: enkel bij gel, vast voedsel en cafeïne — NIET bij sportdrank
+            if item["emoji"] in ["⚡", "🍌", "☕"]:
+                water_txt = (
+                    f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
+                    f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
+                    f'margin-left:3px">H2O</span>'
+                )
+            else:
+                water_txt = ""
             item_rows += (
                 f'<div class="item-row">' +
                 f'<span class="item-min">{item["min"]}</span>' +
                 f'<span class="item-badge" style="color:{col};border-color:{col}">{bd}</span>' +
-                f'<span class="item-naam">{item["naam"].split("(")[0].strip()}</span>' +
+                f'<span class="item-naam">{naam_kort}{water_txt}</span>' +
                 f'{kh_txt}</div>'
             )
         if comment:
             item_rows += f'<div class="item-comment">◂ {comment}</div>'
 
+        # Vocht berekening per uur
+        u_vocht = sum(
+            vocht_per_m for item in items
+            if item["emoji"] in ["🥤", "💧"]
+        )
+        # KH balk
+        kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
+        kh_over  = u_kh > u_max
+        if geen_kh:           kh_balk_col = "#3b82f6"
+        elif kh_over:         kh_balk_col = "#ef4444"
+        elif u_kh >= u_min:   kh_balk_col = "#22c55e"
+        elif kh_pct >= 50:    kh_balk_col = "#fbbf24"
+        else:                 kh_balk_col = "#ef4444"
+
+        # Vocht balk — target = vocht_per_m × aantal innamen
+        vocht_target = vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
+        vocht_pct    = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
+        if vocht_pct >= 80:   v_balk_col = "#22c55e"
+        elif vocht_pct >= 50: v_balk_col = "#fbbf24"
+        else:                 v_balk_col = "#f97316"
+
+        balken_html = (
+            f'<div style="padding:4px 5px 3px 5px;background:#0a0f1e;border-radius:0 0 5px 5px">' +
+            f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">' +
+            f'<span style="font-size:9px;color:#64748b;width:20px;flex-shrink:0">KH</span>' +
+            f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px">' +
+            f'<div style="width:{kh_pct}%;height:100%;background:{kh_balk_col};border-radius:3px"></div></div></div>' +
+            f'<div style="display:flex;align-items:center;gap:6px">' +
+            f'<span style="font-size:9px;color:#64748b;width:20px;flex-shrink:0">💧</span>' +
+            f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px">' +
+            f'<div style="width:{vocht_pct}%;height:100%;background:{v_balk_col};border-radius:3px"></div></div></div>' +
+            f'</div>'
+        )
+
         raceplan_html += (
             f'<div style="margin-bottom:6px">' +
-            f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;' +
-            f'font-weight:bold;color:#93c5fd;display:flex;justify-content:space-between;margin-bottom:2px">' +
-            f'<span>UUR {u_num} ⏰ {u_start}</span>' +
-            f'<span style="color:{bar_col};font-size:10px">{kh_info}</span></div>' +
-            f'<div style="padding:0 4px">{item_rows}</div></div>'
+            f'<div style="background:#0f172a;border-radius:5px 5px 0 0;padding:5px 10px;font-size:12px;' +
+            f'font-weight:bold;color:#93c5fd;margin-bottom:0">' +
+            f'<span>UUR {u_num} ⏰ {u_start}</span></div>' +
+            f'<div style="padding:0 4px">{item_rows}</div>' +
+            balken_html +
+            f'</div>'
         )
 
     # ── Carboo Racemap HTML ───────────────────────────────────────────────────
@@ -2951,20 +2996,26 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             exact  = (uur_dt + timedelta(minutes=offset)).strftime("%H:%M")
             t_s = "color:#f97316;font-weight:bold" if i == 0 else "color:#475569"
             d_s = "background:#f97316;width:5px;height:5px" if i == 0 else "background:#334155;width:3px;height:3px;border:1px solid #475569"
-            badges_html = "".join(
-                f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:7px;line-height:10px;display:inline-block;margin-right:1px">{bd}</b>'
-                for item in min_items
-                for bd, col in [BADGE.get(item["emoji"], ("?","#888"))]
-            )
-            cm = f'<i style="color:#fbbf24;font-size:6px;margin-left:2px">{comment}</i>' if comment and i == 0 else ""
+            badges_parts = []
+            for item in min_items:
+                bd, col = BADGE.get(item["emoji"], ("?","#888"))
+                badge = f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-right:1px">{bd}</b>'
+                # H2O badge enkel bij gel, vast, cafeïne — NIET bij sportdrank
+                if item["emoji"] in ["⚡", "🍌", "☕"]:
+                    h2o = f'<b style="color:#64748b;border:1px solid #64748b;border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-left:1px;margin-right:2px">H2O</b>'
+                    badges_parts.append(badge + h2o)
+                else:
+                    badges_parts.append(badge)
+            badges_html = "".join(badges_parts)
+            cm = f'<i style="color:#fbbf24;font-size:8px;margin-left:2px">{comment}</i>' if comment and i == 0 else ""
             racemap_rows += (
                 f'<tr>' +
-                f'<td style="text-align:right;padding:0 2px 0 0;font-size:7px;width:30px;white-space:nowrap;{t_s}">{exact}</td>' +
+                f'<td style="text-align:right;padding:0 2px 0 0;font-size:9px;width:30px;white-space:nowrap;{t_s}">{exact}</td>' +
                 f'<td style="width:10px;text-align:center;padding:0;position:relative">' +
                 f'<div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#334155;transform:translateX(-50%)"></div>' +
                 f'<span style="{d_s};border-radius:50%;display:inline-block;position:relative;vertical-align:middle"></span>' +
                 f'</td>' +
-                f'<td style="padding:0 0 0 3px;font-size:7px;line-height:10px">{badges_html}{cm}</td>' +
+                f'<td style="padding:0 0 0 3px;font-size:9px;line-height:10px">{badges_html}{cm}</td>' +
                 f'</tr>'
             )
 
@@ -3168,40 +3219,40 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:20px}}
 .page{{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}}
 .header{{background:#1e293b;border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}}
-.header h1{{font-size:17px;font-weight:900;color:#f97316;letter-spacing:2px}}
-.header p{{font-size:10px;color:#64748b;margin-top:2px}}
-.header-right{{text-align:right;font-size:10px;color:#64748b;line-height:1.6}}
-.header-right b{{color:#f1f5f9;font-size:12px}}
+.header h1{{font-size:21px;font-weight:900;color:#f97316;letter-spacing:2px}}
+.header p{{font-size:14px;color:#64748b;margin-top:2px}}
+.header-right{{text-align:right;font-size:14px;color:#64748b;line-height:1.6}}
+.header-right b{{color:#f1f5f9;font-size:16px}}
 .info-grid{{background:#1e293b;border-radius:10px;padding:12px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}}
-.info-item .lbl{{font-size:8px;font-weight:bold;color:#64748b;text-transform:uppercase;letter-spacing:.5px}}
-.info-item .val{{font-size:11px;font-weight:bold;color:#f1f5f9;margin-top:1px}}
+.info-item .lbl{{font-size:12px;font-weight:bold;color:#64748b;text-transform:uppercase;letter-spacing:.5px}}
+.info-item .val{{font-size:15px;font-weight:bold;color:#f1f5f9;margin-top:1px}}
 .sectie{{background:#1e293b;border-radius:10px;padding:14px 16px}}
-.stitel{{font-size:10px;font-weight:bold;color:#f97316;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #334155}}
-.ml-table{{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:2px}}
+.stitel{{font-size:14px;font-weight:bold;color:#f97316;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #334155}}
+.ml-table{{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:2px}}
 .ml-table tr:nth-child(odd){{background:rgba(255,255,255,0.02)}}
-.ml-name{{width:110px;padding:3px 8px;color:#64748b;font-size:9px;font-weight:bold;vertical-align:top}}
-.ml-items{{padding:3px 8px;color:#cbd5e1;font-size:9.5px}}
+.ml-name{{width:110px;padding:3px 8px;color:#64748b;font-size:13px;font-weight:bold;vertical-align:top}}
+.ml-items{{padding:3px 8px;color:#cbd5e1;font-size:13.5px}}
 .recept-blok{{background:rgba(30,58,138,0.25);border:1px solid #1e3a8a;border-radius:5px;padding:7px 10px;margin-top:6px}}
-.recept-titel{{font-size:9px;font-weight:bold;color:#93c5fd;margin-bottom:2px}}
-.recept-tekst{{font-size:8.5px;color:#94a3b8;line-height:1.5}}
+.recept-titel{{font-size:13px;font-weight:bold;color:#93c5fd;margin-bottom:2px}}
+.recept-tekst{{font-size:12.5px;color:#94a3b8;line-height:1.5}}
 .lm-grid{{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}}
-.lm-item .lbl{{font-size:8px;color:#64748b;font-weight:bold;text-transform:uppercase}}
-.lm-item .val{{font-size:11px;font-weight:bold;color:#f1f5f9}}
+.lm-item .lbl{{font-size:12px;color:#64748b;font-weight:bold;text-transform:uppercase}}
+.lm-item .val{{font-size:15px;font-weight:bold;color:#f1f5f9}}
 .voeding-table{{width:100%;border-collapse:collapse;margin-bottom:4px}}
 .voeding-table tr:nth-child(even){{background:rgba(255,255,255,0.02)}}
-.voeding-table th{{text-align:left;padding:5px 8px;font-size:8.5px;color:#64748b;background:#0f172a;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}}
-.item-row{{display:flex;align-items:center;gap:5px;padding:3px 5px;font-size:9px;border-bottom:1px solid rgba(255,255,255,0.03)}}
-.item-min{{width:34px;color:#3b82f6;font-weight:bold;font-size:8px;flex-shrink:0}}
-.item-badge{{font-size:7px;font-weight:bold;border:1px solid;border-radius:2px;padding:0 2px;line-height:12px;flex-shrink:0}}
+.voeding-table th{{text-align:left;padding:5px 8px;font-size:12.5px;color:#64748b;background:#0f172a;font-weight:bold;text-transform:uppercase;letter-spacing:.5px}}
+.item-row{{display:flex;align-items:center;gap:5px;padding:3px 5px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.03)}}
+.item-min{{width:34px;color:#3b82f6;font-weight:bold;font-size:12px;flex-shrink:0}}
+.item-badge{{font-size:11px;font-weight:bold;border:1px solid;border-radius:2px;padding:0 2px;line-height:12px;flex-shrink:0}}
 .item-naam{{flex:1;color:#cbd5e1}}
-.item-comment{{font-size:8px;color:#fbbf24;padding:2px 5px;font-style:italic}}
+.item-comment{{font-size:12px;color:#fbbf24;padding:2px 5px;font-style:italic}}
 .raceplan-wrap{{display:grid;grid-template-columns:1fr 185px;gap:12px}}
 .racemap-kaart{{background:#0f172a;border-radius:6px;padding:7px 9px}}
-.racemap-kaart h3{{font-size:9px;font-weight:bold;color:#f97316;letter-spacing:1px;margin-bottom:1px}}
-.racemap-kaart .sub{{font-size:6px;color:#475569;margin-bottom:4px}}
+.racemap-kaart h3{{font-size:13px;font-weight:bold;color:#f97316;letter-spacing:1px;margin-bottom:1px}}
+.racemap-kaart .sub{{font-size:10px;color:#475569;margin-bottom:4px}}
 .racemap-kaart table{{width:100%;border-collapse:collapse;line-height:1;border-spacing:0}}
-.racemap-leg{{font-size:6px;color:#64748b;margin-top:4px;border-top:1px solid #1e293b;padding-top:3px;display:flex;flex-wrap:wrap;gap:4px}}
-.footer{{font-size:8px;color:#334155;text-align:center;padding:6px}}
+.racemap-leg{{font-size:10px;color:#64748b;margin-top:4px;border-top:1px solid #1e293b;padding-top:3px;display:flex;flex-wrap:wrap;gap:4px}}
+.footer{{font-size:12px;color:#334155;text-align:center;padding:6px}}
 </style>
 </head>
 <body>
@@ -3233,15 +3284,15 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 
 <div class="sectie">
   <div class="stitel">Carboloading — Laatste 48 uur</div>
-  <div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;margin-bottom:10px;display:flex;justify-content:space-between">
+  <div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:12px;margin-bottom:10px;display:flex;justify-content:space-between">
     <span style="color:#64748b;font-weight:bold">DAGDOELSTELLING</span>
     <span style="color:#f97316;font-weight:bold">{dag_target}g koolhydraten / dag</span>
   </div>
   {cl_html}
   <div style="margin-top:10px">
-    <div class="stitel" style="font-size:9.5px;margin-bottom:6px">DAG 1 — {sec1_titel}</div>
+    <div class="stitel" style="font-size:11.5px;margin-bottom:6px">DAG 1 — {sec1_titel}</div>
     {recept_dag1_html}
-    <div class="stitel" style="font-size:9.5px;margin-bottom:6px;margin-top:8px">DAG 2 — {sec2_titel}</div>
+    <div class="stitel" style="font-size:11.5px;margin-bottom:6px;margin-top:8px">DAG 2 — {sec2_titel}</div>
     {recept_dag2_html}
   </div>
 </div>
@@ -3252,7 +3303,7 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
     <div class="lm-item"><div class="lbl">Timing laatste maaltijd</div><div class="val">{ont_timing}</div></div>
     <div class="lm-item"><div class="lbl">Maaltijd om</div><div class="val">{ont_tijd}</div></div>
     <div class="lm-item"><div class="lbl">Totaal KH</div><div class="val" style="color:#f97316">{ont_kh}g</div></div>
-    <div class="lm-item"><div class="lbl">Aanbevolen vocht</div><div class="val" style="font-size:10px">{vocht_advies}</div></div>
+    <div class="lm-item"><div class="lbl">Aanbevolen vocht</div><div class="val" style="font-size:12px">{vocht_advies}</div></div>
   </div>
   <table class="voeding-table">
     <tr><th>Voedingsmiddel</th><th style="text-align:right">KH</th></tr>
@@ -3263,7 +3314,7 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 
 <div class="sectie">
   <div class="stitel">Raceplan</div>
-  <div style="background:#0f172a;border-radius:5px;padding:6px 10px;font-size:9px;color:#93c5fd;margin-bottom:10px">
+  <div style="background:#0f172a;border-radius:5px;padding:6px 10px;font-size:11px;color:#93c5fd;margin-bottom:10px">
     {temp}°C · {vocht}% vochtigheid · Vocht/moment: {vocht_per_m}ml · KH-target: {min_kh}–{max_kh}g/uur
   </div>
   <div class="raceplan-wrap">
