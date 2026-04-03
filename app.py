@@ -114,6 +114,29 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
+# Toon credits + admin knop in navigatiebalk
+_credits = st.session_state.get("current_user", {}).get("credits", 0)
+nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
+with nav_cols[-3] if is_admin else nav_cols[-2]:
+    st.markdown(
+        f'<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;'
+        f'padding:6px 12px;text-align:center;">'
+        f'<div style="font-size:8px;color:#64748b;font-weight:bold;">CREDITS</div>'
+        f'<div style="font-size:16px;font-weight:900;color:#f97316;">{_credits}</div>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+with nav_cols[-2] if is_admin else nav_cols[-1]:
+    if is_admin:
+        if st.button("⚙️", key="nav_admin", help="Admin panel", use_container_width=True):
+            st.session_state.module = "admin"
+            st.rerun()
+with nav_cols[-1] if is_admin else nav_cols[-1]:
+    if st.button("↩️", key="nav_logout", help="Uitloggen", use_container_width=True):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+
 module = st.session_state.module
 
 if module == "menu":
