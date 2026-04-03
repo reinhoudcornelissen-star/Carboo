@@ -2471,7 +2471,20 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     # Lees preview comments
     preview_comments = data.get("preview_comments") or data.get("notities") or {}
 
-    uren, vocht_per_m = _bereken_raceplan(data)
+    uren_berekend, vocht_per_m = _bereken_raceplan(data)
+    preview_uren = data.get("preview_uren", {})
+
+    # Pas items aan op basis van preview_uren (gebruiker aangepast plan)
+    uren = []
+    for uur_data in uren_berekend:
+        u_num = uur_data["uur"]
+        if str(u_num) in preview_uren and preview_uren[str(u_num)]:
+            items = preview_uren[str(u_num)]
+            u_kh  = sum(i["kh"] for i in items)
+            uur_data = dict(uur_data)
+            uur_data["items"] = items
+            uur_data["uur_kh"] = u_kh
+        uren.append(uur_data)
 
     info_txt = f"{temp}°C  ·  {vocht}% vochtigheid  ·  Vocht/moment: {vocht_per_m}ml"
     if min_kh and max_kh:
@@ -2603,7 +2616,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         geen_kh = uur_data["geen_kh"]
         is_last = uur_data["is_last"]
 
-        # Uur-header rij
+        # Uur-header rij (preview_uren al verwerkt in uren lijst)
         tl_rows.append(("uur_header", u_num, u_start, items, geen_kh, is_last))
 
     # Render als tabel: COL1=tijdstip, COL2=lijn, COL3=emoji
