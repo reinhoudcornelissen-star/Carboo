@@ -145,9 +145,13 @@ elif module == "rapport":
 
         col_terug, col_dl = st.columns([1, 1])
         with col_terug:
-            if st.button("← Terug naar raceplan", key="rapport_terug"):
+            if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
+                # Wis raceplan data maar bewaar gebruikersprofiel
+                for k in list(st.session_state.keys()):
+                    if k.startswith(("cl_", "rp_", "rd_", "p_", "w_", "prev_",
+                                     "coach_stap", "coach_data", "rapport_html")):
+                        del st.session_state[k]
                 st.session_state.module = "coach"
-                st.session_state.rapport_html = ""
                 st.rerun()
         with col_dl:
             st.download_button(
