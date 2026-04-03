@@ -668,8 +668,24 @@ def _stap_carboloading():
         if "coach_data" not in st.session_state:
             st.session_state.coach_data = {}
         cl_status = {k: v for k, v in st.session_state.items() if k.startswith("cl_status_")}
+        # Bewaar eigen producten carboloading
+        eigen_cl = {}
+        for d in [1, 2]:
+            for m_name in MAALTIJD_CONFIG:
+                base = f"eigen_d{d}_{m_name}"
+                n = st.session_state.get(f"{base}_n", 0)
+                items = []
+                for i in range(n):
+                    naam  = st.session_state.get(f"{base}_{i}_naam", "")
+                    kh    = st.session_state.get(f"{base}_{i}_kh", 0.0)
+                    port  = st.session_state.get(f"{base}_{i}_port", 0.0)
+                    if naam and port > 0:
+                        items.append({"naam": naam, "kh": kh, "port": port})
+                if items:
+                    eigen_cl[f"d{d}_{m_name}"] = items
         st.session_state.coach_data.update({
             "cl_waarden":  cl_waarden,
+            "cl_eigen":    eigen_cl,
             "carboloading": dag_totalen,
             "dag_target":  dag_target,
             "factor":      factor,
@@ -1021,6 +1037,16 @@ def _stap_racedag():
         if st.button("Volgende →", key="rd_next", use_container_width=True):
             rd_waarden = {f"rd_{maaltijd_naam}_{p['naam']}": st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0)
                           for p in producten}
+            # Bewaar eigen producten racedag
+            eigen_rd_base = f"rd_eigen_{maaltijd_naam}"
+            n_eigen_rd = st.session_state.get(f"{eigen_rd_base}_n", 0)
+            eigen_rd = []
+            for i in range(n_eigen_rd):
+                naam  = st.session_state.get(f"{eigen_rd_base}_{i}_naam", "")
+                kh    = st.session_state.get(f"{eigen_rd_base}_{i}_kh", 0.0)
+                port  = st.session_state.get(f"{eigen_rd_base}_{i}_port", 0.0)
+                if naam and port > 0:
+                    eigen_rd.append({"naam": naam, "kh": kh, "port": port})
             st.session_state.coach_data.update({
                 "ontbijt_kh":      ontbijt_kh,
                 "ontbijt_timing":  ontbijt_keuze,
@@ -1028,6 +1054,7 @@ def _stap_racedag():
                 "maaltijd_moment": maaltijd_naam,
                 "pre_totaal_kh":   ontbijt_kh,
                 "rd_waarden":      rd_waarden,
+                "rd_eigen":        eigen_rd,
                 "rd_status":       st.session_state.get("rd_status_bevestigd", False),
             })
             st.session_state.coach_stap = 5
@@ -2792,6 +2819,16 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 rows += (f'<tr><td class="ml-name">{m}</td>' +
                          f'<td class="ml-items">{", ".join(items_txt)}</td></tr>')
 
+        # Eigen producten carboloading
+        eigen_cl = data.get("cl_eigen", {})
+        for m in MAALTIJDEN:
+            eigen_items = eigen_cl.get(f"d{dag_num}_{m}", [])
+            if eigen_items:
+                items_txt = [f"{int(it['port'])} portie {it['naam'].lower()} ({round(it['kh']*it['port'])}g KH)"
+                             for it in eigen_items]
+                rows += (f'<tr><td class="ml-name">{m} (eigen)</td>' +
+                         f'<td class="ml-items" style="color:#f97316">{", ".join(items_txt)}</td></tr>')
+
         cl_html += (
             f'<div style="margin-bottom:10px">' +
             f'<div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:10px;' +
@@ -2814,6 +2851,11 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             eenh  = CL_PORTIE_MAP.get(prod, "portie")
             rd_items.append((f"{n} {eenh} {prod.lower()}", round(val*kh_pp)))
             rd_kh_tot += round(val*kh_pp)
+    # Eigen producten racedag
+    for it in data.get("rd_eigen", []):
+        kh_tot_it = round(it["kh"] * it["port"])
+        rd_items.append((f"{int(it['port'])} portie {it['naam'].lower()}", kh_tot_it))
+        rd_kh_tot += kh_tot_it
 
     rd_rows = "".join(
         f'<tr><td style="padding:4px 8px;font-size:10px">{omschr}</td>' +
