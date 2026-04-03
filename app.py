@@ -160,31 +160,53 @@ elif module == "admin":
 elif module == "rapport":
     html = st.session_state.get("rapport_html", "")
     if html:
-        # Toon rapport inline + download knop bovenaan
-        data = st.session_state.get("coach_data", {})
-        atleet   = data.get("atleet_naam", naam).replace(" ", "_")
+        data      = st.session_state.get("coach_data", {})
+        atleet    = data.get("atleet_naam", naam).replace(" ", "_")
         wedstrijd = data.get("wedstrijd_naam", "race").replace(" ", "_")
-        bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
+        html_naam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
+        pdf_naam  = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
 
-        col_terug, col_dl = st.columns([1, 1])
+        col_terug, col_html, col_pdf = st.columns([1, 1, 1])
         with col_terug:
             if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
-                # Wis raceplan data maar bewaar gebruikersprofiel
                 for k in list(st.session_state.keys()):
                     if k.startswith(("cl_", "rp_", "rd_", "p_", "w_", "prev_",
                                      "coach_stap", "coach_data", "rapport_html")):
                         del st.session_state[k]
                 st.session_state.module = "coach"
                 st.rerun()
-        with col_dl:
+        with col_html:
             st.download_button(
-                label="⬇️  Download rapport",
+                label="⬇️  Download HTML",
                 data=html.encode("utf-8"),
-                file_name=bestandsnaam,
+                file_name=html_naam,
                 mime="text/html",
                 use_container_width=True,
-                key="rapport_download"
+                key="rapport_dl_html"
             )
+        with col_pdf:
+            # Genereer PDF on-demand
+            if st.button("📄  Download PDF", key="rapport_dl_pdf_btn", use_container_width=True):
+                with st.spinner("PDF wordt gegenereerd..."):
+                    try:
+                        from carboo_coach import _genereer_pdf
+                        gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
+                        pdf_bytes = _genereer_pdf(data, gebruiker_naam)
+                        st.session_state["rapport_pdf"] = pdf_bytes
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"PDF fout: {e}")
+
+            # Toon download knop als PDF klaar is
+            if st.session_state.get("rapport_pdf"):
+                st.download_button(
+                    label="⬇️  Sla PDF op",
+                    data=st.session_state["rapport_pdf"],
+                    file_name=pdf_naam,
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="rapport_pdf_save"
+                )
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.components.v1.html(html, height=3000, scrolling=True)
