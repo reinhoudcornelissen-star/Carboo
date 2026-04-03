@@ -1876,11 +1876,19 @@ def _stap_raceplan():
                     # Haal productnaam op uit label (zonder emoji prefix)
                     _naam = _prod.split(" ", 1)[1] if " " in _prod and _prod != "— leeg —" else _prod
                     if _prod != "— leeg —":
+                        # Haal ml uit water label: "💧 water 150ml" → 150
+                        _water_ml = 0
+                        if _water and _water != "—":
+                            import re as _re
+                            _m = _re.search(r'(\d+)ml', _water)
+                            if _m:
+                                _water_ml = int(_m.group(1)) * _antal
                         _items.append({
-                            "min":   _tijd,
-                            "emoji": _emoji,
-                            "naam":  _naam,
-                            "kh":    _kh,
+                            "min":      _tijd,
+                            "emoji":    _emoji,
+                            "naam":     _naam,
+                            "kh":       _kh,
+                            "water_ml": round(_water_ml),
                         })
                 _preview_uren[str(_u)] = _items
             st.session_state.coach_data["preview_uren"] = _preview_uren
@@ -2910,12 +2918,21 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             bd, col = BADGE.get(item["emoji"], ("?","#888"))
             kh_txt = f'<span style="color:#f97316;font-weight:bold;margin-left:auto">{item["kh"]}g</span>' if item["kh"] > 0 else ""
             naam_kort = item["naam"].split("(")[0].strip()
-            # Water badge: enkel bij gel, vast voedsel en cafeïne — NIET bij sportdrank
+            # Water badge + ml: gebruik gekozen hoeveelheid uit plan
+            _item_water_ml = item.get("water_ml", 0)
             if item["emoji"] in ["⚡", "🍌", "☕"]:
+                # Toon [H2O Xml] als gebruiker water heeft gekozen, anders enkel [H2O]
+                _h2o_lbl = f"H2O {_item_water_ml}ml" if _item_water_ml > 0 else "H2O"
                 water_txt = (
                     f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
                     f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
-                    f'margin-left:3px">H2O</span>'
+                    f'margin-left:3px">{_h2o_lbl}</span>'
+                )
+            elif item["emoji"] == "💧":
+                # Water item — toon gekozen ml of naam
+                _ml_lbl = f"{_item_water_ml}ml" if _item_water_ml > 0 else item["naam"].split("(")[0].strip()
+                water_txt = (
+                    f' <span style="color:#64748b;font-size:9px;margin-left:3px">{_ml_lbl}</span>'
                 )
             else:
                 water_txt = ""
@@ -3246,7 +3263,7 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 .item-badge{{font-size:11px;font-weight:bold;border:1px solid;border-radius:2px;padding:0 2px;line-height:12px;flex-shrink:0}}
 .item-naam{{flex:1;color:#cbd5e1}}
 .item-comment{{font-size:12px;color:#fbbf24;padding:2px 5px;font-style:italic}}
-.raceplan-wrap{{display:grid;grid-template-columns:1fr 185px;gap:12px}}
+.raceplan-wrap{{display:grid;grid-template-columns:1fr 160px;gap:10px}}
 .racemap-kaart{{background:#0f172a;border-radius:6px;padding:7px 9px}}
 .racemap-kaart h3{{font-size:13px;font-weight:bold;color:#f97316;letter-spacing:1px;margin-bottom:1px}}
 .racemap-kaart .sub{{font-size:10px;color:#475569;margin-bottom:4px}}
