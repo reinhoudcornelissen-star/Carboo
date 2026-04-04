@@ -624,7 +624,21 @@ def _stap_carboloading():
                                     st.session_state[status_key] = (pct_nu >= 80 and moment_kh <= m_target)
                                 st.rerun()
 
-                        dag_kh += moment_kh
+                        # Gebruik session_state rechtstreeks voor dag_kh
+                        # (moment_kh is 0 als expander gesloten is)
+                        for _p in MOMENT_FOODS.get(m_name, []):
+                            _ss = f"cl_d{dag_idx}_{m_name}_{_p['naam']}"
+                            _val = float(st.session_state.get(_ss, 0.0))
+                            dag_kh += _val * _p["kh_portie"]
+                        # Eigen producten via _inp keys
+                        _eigen_base_dag = f"eigen_d{dag_idx}_{m_name}"
+                        _n_eigen_dag = st.session_state.get(f"{_eigen_base_dag}_n", 0)
+                        for _ei in range(_n_eigen_dag):
+                            _ekh   = st.session_state.get(f"{_eigen_base_dag}_{_ei}_kh_inp",
+                                     st.session_state.get(f"{_eigen_base_dag}_{_ei}_kh", 0.0))
+                            _eport = st.session_state.get(f"{_eigen_base_dag}_{_ei}_port_inp",
+                                     st.session_state.get(f"{_eigen_base_dag}_{_ei}_port", 0.0))
+                            dag_kh += float(_ekh) * float(_eport)
 
             # Dag totaal balk
             dag_pct   = round((dag_kh / dag_target) * 100) if dag_target > 0 else 0
