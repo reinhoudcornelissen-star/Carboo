@@ -859,41 +859,6 @@ def _stap_racedag():
     saved_rd  = data.get("rd_waarden", {})
 
     # ── Voortgangsbalk + avatar bij overschrijding ──────────────────────────
-    # Standaard producten
-    _kh_balk = sum(
-        st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p["kh_portie"]
-        for p in producten
-    )
-    # Eigen producten meetellen in de balk
-    _eigen_rd_n = st.session_state.get(f"rd_eigen_{maaltijd_naam}_n", 0)
-    for _ei in range(_eigen_rd_n):
-        _ekh_rd   = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei}_kh",   0.0)
-        _eport_rd = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei}_port", 0.0)
-        _kh_balk += _ekh_rd * _eport_rd
-    _pct_balk  = min(100, round((_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
-    _over_balk = _kh_balk > kh_max
-    if _over_balk:        _kleur_balk = "#ef4444"
-    elif _pct_balk >= 25: _kleur_balk = "#22c55e"
-    elif _pct_balk >= 15: _kleur_balk = "#fbbf24"
-    else:                 _kleur_balk = "#f97316"
-    st.markdown(
-        f'<div style="background:#1e293b;border-radius:8px;height:10px;margin:0 0 8px 0;">' +
-        f'<div style="width:{_pct_balk}%;height:100%;background:{_kleur_balk};border-radius:8px;"></div>' +
-        f'</div>',
-        unsafe_allow_html=True
-    )
-    if _over_balk:
-        st.markdown(
-            '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;' +
-            'background:rgba(239,68,68,0.1);border:1px solid #ef4444;' +
-            'border-radius:10px;padding:8px 12px;">' +
-            '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
-            '<span style="color:#fca5a5;font-size:0.80rem;">' +
-            '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van deze maaltijd!</span>' +
-            '</div>',
-            unsafe_allow_html=True
-        )
-
         # Expander met label + groen bolletje
     rd_is_groen = st.session_state.get("rd_status_bevestigd", False)
     rd_dot      = "🟢 " if rd_is_groen else ""
@@ -947,8 +912,11 @@ def _stap_racedag():
         eigen_kh_total = 0
         for i in range(n_eigen):
             e_naam = st.session_state.get(f"{eigen_key_base}_{i}_naam", "")
-            e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh",   0.0)
-            e_port = st.session_state.get(f"{eigen_key_base}_{i}_port", 0.0)
+            # Gebruik _inp keys voor live widget waarden
+            e_kh   = st.session_state.get(f"{eigen_key_base}_{i}_kh_inp",
+                     st.session_state.get(f"{eigen_key_base}_{i}_kh",   0.0))
+            e_port = st.session_state.get(f"{eigen_key_base}_{i}_port_inp",
+                     st.session_state.get(f"{eigen_key_base}_{i}_port", 0.0))
 
             if i == 0:
                 lc1, lc2, lc3, lc4 = st.columns([4, 2, 2, 0.6])
@@ -999,9 +967,50 @@ def _stap_racedag():
 
         ontbijt_kh = round(ontbijt_kh + eigen_kh_total)
 
+        # Progressiebalk — gebruik opgeslagen waarde als ontbijt_kh nog 0 is
+        _ontbijt_kh_balk = ontbijt_kh
+        if _ontbijt_kh_balk == 0:
+            # Bereken uit session_state rechtstreeks
+            _ontbijt_kh_balk = sum(
+                st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0) * p["kh_portie"]
+                for p in producten
+            )
+            # Eigen producten via _inp keys
+            _eigen_rd_n2 = st.session_state.get(f"rd_eigen_{maaltijd_naam}_n", 0)
+            for _ei2 in range(_eigen_rd_n2):
+                _ekh2   = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei2}_kh_inp",
+                          st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei2}_kh", 0.0))
+                _eport2 = st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei2}_port_inp",
+                          st.session_state.get(f"rd_eigen_{maaltijd_naam}_{_ei2}_port", 0.0))
+                _ontbijt_kh_balk += float(_ekh2) * float(_eport2)
+            _ontbijt_kh_balk = round(_ontbijt_kh_balk)
+        _pct_knop  = min(100, round((_ontbijt_kh_balk / kh_max) * 100)) if kh_max > 0 else 0
+        _over_knop = _ontbijt_kh_balk > kh_max
+        if _over_knop:          _balk_kleur = "#ef4444"
+        elif _pct_knop >= 25:   _balk_kleur = "#22c55e"
+        elif _pct_knop >= 15:   _balk_kleur = "#fbbf24"
+        else:                   _balk_kleur = "#f97316"
+
+        if _over_knop:
+            st.markdown(
+                '<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;'
+                'background:rgba(239,68,68,0.1);border:1px solid #ef4444;'
+                'border-radius:10px;padding:8px 12px;">' +
+                '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
+                '<span style="color:#fca5a5;font-size:0.80rem;">'
+                '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet!</span>'
+                '</div>',
+                unsafe_allow_html=True
+            )
+        st.markdown(
+            f'<div style="background:#1e293b;border-radius:6px;height:8px;margin:6px 0 8px 0;">' +
+            f'<div style="width:{_pct_knop}%;height:100%;background:{_balk_kleur};border-radius:6px;"></div>' +
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
         # Toggle knop: opslaan ↔ aanpassen
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        _pct_knop    = min(100, round((ontbijt_kh / kh_max) * 100)) if kh_max > 0 else 0
         _over_knop   = ontbijt_kh > kh_max
         _reeds_groen = st.session_state.get("rd_status_bevestigd", False)
         if _reeds_groen:
@@ -1014,7 +1023,10 @@ def _stap_racedag():
             if _reeds_groen:
                 st.session_state["rd_status_bevestigd"] = False
             else:
+                # Groen als >= 25% van target en niet over limiet
                 st.session_state["rd_status_bevestigd"] = (_pct_knop >= 25 and not _over_knop)
+                if not st.session_state["rd_status_bevestigd"] and _pct_knop > 0:
+                    st.warning("Vul minstens 25% van je KH target in om op te slaan.")
             # Bewaar rd_waarden bij klikken zodat ze behouden blijven bij navigatie
             _rd_waarden_save = {
                 f"rd_{maaltijd_naam}_{p['naam']}": st.session_state.get(f"rd_{maaltijd_naam}_{p['naam']}", 0)
@@ -3351,10 +3363,6 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 
 <div class="sectie">
   <div class="stitel">Carboloading — Laatste 48 uur</div>
-  <div style="background:#0f172a;border-radius:5px;padding:5px 10px;font-size:12px;margin-bottom:10px;display:flex;justify-content:space-between">
-    <span style="color:#64748b;font-weight:bold">DAGDOELSTELLING</span>
-    <span style="color:#f97316;font-weight:bold">{dag_target}g koolhydraten / dag</span>
-  </div>
   {cl_html}
   <div style="margin-top:10px">
     <div class="stitel" style="font-size:11.5px;margin-bottom:6px">DAG 1 — {sec1_titel}</div>
@@ -3381,9 +3389,6 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 
 <div class="sectie">
   <div class="stitel">Raceplan</div>
-  <div style="background:#0f172a;border-radius:5px;padding:6px 10px;font-size:11px;color:#93c5fd;margin-bottom:10px">
-    {temp}°C · {vocht}% vochtigheid · Vocht/moment: {vocht_per_m}ml · KH-target: {min_kh}–{max_kh}g/uur
-  </div>
   <div class="raceplan-wrap">
     <div>{raceplan_html}</div>
     <div>
