@@ -2056,8 +2056,8 @@ def _bereken_raceplan(data: dict) -> list:
         items    = []
 
         if geen_kh:
-            items.append({"min": "20min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
-            items.append({"min": "40min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0})
+            items.append({"min": "20min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0, "water_ml": vocht_per_m})
+            items.append({"min": "40min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0, "water_ml": vocht_per_m})
         else:
             if pool.get("drank"):
                 d = pool["drank"][0]
@@ -2065,7 +2065,8 @@ def _bereken_raceplan(data: dict) -> list:
                 kh_per_m = round((d["kh"] / 500) * vocht_per_m)
                 for label in ["20min", "40min", "60min"]:
                     items.append({"min": label, "emoji": "🥤",
-                                  "naam": f"{naam_d} ({vocht_per_m}ml)", "kh": kh_per_m})
+                                  "naam": f"{naam_d} ({vocht_per_m}ml)",
+                                  "kh": kh_per_m, "water_ml": vocht_per_m})
                     uur_kh += kh_per_m
 
             if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
@@ -2557,17 +2558,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             uur_data["uur_kh"] = u_kh
         uren.append(uur_data)
 
-    info_txt = f"{temp}°C  ·  {vocht}% vochtigheid  ·  Vocht/moment: {vocht_per_m}ml"
-    if min_kh and max_kh:
-        info_txt += f"  ·  KH-target: {min_kh}–{max_kh}g/uur"
-    ib = Table([[Paragraph(info_txt, S("IB", fontSize=8, textColor=colors.HexColor("#93c5fd"),
-                                        alignment=TA_CENTER, leading=12))]], colWidths=[breed])
-    ib.setStyle(TableStyle([
-        ("BACKGROUND",(0,0),(-1,-1),MIDDEL),
-        ("TOPPADDING",(0,0),(-1,-1),7),("BOTTOMPADDING",(0,0),(-1,-1),7),
-    ]))
-    story.append(ib)
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 4))
 
     for uur_data in uren:
         u_num   = uur_data["uur"]
@@ -2588,10 +2579,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
         uur_kop = Table([[
             Paragraph(f"UUR {u_num}   ⏰ {u_start}", s_uur_kop),
-            Paragraph("" if geen_kh else kh_info,
-                      S("KI", fontSize=7.5, alignment=TA_RIGHT,
-                        textColor=bar_c, leading=11)),
-        ]], colWidths=[breed*0.45, breed*0.55])
+        ]], colWidths=[breed])
         uur_kop.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1),DONKER),
             ("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6),
@@ -2660,40 +2648,43 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         elif v_pct >= 50: v_c = GEEL
         else:             v_c = ORANJE
 
-        def maak_balk_rij(label, pct, kleur, breedte):
-            vul  = max(0, min(pct, 100)) / 100
+        # Progressiebalken als één tabel onder de items
+        balk_breed = breed - 1.2*cm  # zelfde breedte als items tabel
+        lbl_breed  = 0.8*cm
+
+        def _balk(pct, kleur):
+            vul  = max(0, min(pct,100)) / 100
             rest = 1 - vul
-            b = Table([["", ""]], colWidths=[
-                breedte * vul  if vul  > 0.01 else 0.5,
-                breedte * rest if rest > 0.01 else 0.5,
+            t = Table([["",""]], colWidths=[
+                balk_breed*vul  if vul  > 0.01 else 0.5,
+                balk_breed*rest if rest > 0.01 else 0.5,
             ])
-            b.setStyle(TableStyle([
-                ("BACKGROUND",(0,0),(0,0), kleur),
-                ("BACKGROUND",(1,0),(1,0), colors.HexColor("#1e293b")),
-                ("ROWHEIGHT",(0,0),(-1,-1), 0.18*cm),
+            t.setStyle(TableStyle([
+                ("BACKGROUND",(0,0),(0,0),kleur),
+                ("BACKGROUND",(1,0),(1,0),colors.HexColor("#1e293b")),
+                ("ROWHEIGHT",(0,0),(-1,-1),0.17*cm),
                 ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0),
                 ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
             ]))
-            lbl_par = Paragraph(label, S("BL", fontSize=6, textColor=GRIJS, leading=8))
-            rij = Table([[lbl_par, b]], colWidths=[0.8*cm, breedte - 0.8*cm])
-            rij.setStyle(TableStyle([
-                ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-                ("LEFTPADDING",(0,0),(-1,-1),6),
-                ("TOPPADDING",(0,0),(-1,-1),1),
-                ("BOTTOMPADDING",(0,0),(-1,-1),1),
-            ]))
-            return rij
+            return t
 
-        kh_balk_rij  = maak_balk_rij("KH",   kh_pct, kh_c, breed)
-        v_balk_rij   = maak_balk_rij("Vocht", v_pct,  v_c,  breed)
-        balken_blok  = Table([[kh_balk_rij], [v_balk_rij]], colWidths=[breed])
-        balken_blok.setStyle(TableStyle([
-            ("BACKGROUND",(0,0),(-1,-1), colors.HexColor("#0f172a")),
-            ("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0),
-            ("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),
+        balken_data = [
+            [Paragraph("KH",    S("BLK", fontSize=6, textColor=GRIJS, leading=8)),
+             _balk(kh_pct, kh_c)],
+            [Paragraph("💧",    S("BLK", fontSize=6, textColor=GRIJS, leading=8)),
+             _balk(v_pct,  v_c)],
+        ]
+        balken_t = Table(balken_data, colWidths=[lbl_breed, balk_breed])
+        balken_t.setStyle(TableStyle([
+            ("VALIGN",       (0,0),(-1,-1),"MIDDLE"),
+            ("BACKGROUND",   (0,0),(-1,-1),colors.HexColor("#0f172a")),
+            ("LEFTPADDING",  (0,0),(-1,-1),10),
+            ("RIGHTPADDING", (0,0),(-1,-1),8),
+            ("TOPPADDING",   (0,0),(-1,-1),2),
+            ("BOTTOMPADDING",(0,0),(-1,-1),2),
         ]))
 
-        story.append(KeepTogether([uur_kop, items_t, balken_blok, Spacer(1, 4)]))
+        story.append(KeepTogether([uur_kop, items_t, balken_t, Spacer(1, 4)]))
 
     # Supplementen
     if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
@@ -3194,9 +3185,15 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             badges_parts = []
             for item in min_items:
                 bd, col = BADGE.get(item["emoji"], ("?","#888"))
-                badge = f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-right:1px">{bd}</b>'
+                # Toon productnaam bij gel, vast en cafeïne
+                naam_kort = item["naam"].split("(")[0].strip()[:14]
+                if item["emoji"] in ["⚡", "☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                    lbl = f"{bd} {naam_kort}"
+                else:
+                    lbl = bd
+                badge = f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-right:1px">{lbl}</b>'
                 # H2O badge enkel bij gel, vast, cafeïne — NIET bij sportdrank
-                if item["emoji"] in ["⚡", "🍌", "☕"]:
+                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
                     h2o = f'<b style="color:#64748b;border:1px solid #64748b;border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-left:1px;margin-right:2px">H2O</b>'
                     badges_parts.append(badge + h2o)
                 else:
