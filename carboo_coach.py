@@ -2285,10 +2285,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         dag_hdr = Table([[
             Paragraph(dag_label, S("DH", fontSize=9, fontName="Helvetica-Bold",
                                    textColor=WIT, leading=13)),
-            Paragraph(f"{totaal}g / {target}g",
-                      S("DT", fontSize=9, fontName="Helvetica-Bold",
-                        textColor=bar_c, alignment=TA_RIGHT, leading=13)),
-        ]], colWidths=[breed*0.7, breed*0.3])
+        ]], colWidths=[breed])
         dag_hdr.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1),MIDDEL),
             ("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6),
@@ -2333,6 +2330,31 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 ("INNERGRID",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
             ]))
             story.append(ml_t)
+
+        # Progressiebalk per dag
+        pct_balk  = min(100, round((totaal / target) * 100)) if target > 0 else 0
+        over_balk = totaal > target
+        if over_balk:            balk_c = ROOD
+        elif pct_balk >= 80:     balk_c = GROEN
+        elif pct_balk >= 50:     balk_c = GEEL
+        else:                    balk_c = ORANJE
+
+        vul  = max(0, min(pct_balk, 100)) / 100
+        rest = 1 - vul
+        balk = Table([["", ""]], colWidths=[
+            breed * vul  if vul  > 0.01 else 0.5,
+            breed * rest if rest > 0.01 else 0.5,
+        ])
+        balk.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (0,0), balk_c),
+            ("BACKGROUND", (1,0), (1,0), colors.HexColor("#1e293b")),
+            ("ROWHEIGHT",  (0,0), (-1,-1), 0.22*cm),
+            ("TOPPADDING",    (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+            ("LEFTPADDING",   (0,0), (-1,-1), 0),
+            ("RIGHTPADDING",  (0,0), (-1,-1), 0),
+        ]))
+        story.append(balk)
         story.append(Spacer(1, 5))
 
     # Tips + avondmaal suggestie
@@ -2866,7 +2888,10 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         "Appelmoes":"schaaltje","Pannenkoek":"stuk",
     }
     MAALTIJDEN = ["Ontbijt","Tussendoor VM","Lunch","Tussendoor NM","Avondmaal","Avond snack"]
-    BADGE = {"🥤":("SD","#3b82f6"),"⚡":("GEL","#f97316"),"🍌":("VAST","#22c55e"),
+    BADGE = {"🥤":("SD","#3b82f6"),"⚡":("GEL","#f97316"),
+             "🍌":("VAST","#22c55e"),"🍫":("VAST","#22c55e"),"🍪":("VAST","#22c55e"),
+             "🌾":("VAST","#22c55e"),"🍎":("VAST","#22c55e"),"🌰":("VAST","#22c55e"),
+             "🍱":("VAST","#22c55e"),
              "☕":("CAF","#8b5cf6"),"💧":("H2O","#64748b")}
 
     def kh_col(pct, grens_groen=90, grens_geel=70):
@@ -3024,8 +3049,9 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
         # Vocht berekening per uur
         u_vocht = sum(
-            vocht_per_m for item in items
-            if item["emoji"] in ["🥤", "💧"]
+            item.get("water_ml", vocht_per_m) if item["emoji"] in ["🥤", "💧"]
+            else item.get("water_ml", 0)
+            for item in items
         )
         # KH balk
         kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
@@ -3100,7 +3126,6 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 else:
                     badges_parts.append(badge)
             badges_html = "".join(badges_parts)
-            cm = f'<i style="color:#fbbf24;font-size:8px;margin-left:2px">{comment}</i>' if comment and i == 0 else ""
             racemap_rows += (
                 f'<tr>' +
                 f'<td style="text-align:right;padding:0 2px 0 0;font-size:9px;width:30px;white-space:nowrap;{t_s}">{exact}</td>' +
@@ -3108,7 +3133,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 f'<div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:#334155;transform:translateX(-50%)"></div>' +
                 f'<span style="{d_s};border-radius:50%;display:inline-block;position:relative;vertical-align:middle"></span>' +
                 f'</td>' +
-                f'<td style="padding:0 0 0 3px;font-size:9px;line-height:10px">{badges_html}{cm}</td>' +
+                f'<td style="padding:0 0 0 3px;font-size:9px;line-height:10px">{badges_html}</td>' +
                 f'</tr>'
             )
 
