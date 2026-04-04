@@ -447,12 +447,20 @@ def _stap_carboloading():
                             for p in MOMENT_FOODS.get(m_name, [])
                         )
                         # Eigen producten meetellen
+                        # Lees zowel base keys als _inp keys (widget waarden)
                         _eigen_base_prev = f"eigen_d{dag_idx}_{m_name}"
                         _n_eigen_prev = st.session_state.get(f"{_eigen_base_prev}_n", 0)
                         for _ei in range(_n_eigen_prev):
-                            _ekh   = st.session_state.get(f"{_eigen_base_prev}_{_ei}_kh",   0.0)
-                            _eport = st.session_state.get(f"{_eigen_base_prev}_{_ei}_port", 0.0)
-                            preview_kh += _ekh * _eport
+                            # Gebruik _inp key als die beschikbaar is (live widget waarde)
+                            _ekh = st.session_state.get(
+                                f"{_eigen_base_prev}_{_ei}_kh_inp",
+                                st.session_state.get(f"{_eigen_base_prev}_{_ei}_kh", 0.0)
+                            )
+                            _eport = st.session_state.get(
+                                f"{_eigen_base_prev}_{_ei}_port_inp",
+                                st.session_state.get(f"{_eigen_base_prev}_{_ei}_port", 0.0)
+                            )
+                            preview_kh += float(_ekh) * float(_eport)
                         over_limiet = preview_kh > m_target
 
                         # Groene dot verdwijnt automatisch bij overschrijding
@@ -465,37 +473,6 @@ def _stap_carboloading():
                         exp_label = f"{dot}**{m_name}**"
 
                         with st.expander(exp_label, expanded=False):
-
-                            # Progress balk bovenaan
-                            pct_bar = min(100, round((preview_kh / m_target) * 100)) if m_target > 0 else 0
-                            if over_limiet:
-                                bar_kleur = "#ef4444"
-                            elif pct_bar >= 80:
-                                bar_kleur = "#22c55e"
-                            elif pct_bar >= 50:
-                                bar_kleur = "#fbbf24"
-                            else:
-                                bar_kleur = "#f97316"
-
-                            # Avatar bij overschrijding VOOR de balk
-                            if over_limiet:
-                                st.markdown(
-                                    '<div style="display:flex;gap:10px;align-items:center;'
-                                    'margin-bottom:8px;background:rgba(239,68,68,0.1);'
-                                    'border:1px solid #ef4444;border-radius:10px;padding:8px 12px;">' +
-                                    '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
-                                    '<span style="color:#fca5a5;font-size:0.80rem;">'
-                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet van dit dagdeel!</span>'
-                                    '</div>',
-                                    unsafe_allow_html=True
-                                )
-
-                            st.markdown(
-                                f'<div style="background:#1e293b;border-radius:6px;height:8px;margin-bottom:10px;">'
-                                f'<div style="width:{pct_bar}%;height:100%;background:{bar_kleur};border-radius:6px;"></div>'
-                                f'</div>',
-                                unsafe_allow_html=True
-                            )
 
                             # Producten header
                             st.markdown(
@@ -588,7 +565,7 @@ def _stap_carboloading():
                                         st.session_state[f"{eigen_key_base}_n"] = n_eigen - 1
                                         st.rerun()
 
-                                eigen_kh_i = new_kh * new_port
+                                eigen_kh_i = float(new_kh) * float(new_port)
                                 moment_kh += eigen_kh_i
                                 if new_port > 0 and new_kh > 0:
                                     st.markdown(
@@ -603,9 +580,35 @@ def _stap_carboloading():
                                 st.session_state[f"{eigen_key_base}_n"] = n_eigen + 1
                                 st.rerun()
 
+                            # Progressiebalk op basis van werkelijke moment_kh (na alle widgets)
+                            pct_nu = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
+                            over_nu = moment_kh > m_target
+                            if over_nu:          balk_kleur = "#ef4444"
+                            elif pct_nu >= 80:   balk_kleur = "#22c55e"
+                            elif pct_nu >= 50:   balk_kleur = "#fbbf24"
+                            else:                balk_kleur = "#f97316"
+
+                            if over_nu:
+                                st.markdown(
+                                    '<div style="display:flex;gap:10px;align-items:center;'
+                                    'margin-bottom:6px;background:rgba(239,68,68,0.1);'
+                                    'border:1px solid #ef4444;border-radius:10px;padding:8px 12px;">' +
+                                    '<img src="' + MASCOT_B64 + '" style="height:36px;width:auto;flex-shrink:0;">' +
+                                    '<span style="color:#fca5a5;font-size:0.80rem;">'
+                                    '<b>Hoe lekker ik koolhydraten ook vind</b> — we zitten over de limiet!</span>'
+                                    '</div>',
+                                    unsafe_allow_html=True
+                                )
+
+                            st.markdown(
+                                f'<div style="background:#1e293b;border-radius:6px;height:8px;margin:6px 0 8px 0;">' +
+                                f'<div style="width:{pct_nu}%;height:100%;background:{balk_kleur};border-radius:6px;"></div>' +
+                                f'</div>',
+                                unsafe_allow_html=True
+                            )
+
                             # Toggle knop: opslaan ↔ aanpassen
                             st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-                            pct_nu      = min(100, round((moment_kh / m_target) * 100)) if m_target > 0 else 0
                             reeds_groen = st.session_state.get(status_key, False)
                             if reeds_groen:
                                 btn_lbl  = "🔓  Wijzigen"
