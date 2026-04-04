@@ -1614,7 +1614,9 @@ def _stap_raceplan():
                     cur_min = 30
                     cur_max = 40
                 else:
-                    pass  # normaal target (al berekend)
+                    # > 45 min resterend → 60% van normaal target
+                    cur_min = round(min_kh * 0.6)
+                    cur_max = round(max_kh * 0.6)
 
             # Standaard items op basis van rest_min
             default_items = []
@@ -2033,8 +2035,22 @@ def _bereken_raceplan(data: dict) -> list:
 
     for u in range(aantal_uren):
         is_last  = (u == aantal_uren - 1)
-        cur_min  = round(min_kh * 0.6) if is_last else min_kh
-        cur_max  = round(max_kh * 0.6) if is_last else max_kh
+        if is_last:
+            # Schaal KH target op basis van resterende minuten
+            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
+            if rest_min < 15:
+                cur_min, cur_max = 0, 0
+            elif rest_min < 31:
+                cur_min, cur_max = 15, 20
+            elif rest_min < 46:
+                cur_min, cur_max = 30, 40
+            else:
+                # > 45 min resterend → 60% van normaal target
+                cur_min = round(min_kh * 0.6)
+                cur_max = round(max_kh * 0.6)
+        else:
+            cur_min = min_kh
+            cur_max = max_kh
         uur_kh   = 0
         uur_start = start_dt + timedelta(hours=u)
         items    = []
