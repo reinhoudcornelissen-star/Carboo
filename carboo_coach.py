@@ -2739,7 +2739,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     uren = []
     for uur_data in uren_berekend:
         u_num = uur_data["uur"]
-        if str(u_num) in preview_uren and preview_uren[str(u_num)]:
+        if str(u_num) in preview_uren:
             items = preview_uren[str(u_num)]
             u_kh  = sum(i["kh"] for i in items)
             uur_data = dict(uur_data)
@@ -3314,8 +3314,8 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         is_last = uur_data["is_last"]
         comment = preview_comments.get(str(u_num), "")
 
-        # Gebruik aangepaste items als beschikbaar, anders berekend
-        if str(u_num) in preview_uren and preview_uren[str(u_num)]:
+        # Gebruik preview_uren als key bestaat (ook als leeg)
+        if str(u_num) in preview_uren:
             items = preview_uren[str(u_num)]
         else:
             items = uur_data["items"]
