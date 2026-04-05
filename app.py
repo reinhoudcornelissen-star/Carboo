@@ -166,24 +166,16 @@ elif module == "rapport":
         html_naam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
         pdf_naam  = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
 
-        col_terug, col_html, col_pdf = st.columns([1, 1, 1])
+        col_terug, col_pdf = st.columns([1, 1])
         with col_terug:
             if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
                 for k in list(st.session_state.keys()):
                     if k.startswith(("cl_", "rp_", "rd_", "p_", "w_", "prev_",
-                                     "coach_stap", "coach_data", "rapport_html")):
+                                     "coach_stap", "coach_data", "rapport_html",
+                                     "rapport_pdf")):
                         del st.session_state[k]
                 st.session_state.module = "coach"
                 st.rerun()
-        with col_html:
-            st.download_button(
-                label="⬇️  Download HTML",
-                data=html.encode("utf-8"),
-                file_name=html_naam,
-                mime="text/html",
-                use_container_width=True,
-                key="rapport_dl_html"
-            )
         with col_pdf:
             # Genereer PDF on-demand
             if st.button("📄  Download PDF", key="rapport_dl_pdf_btn", use_container_width=True):
