@@ -1577,7 +1577,17 @@ def _stap_raceplan():
             if geen_kh or (fase and "Geen inname" in fase[2]):
                 _uur_tip = "💧 Enkel water of mondspoeling"
             elif is_last:
-                _uur_tip = "🏁 Laatste uur — kleine slokjes, geen vast voedsel meer"
+                _rest_tip = totale_min % 60 if totale_min % 60 != 0 else 60
+                _vocht_tip = round(vocht_uur * (_rest_tip / 60))
+                if _rest_tip < 15:
+                    _kh_tip = "geen KH meer"
+                elif _rest_tip < 31:
+                    _kh_tip = "15–20g KH"
+                elif _rest_tip < 46:
+                    _kh_tip = "30–40g KH"
+                else:
+                    _kh_tip = f"{round(min_kh*0.6)}–{round(max_kh*0.6)}g KH"
+                _uur_tip = f"🏁 Laatste uur — {_kh_tip} · {_vocht_tip}ml vocht · kleine slokjes · geen vast voedsel"
             elif u_num == 1:
                 _uur_tip = "⚡ Start vroeg met innemen — wacht niet op honger of dorst"
             elif fase and "Zwemmen" in fase[1]:
@@ -2831,7 +2841,10 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             i.get("water_ml", 0)
             for i in items
         )
-        vocht_target = vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
+        # Vocht target: schaal voor laatste uur
+        _rest_pdf = totale_min % 60 if totale_min % 60 != 0 else 60
+        _vocht_schaal_pdf = (_rest_pdf / 60) if is_last else 1.0
+        vocht_target = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal_pdf)
         v_pct  = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
         if v_pct >= 80:   v_c = GROEN
         elif v_pct >= 50: v_c = GEEL
@@ -3295,6 +3308,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         u_min   = uur_data["min_kh"]
         u_max   = uur_data["max_kh"]
         geen_kh = uur_data["geen_kh"]
+        is_last = uur_data["is_last"]
         comment = preview_comments.get(str(u_num), "")
 
         # Gebruik aangepaste items als beschikbaar, anders berekend
@@ -3357,8 +3371,11 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         else:                 kh_balk_col = "#ef4444"
 
         # Vocht balk — target = vocht_per_m × aantal innamen
-        vocht_target = vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
-        vocht_pct    = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
+        # Vocht target: schaal voor laatste uur
+        _rest_min_html = totale_min % 60 if totale_min % 60 != 0 else 60
+        _vocht_schaal  = (_rest_min_html / 60) if is_last else 1.0
+        vocht_target   = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal)
+        vocht_pct      = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
         if vocht_pct >= 80:   v_balk_col = "#22c55e"
         elif vocht_pct >= 50: v_balk_col = "#fbbf24"
         else:                 v_balk_col = "#f97316"
