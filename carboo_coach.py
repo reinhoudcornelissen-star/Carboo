@@ -203,7 +203,7 @@ def _stap_wedstrijd():
         wedstrijd_datum = st.date_input("📅 Wedstrijddatum",
             value=datetime.now().date() + timedelta(days=14), key="w_datum")
     with col2:
-        start_time = st.time_input("⏰ Starttijd",
+        start_time = st.time_input("Starttijd",
             value=datetime.strptime(data.get("start_time", "09:00"), "%H:%M").time(),
             step=60, key="w_start")
     with col3:
@@ -803,7 +803,7 @@ def _stap_racedag():
         "2-3 uur voor start": -150,
         "1-2 uur voor start (licht)": -90,
     }
-    ontbijt_keuze = st.selectbox("⏰ Wanneer eet je jouw laatste maaltijd?",
+    ontbijt_keuze = st.selectbox("Wanneer eet je jouw laatste maaltijd?",
                                   list(onbijt_tips.keys()), key="rd_ontbijt_timing")
     offset       = onbijt_tips[ontbijt_keuze]
     ontbijt_tijd = (start_dt + timedelta(minutes=offset)).strftime("%H:%M")
@@ -2400,7 +2400,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         [Paragraph("DUUR",         s_label), Paragraph(duur_str, s_waarde),
          Paragraph("TEMP / VOCHTIGHEID", s_label), Paragraph(f"{temp}°C  |  {vocht}%", s_waarde)],
         [Paragraph("HOOGTE",       s_label), Paragraph(f"{hoogte} m", s_waarde),
-         Paragraph("ERVARING",     s_label), Paragraph(ervaring, s_waarde)],
+         Paragraph("ERVARING WEDSTRIJDVOEDING", s_label), Paragraph(ervaring, s_waarde)],
     ]
     it = Table(info_rows, colWidths=[breed*0.18, breed*0.32, breed*0.22, breed*0.28])
     it.setStyle(TableStyle([
@@ -2751,7 +2751,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                    f"Berekend: {u_kh}g  |  Target: {u_min}–{u_max}g")
 
         uur_kop = Table([[
-            Paragraph(f"UUR {u_num}   ⏰ {u_start}", s_uur_kop),
+            Paragraph(f"UUR {u_num}   {u_start}", s_uur_kop),
         ]], colWidths=[breed])
         uur_kop.setStyle(TableStyle([
             ("BACKGROUND",(0,0),(-1,-1),DONKER),
@@ -2999,18 +2999,28 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
             # Badge + naam cel (emoji niet rendeerbaar in PDF)
             BADGE_MAP = {
-                "🥤": ("SD",  "#3b82f6"), "⚡": ("GEL", "#f97316"),
-                "🍌": ("VAST","#22c55e"), "☕": ("CAF", "#8b5cf6"),
-                "💧": ("H2O", "#64748b"), "🧃": ("SD",  "#3b82f6"),
+                "🥤": ("SD",   "#3b82f6"), "⚡": ("GEL",  "#f97316"),
+                "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
+                "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
+                "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
+                "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
+                "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
             }
             badge_parts = []
             for item in min_items:
                 bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
                 kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
                 naam_kort = item["naam"].split("(")[0].strip()[:20]
+                # Vocht bij gel/vast
+                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                    water_ml = item.get("water_ml", 0)
+                    water_txt = (f" <font size='7' color='#64748b'>+{water_ml}ml</font>"
+                                 if water_ml > 0 else "")
+                else:
+                    water_txt = ""
                 badge_parts.append(
                     f'<font color="{bd_hex}"><b>[{bd}]</b></font>  '
-                    f'<font size="8">{naam_kort}</font>{kh_txt}'
+                    f'<font size="8">{naam_kort}</font>{kh_txt}{water_txt}'
                 )
             sym_cel = Paragraph("  ".join(badge_parts),
                                 S("SC", fontSize=8, fontName="Helvetica",
@@ -3355,7 +3365,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             f'<div style="margin-bottom:6px">' +
             f'<div style="background:#0f172a;border-radius:5px 5px 0 0;padding:5px 10px;font-size:12px;' +
             f'font-weight:bold;color:#93c5fd;margin-bottom:0">' +
-            f'<span>UUR {u_num} ⏰ {u_start}</span></div>' +
+            f'<span>UUR {u_num} {u_start}</span></div>' +
             f'<div style="padding:0 4px">{item_rows}</div>' +
             balken_html +
             f'</div>'
@@ -3662,7 +3672,7 @@ def _stap_samenvatting():
 
         st.markdown(f"""
         <div style="background:#0f172a; border-radius:14px; padding:20px; margin-bottom:16px;">
-            <div style="font-weight:900; color:#22c55e; margin-bottom:14px; font-size:0.85rem; letter-spacing:1px;">⏰ RACEDAGTIJDLIJN</div>
+            <div style="font-weight:900; color:#22c55e; margin-bottom:14px; font-size:0.85rem; letter-spacing:1px;">RACEDAGTIJDLIJN</div>
         """, unsafe_allow_html=True)
 
         tijdlijn = [
@@ -3783,7 +3793,7 @@ def _stap_samenvatting():
                 <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px; margin-bottom:14px; color:#1e293b;">
                     <div style="display:flex; justify-content:space-between; font-weight:900; font-size:0.92rem; 
                          border-bottom:2px solid #3b82f6; padding-bottom:6px; margin-bottom:10px;">
-                        <span>UUR {u+1} — ⏰ {uur_label}</span>
+                        <span>UUR {u+1} — {uur_label}</span>
                         <span style="font-size:0.72rem; color:#64748b;">Doel: {cur_min_kh}–{cur_max_kh}g KH</span>
                     </div>
                     {rows_html}
