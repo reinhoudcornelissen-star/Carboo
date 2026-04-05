@@ -1946,11 +1946,17 @@ def _stap_raceplan():
                     if _prod != "— leeg —":
                         # Haal ml uit water label: "💧 water 150ml" → 150
                         _water_ml = 0
+                        import re as _re
                         if _water and _water != "—":
-                            import re as _re
+                            # Water dropdown (bv. "💧 water 150ml")
                             _m = _re.search(r'(\d+)ml', _water)
                             if _m:
                                 _water_ml = int(_m.group(1)) * _antal
+                        elif _emoji == "🥤":
+                            # Sportdrank: ml staat in product label (bv. "Maurten 320 (170ml)")
+                            _m2 = _re.search(r'\((\d+)ml\)', _prod)
+                            if _m2:
+                                _water_ml = int(_m2.group(1)) * _antal
                         _items.append({
                             "min":      _tijd,
                             "emoji":    _emoji,
@@ -2759,19 +2765,30 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ("LEFTPADDING",(0,0),(-1,-1),10),("RIGHTPADDING",(0,0),(-1,-1),10),
         ]))
 
+        VAST_EMOJIS = {"🍌","🍫","🍪","🌾","🍎","🌰","🍱"}
         item_rows = []
         for item in items:
             EMOJI_BADGE = {
-                "🥤": ("SD",  "#3b82f6"), "⚡": ("GEL", "#f97316"),
-                "🍌": ("VAST","#22c55e"), "☕": ("CAF", "#8b5cf6"),
-                "💧": ("H2O", "#64748b"), "🧃": ("SD",  "#3b82f6"),
+                "🥤": ("SD",   "#3b82f6"), "⚡": ("GEL", "#f97316"),
+                "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
+                "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
+                "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
+                "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
+                "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
             }
-            bd, bd_hex = EMOJI_BADGE.get(item["emoji"], ("?", "#64748b"))
+            bd, bd_hex = EMOJI_BADGE.get(item["emoji"], ("VAST", "#22c55e"))
+            naam_kort = item["naam"].split("(")[0].strip()
+            # Water bij gel/vast/cafeïne
+            water_ml = item.get("water_ml", 0)
+            if water_ml > 0 and item["emoji"] in VAST_EMOJIS | {"⚡", "☕"}:
+                water_str = f'  <font color="#64748b" size="7">+{water_ml}ml H2O</font>'
+            else:
+                water_str = ""
             item_rows.append([
                 Paragraph(item["min"], S("MIN", fontSize=8, fontName="Helvetica-Bold",
                                           textColor=BLAUW, leading=12)),
                 Paragraph(
-                    f'<font color="{bd_hex}"><b>[{bd}]</b></font>  {item["naam"]}',
+                    f'<font color="{bd_hex}"><b>[{bd}]</b></font>  {naam_kort}{water_str}',
                     s_body),
                 Paragraph(f"{item['kh']}g" if item["kh"] > 0 else "—",
                           S("KHI", fontSize=8, textColor=ORANJE if item["kh"] > 0 else GRIJS,
@@ -2811,8 +2828,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
         # Vocht berekening uit items
         u_vocht = sum(
-            i.get("water_ml", vocht_per_m) if i["emoji"] in ["🥤","💧"]
-            else i.get("water_ml", 0)
+            i.get("water_ml", 0)
             for i in items
         )
         vocht_target = vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
@@ -3011,11 +3027,10 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
                 kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
                 naam_kort = item["naam"].split("(")[0].strip()[:20]
-                # Vocht bij gel/vast
-                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
-                    water_ml = item.get("water_ml", 0)
-                    water_txt = (f" <font size='7' color='#64748b'>+{water_ml}ml</font>"
-                                 if water_ml > 0 else "")
+                # Vocht enkel bij gel/vast/cafeïne — NIET bij sportdrank of water
+                water_ml = item.get("water_ml", 0)
+                if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                    water_txt = f" <font size='7' color='#64748b'>+{water_ml}ml H2O</font>"
                 else:
                     water_txt = ""
                 badge_parts.append(
@@ -3328,9 +3343,9 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
         # Vocht berekening per uur
         u_vocht = sum(
-            item.get("water_ml", vocht_per_m) if item["emoji"] in ["🥤", "💧"]
-            else item.get("water_ml", 0)
+            item.get("water_ml", 0)
             for item in items
+            if item["emoji"] in ["🥤", "💧", "⚡", "🍌", "☕", "🍫", "🍪", "🌾", "🍎", "🌰", "🍱"]
         )
         # KH balk
         kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
