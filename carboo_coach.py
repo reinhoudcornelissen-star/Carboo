@@ -1641,11 +1641,12 @@ def _stap_raceplan():
             default_items = []
             if is_last:
                 if geen_kh or rest_min < 15:
+                    # Geen KH meer — enkel water/spoelen
                     default_items = [
-                        ("5min", "— leeg —"),
+                        ("10min", "— leeg —"),
                     ]
                 elif rest_min < 31:
-                    # 15–30 min: 1 moment — sportdrank of gel+water
+                    # 15–30 min: 1 moment vloeibaar
                     default_items = [
                         ("15min", drank_lbl),
                     ]
@@ -1953,25 +1954,33 @@ def _stap_raceplan():
                     _emoji = emoji_map.get(_prod, "💧")
                     # Haal productnaam op uit label (zonder emoji prefix)
                     _naam = _prod.split(" ", 1)[1] if " " in _prod and _prod != "— leeg —" else _prod
+                    import re as _re
+                    _water_ml = 0
+                    if _water and _water != "—":
+                        _m = _re.search(r'(\d+)ml', _water)
+                        if _m:
+                            _water_ml = int(_m.group(1)) * _antal
+                    elif _emoji == "🥤":
+                        _m2 = _re.search(r'\((\d+)ml\)', _prod)
+                        if _m2:
+                            _water_ml = int(_m2.group(1)) * _antal
+
                     if _prod != "— leeg —":
-                        # Haal ml uit water label: "💧 water 150ml" → 150
-                        _water_ml = 0
-                        import re as _re
-                        if _water and _water != "—":
-                            # Water dropdown (bv. "💧 water 150ml")
-                            _m = _re.search(r'(\d+)ml', _water)
-                            if _m:
-                                _water_ml = int(_m.group(1)) * _antal
-                        elif _emoji == "🥤":
-                            # Sportdrank: ml staat in product label (bv. "Maurten 320 (170ml)")
-                            _m2 = _re.search(r'\((\d+)ml\)', _prod)
-                            if _m2:
-                                _water_ml = int(_m2.group(1)) * _antal
+                        # Normaal product item
                         _items.append({
                             "min":      _tijd,
                             "emoji":    _emoji,
                             "naam":     _naam,
                             "kh":       _kh,
+                            "water_ml": round(_water_ml),
+                        })
+                    elif _water_ml > 0:
+                        # Leeg product maar wel water gekozen → sla op als water item
+                        _items.append({
+                            "min":      _tijd,
+                            "emoji":    "💧",
+                            "naam":     "Water",
+                            "kh":       0,
                             "water_ml": round(_water_ml),
                         })
                 _preview_uren[str(_u)] = _items
@@ -2122,11 +2131,29 @@ def _bereken_raceplan(data: dict) -> list:
 
             if is_last:
                 rest_min_vocht = totale_min % 60 if totale_min % 60 != 0 else 60
-                vocht_last = round(vocht_per_m * (rest_min_vocht / 60) / 10) * 10
-                items = [i for i in items if i["min"] == "20min"]
-                items = [{**i, "water_ml": vocht_last} for i in items]
-                items.append({"min": "40min", "emoji": "💧", "naam": "Water / spoelen",
-                              "kh": 0, "water_ml": vocht_last})
+                vocht_last = max(round(vocht_per_m * (rest_min_vocht / 60) / 10) * 10, 100)
+                if geen_kh or rest_min_vocht < 15:
+                    # Geen KH, enkel water
+                    items = [{"min": "10min", "emoji": "💧", "naam": "Water / spoelen",
+                              "kh": 0, "water_ml": vocht_last}]
+                elif rest_min_vocht < 31:
+                    # 15-30 min: 1 moment vloeibaar
+                    items = [{"min": "15min", "emoji": items[0]["emoji"] if items else "💧",
+                              "naam": items[0]["naam"] if items else "Water",
+                              "kh": items[0]["kh"] if items else 0,
+                              "water_ml": vocht_last}]
+                elif rest_min_vocht < 46:
+                    # 31-45 min: 2 momenten vloeibaar
+                    items = [i for i in items if i["min"] == "20min"]
+                    items = [{**i, "water_ml": vocht_last} for i in items]
+                    items.append({"min": "35min", "emoji": "💧", "naam": "Water / spoelen",
+                                  "kh": 0, "water_ml": vocht_last})
+                else:
+                    # >45 min: houd 20min item, voeg water toe op 40min
+                    items = [i for i in items if i["min"] == "20min"]
+                    items = [{**i, "water_ml": vocht_last} for i in items]
+                    items.append({"min": "40min", "emoji": "💧", "naam": "Water / spoelen",
+                                  "kh": 0, "water_ml": vocht_last})
 
         uren.append({
             "uur": u + 1, "uur_start": uur_start.strftime("%H:%M"),
@@ -2830,7 +2857,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         # Progressiebalken KH + vocht per uur
         kh_pct  = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
         kh_over = u_kh > u_max
-        toon_kh_balk_pdf = not (is_last and u_max == 0)
+        toon_kh_balk_pdf = not (geen_kh or (is_last and u_max == 0))
         if geen_kh:          kh_c = BLAUW
         elif kh_over:        kh_c = ROOD
         elif u_kh >= u_min:  kh_c = GROEN
@@ -3340,8 +3367,16 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                     f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
                     f'margin-left:3px">{_h2o_lbl}</span>'
                 )
+            elif item["emoji"] in ["🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                # Vast voedsel — zelfde als gel: toon [H2O xml]
+                _h2o_lbl = f"H2O {_item_water_ml}ml" if _item_water_ml > 0 else "H2O"
+                water_txt = (
+                    f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
+                    f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
+                    f'margin-left:3px">{_h2o_lbl}</span>'
+                )
             elif item["emoji"] == "💧":
-                # Water item — toon gekozen ml of naam
+                # Water item — toon gekozen ml
                 _ml_lbl = f"{_item_water_ml}ml" if _item_water_ml > 0 else item["naam"].split("(")[0].strip()
                 water_txt = (
                     f' <span style="color:#64748b;font-size:9px;margin-left:3px">{_ml_lbl}</span>'
@@ -3367,7 +3402,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         # KH balk
         kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
         kh_over  = u_kh > u_max
-        toon_kh_balk = not (is_last and u_max == 0)  # verberg bij 0g target laatste uur
+        toon_kh_balk = not (geen_kh or (is_last and u_max == 0))  # verberg bij geen KH
         if geen_kh:           kh_balk_col = "#3b82f6"
         elif kh_over:         kh_balk_col = "#ef4444"
         elif u_kh >= u_min:   kh_balk_col = "#22c55e"
