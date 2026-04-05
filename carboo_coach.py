@@ -2830,6 +2830,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         # Progressiebalken KH + vocht per uur
         kh_pct  = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
         kh_over = u_kh > u_max
+        toon_kh_balk_pdf = not (is_last and u_max == 0)
         if geen_kh:          kh_c = BLAUW
         elif kh_over:        kh_c = ROOD
         elif u_kh >= u_min:  kh_c = GROEN
@@ -2842,7 +2843,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             for i in items
         )
         # Vocht target: schaal voor laatste uur
-        _rest_pdf = totale_min % 60 if totale_min % 60 != 0 else 60
+        _rest_pdf = totmin % 60 if totmin % 60 != 0 else 60
         _vocht_schaal_pdf = (_rest_pdf / 60) if is_last else 1.0
         vocht_target = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal_pdf)
         v_pct  = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
@@ -2906,10 +2907,12 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             return rij
 
-        story.append(KeepTogether([uur_kop, items_t,
-                                   _balk_rij("KH",    kh_pct, kh_c),
-                                   _balk_rij("Vocht", v_pct,  v_c),
-                                   Spacer(1, 4)]))
+        balken_lijst = [uur_kop, items_t]
+        if toon_kh_balk_pdf:
+            balken_lijst.append(_balk_rij("KH", kh_pct, kh_c))
+        balken_lijst.append(_balk_rij("Vocht", v_pct, v_c))
+        balken_lijst.append(Spacer(1, 4))
+        story.append(KeepTogether(balken_lijst))
 
     # Supplementen
     if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
@@ -3364,6 +3367,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         # KH balk
         kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
         kh_over  = u_kh > u_max
+        toon_kh_balk = not (is_last and u_max == 0)  # verberg bij 0g target laatste uur
         if geen_kh:           kh_balk_col = "#3b82f6"
         elif kh_over:         kh_balk_col = "#ef4444"
         elif u_kh >= u_min:   kh_balk_col = "#22c55e"
@@ -3372,7 +3376,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
         # Vocht balk — target = vocht_per_m × aantal innamen
         # Vocht target: schaal voor laatste uur
-        _rest_min_html = totale_min % 60 if totale_min % 60 != 0 else 60
+        _rest_min_html = totmin % 60 if totmin % 60 != 0 else 60
         _vocht_schaal  = (_rest_min_html / 60) if is_last else 1.0
         vocht_target   = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal)
         vocht_pct      = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
@@ -3380,12 +3384,15 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         elif vocht_pct >= 50: v_balk_col = "#fbbf24"
         else:                 v_balk_col = "#f97316"
 
-        balken_html = (
-            f'<div style="padding:4px 5px 3px 5px;background:#0a0f1e;border-radius:0 0 5px 5px">' +
+        kh_balk_str = (
             f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">' +
             f'<span style="font-size:9px;color:#64748b;width:20px;flex-shrink:0">KH</span>' +
             f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px">' +
-            f'<div style="width:{kh_pct}%;height:100%;background:{kh_balk_col};border-radius:3px"></div></div></div>' +
+            f'<div style="width:{kh_pct}%;height:100%;background:{kh_balk_col};border-radius:3px"></div></div></div>'
+        ) if toon_kh_balk else ""
+        balken_html = (
+            f'<div style="padding:4px 5px 3px 5px;background:#0a0f1e;border-radius:0 0 5px 5px">' +
+            kh_balk_str +
             f'<div style="display:flex;align-items:center;gap:6px">' +
             f'<span style="font-size:9px;color:#64748b;width:20px;flex-shrink:0">💧</span>' +
             f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px">' +
