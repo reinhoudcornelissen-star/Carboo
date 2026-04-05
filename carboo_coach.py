@@ -1964,6 +1964,7 @@ def _stap_raceplan():
                         gebruik_credit(_user_id, "Race Nutrition Rapport gegenereerd")
                         st.session_state.current_user["credits"] -= 1
                     st.session_state["rapport_html"] = html_str
+                    st.session_state.pop("rapport_pdf", None)  # wis oude PDF cache
                     st.session_state["module"] = "rapport"
                     st.rerun()
                 except Exception as e:
