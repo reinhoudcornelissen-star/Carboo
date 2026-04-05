@@ -2172,21 +2172,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     story = []
 
-    # Mascot laden
-    try:
-        mascot_bytes = base64.b64decode(MASCOT_B64.split(",", 1)[1])
-        mascot_io = io.BytesIO(mascot_bytes)
-        mascot_img = Image(mascot_io, width=1.2*cm, height=1.4*cm)
-    except Exception:
-        mascot_img = None
-
     def maak_header(titel_tekst, subtitel_tekst=""):
-        if mascot_img:
-            hdr_data = [[mascot_img, Paragraph(titel_tekst, s_titel), Paragraph("", s_body)]]
-            hdr_t = Table(hdr_data, colWidths=[1.6*cm, breed-3.2*cm, 1.6*cm])
-        else:
-            hdr_data = [[Paragraph(titel_tekst, s_titel)]]
-            hdr_t = Table(hdr_data, colWidths=[breed])
+        hdr_data = [[Paragraph(titel_tekst, s_titel)]]
+        hdr_t = Table(hdr_data, colWidths=[breed])
         hdr_t.setStyle(TableStyle([
             ("BACKGROUND", (0,0),(-1,-1), DONKER),
             ("VALIGN",     (0,0),(-1,-1), "MIDDLE"),
@@ -2668,23 +2656,29 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             return t
 
-        balken_data = [
-            [Paragraph("KH",    S("BLK", fontSize=6, textColor=GRIJS, leading=8)),
-             _balk(kh_pct, kh_c)],
-            [Paragraph("💧",    S("BLK", fontSize=6, textColor=GRIJS, leading=8)),
-             _balk(v_pct,  v_c)],
-        ]
-        balken_t = Table(balken_data, colWidths=[lbl_breed, balk_breed])
-        balken_t.setStyle(TableStyle([
-            ("VALIGN",       (0,0),(-1,-1),"MIDDLE"),
-            ("BACKGROUND",   (0,0),(-1,-1),colors.HexColor("#0f172a")),
-            ("LEFTPADDING",  (0,0),(-1,-1),10),
-            ("RIGHTPADDING", (0,0),(-1,-1),8),
-            ("TOPPADDING",   (0,0),(-1,-1),2),
-            ("BOTTOMPADDING",(0,0),(-1,-1),2),
-        ]))
+        # Progressiebalken — zelfde stijl als carboloading/laatste maaltijd
+        def _balk_pdf(pct, kleur):
+            vul  = max(0, min(pct, 100)) / 100
+            rest = 1.0 - vul
+            t = Table([["", ""]], colWidths=[
+                breed * vul  if vul  > 0 else 0.01,
+                breed * rest if rest > 0 else 0.01,
+            ])
+            t.setStyle(TableStyle([
+                ("BACKGROUND", (0,0),(0,0), kleur),
+                ("BACKGROUND", (1,0),(1,0), colors.HexColor("#1e293b")),
+                ("ROWHEIGHT",  (0,0),(-1,-1), 0.25*cm),
+                ("TOPPADDING",    (0,0),(-1,-1), 0),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 0),
+                ("LEFTPADDING",   (0,0),(-1,-1), 0),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+            ]))
+            return t
 
-        story.append(KeepTogether([uur_kop, items_t, balken_t, Spacer(1, 4)]))
+        story.append(KeepTogether([uur_kop, items_t,
+                                   _balk_pdf(kh_pct, kh_c),
+                                   _balk_pdf(v_pct,  v_c),
+                                   Spacer(1, 4)]))
 
     # Supplementen
     if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
@@ -2737,10 +2731,10 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         tl_rows.append(("uur_header", u_num, u_start, items, geen_kh, is_last))
 
     # Render als tabel: COL1=tijdstip, COL2=lijn, COL3=emoji
-    # Racemap op halve breedte — compact naast raceplan
-    COL_TIJD  = breed * 0.18
-    COL_LIJN  = breed * 0.06
-    COL_EMOJI = breed * 0.76
+    # Racemap — compacte tijdlijn
+    COL_TIJD  = 1.4*cm   # vaste breedte tijdstip
+    COL_LIJN  = 0.5*cm   # vaste breedte lijn/dot
+    COL_EMOJI = breed - COL_TIJD - COL_LIJN  # rest voor badges
 
     tl_data = []
     tl_stijlen = []
@@ -2816,8 +2810,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                     f'<font color="{bd_hex}"><b>[{bd}]</b></font>  '
                     f'<font size="8">{naam_kort}</font>{kh_txt}'
                 )
-            sym_cel = Paragraph("    ".join(badge_parts),
-                                S("SC", fontSize=8.5, textColor=DONKER, leading=12))
+            sym_cel = Paragraph("  ".join(badge_parts),
+                                S("SC", fontSize=8, fontName="Helvetica",
+                                  textColor=DONKER, leading=11))
 
             tl_data.append([tijd_cel, dot_cel, sym_cel])
 
@@ -2829,8 +2824,12 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 tl_stijlen.append(("TOPPADDING", (0, rij), (-1, rij), 2))
 
             tl_stijlen.append(("BOTTOMPADDING", (0, rij), (-1, rij), 2))
-            tl_stijlen.append(("LEFTPADDING",   (0, rij), (-1, rij), 5))
-            tl_stijlen.append(("RIGHTPADDING",  (0, rij), (-1, rij), 5))
+            tl_stijlen.append(("LEFTPADDING",   (0, rij), (0, rij), 4))   # tijdstip
+            tl_stijlen.append(("RIGHTPADDING",  (0, rij), (0, rij), 3))
+            tl_stijlen.append(("LEFTPADDING",   (1, rij), (1, rij), 0))   # dot
+            tl_stijlen.append(("RIGHTPADDING",  (1, rij), (1, rij), 0))
+            tl_stijlen.append(("LEFTPADDING",   (2, rij), (2, rij), 4))   # badges
+            tl_stijlen.append(("RIGHTPADDING",  (2, rij), (2, rij), 4))
             tl_stijlen.append(("VALIGN",        (0, rij), (-1, rij), "MIDDLE"))
             rij += 1
 
@@ -2848,12 +2847,14 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     if tl_data:
         tl_stijlen += [
-            ("BOX",       (0,0), (-1,-1), 1, ORANJE),
-            ("LINEAFTER",  (0,0), (0,-1), 0.5, colors.HexColor("#e2e8f0")),
-            ("LINEAFTER",  (1,0), (1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("BOX",        (0,0), (-1,-1), 0.5, ORANJE),
+            ("LINEAFTER",  (0,0), (0,-1), 0.3, colors.HexColor("#334155")),
+            ("LINEAFTER",  (1,0), (1,-1), 0.3, colors.HexColor("#334155")),
+            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#f8fafc")),
             ("BACKGROUND", (1,0), (1,-1), colors.HexColor("#1e293b")),
         ]
-        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_EMOJI])
+        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_EMOJI],
+                     repeatRows=0, hAlign="LEFT")
         tl_t.setStyle(TableStyle(tl_stijlen))
         story.append(tl_t)
 
@@ -3785,15 +3786,7 @@ def _stap_samenvatting():
                 atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
                 wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
                 bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
-                st.success("✅ Rapport klaar! Klik hieronder om te downloaden.")
-                st.download_button(
-                    label="⬇️  Download Rapport (HTML)",
-                    data=html_str.encode("utf-8"),
-                    file_name=bestandsnaam,
-                    mime="text/html",
-                    use_container_width=True,
-                    key="sum_html_download"
-                )
+                st.success("✅ Rapport klaar!")
             except Exception as e:
                 st.error(f"Fout bij genereren rapport: {e}")
 
