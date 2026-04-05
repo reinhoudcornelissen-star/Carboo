@@ -2815,10 +2815,15 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             }
             bd, bd_hex = EMOJI_BADGE.get(item["emoji"], ("VAST", "#22c55e"))
             naam_kort = item["naam"].split("(")[0].strip()
-            # Water bij gel/vast/cafeïne
-            water_ml = item.get("water_ml", 0)
+            water_ml  = item.get("water_ml", 0)
+            _slok_ml_pdf = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
             if water_ml > 0 and item["emoji"] in VAST_EMOJIS | {"⚡", "☕"}:
+                # Gel/vast: toon +Xml H2O
                 water_str = f'  <font color="#64748b" size="7">+{water_ml}ml H2O</font>'
+            elif item["emoji"] == "🥤" and water_ml > 0:
+                # Sportdrank: toon slokken
+                _slk = max(1, int(water_ml / _slok_ml_pdf + 0.5))
+                water_str = f'  <font color="#64748b" size="7">≈{_slk} slokjes</font>'
             else:
                 water_str = ""
             item_rows.append([
@@ -3070,10 +3075,13 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
                 kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
                 naam_kort = item["naam"].split("(")[0].strip()[:20]
-                # Vocht enkel bij gel/vast/cafeïne — NIET bij sportdrank of water
                 water_ml = item.get("water_ml", 0)
+                _slok_ml_rm = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
                 if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
                     water_txt = f" <font size='7' color='#64748b'>+{water_ml}ml H2O</font>"
+                elif item["emoji"] == "🥤" and water_ml > 0:
+                    _slk_rm = max(1, int(water_ml / _slok_ml_rm + 0.5))
+                    water_txt = f" <font size='7' color='#64748b'>≈{_slk_rm} slokjes</font>"
                 else:
                     water_txt = ""
                 badge_parts.append(
@@ -3376,11 +3384,17 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                     f'margin-left:3px">{_h2o_lbl}</span>'
                 )
             elif item["emoji"] == "💧":
-                # Water item — toon gekozen ml
                 _ml_lbl = f"{_item_water_ml}ml" if _item_water_ml > 0 else item["naam"].split("(")[0].strip()
                 water_txt = (
                     f' <span style="color:#64748b;font-size:9px;margin-left:3px">{_ml_lbl}</span>'
                 )
+            elif item["emoji"] == "🥤":
+                # Sportdrank: toon slokken op basis van sport
+                _slok_ml  = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
+                _slokken  = max(1, int(_item_water_ml / _slok_ml + 0.5)) if _item_water_ml > 0 else ""
+                water_txt = (
+                    f' <span style="color:#64748b;font-size:9px;margin-left:3px">≈ {_slokken} slokjes</span>'
+                ) if _slokken else ""
             else:
                 water_txt = ""
             item_rows += (
