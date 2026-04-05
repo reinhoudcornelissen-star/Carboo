@@ -2657,28 +2657,45 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             return t
 
-        # Progressiebalken — zelfde stijl als carboloading/laatste maaltijd
-        def _balk_pdf(pct, kleur):
+        # Progressiebalken met label links
+        s_balk_lbl = S("BL", fontSize=7, fontName="Helvetica-Bold",
+                        textColor=GRIJS, leading=10)
+        LBL_B = 0.9*cm  # breedte label kolom
+        BAR_B = breed - LBL_B  # breedte balk kolom
+
+        def _balk_rij(label, pct, kleur):
             vul  = max(0, min(pct, 100)) / 100
             rest = 1.0 - vul
-            t = Table([["", ""]], colWidths=[
-                breed * vul  if vul  > 0 else 0.01,
-                breed * rest if rest > 0 else 0.01,
+            balk = Table([["", ""]], colWidths=[
+                BAR_B * vul  if vul  > 0 else 0.01,
+                BAR_B * rest if rest > 0 else 0.01,
             ])
-            t.setStyle(TableStyle([
+            balk.setStyle(TableStyle([
                 ("BACKGROUND", (0,0),(0,0), kleur),
                 ("BACKGROUND", (1,0),(1,0), colors.HexColor("#1e293b")),
-                ("ROWHEIGHT",  (0,0),(-1,-1), 0.25*cm),
+                ("ROWHEIGHT",  (0,0),(-1,-1), 0.22*cm),
                 ("TOPPADDING",    (0,0),(-1,-1), 0),
                 ("BOTTOMPADDING", (0,0),(-1,-1), 0),
                 ("LEFTPADDING",   (0,0),(-1,-1), 0),
                 ("RIGHTPADDING",  (0,0),(-1,-1), 0),
             ]))
-            return t
+            rij = Table([[Paragraph(label, s_balk_lbl), balk]],
+                        colWidths=[LBL_B, BAR_B])
+            rij.setStyle(TableStyle([
+                ("VALIGN",       (0,0),(-1,-1), "MIDDLE"),
+                ("LEFTPADDING",  (0,0),(0,0),   8),
+                ("RIGHTPADDING", (0,0),(0,0),   4),
+                ("LEFTPADDING",  (1,0),(1,0),   0),
+                ("RIGHTPADDING", (1,0),(1,0),   0),
+                ("TOPPADDING",   (0,0),(-1,-1), 2),
+                ("BOTTOMPADDING",(0,0),(-1,-1), 2),
+                ("BACKGROUND",   (0,0),(-1,-1), colors.HexColor("#0f172a")),
+            ]))
+            return rij
 
         story.append(KeepTogether([uur_kop, items_t,
-                                   _balk_pdf(kh_pct, kh_c),
-                                   _balk_pdf(v_pct,  v_c),
+                                   _balk_rij("KH",    kh_pct, kh_c),
+                                   _balk_rij("Vocht", v_pct,  v_c),
                                    Spacer(1, 4)]))
 
     # Supplementen
@@ -2776,16 +2793,16 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             minuten_offset = int(min_label.replace("+","").replace("min","")) if min_label != "+60min" else 60
             exact_tijd = (uur_dt + TD(minutes=minuten_offset)).strftime("%H:%M")
 
-            # Tijdstip cel
+            # Tijdstip cel — enkel exact tijdstip, geen uur header
             if i == 0:
                 tijd_cel = Paragraph(
-                    f"<b>{u_start}</b><br/><font size='7' color='#64748b'>{exact_tijd}</font>",
+                    f"<b>{exact_tijd}</b>",
                     S("TC", fontSize=9, fontName="Helvetica-Bold", textColor=ORANJE,
                       leading=12, alignment=TA_RIGHT)
                 )
             else:
                 tijd_cel = Paragraph(
-                    f"<font size='8' color='#64748b'>{exact_tijd}</font>",
+                    f"{exact_tijd}",
                     S("TC2", fontSize=8, textColor=GRIJS, leading=11, alignment=TA_RIGHT)
                 )
 
