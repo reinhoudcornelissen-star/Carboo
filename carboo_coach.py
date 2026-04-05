@@ -98,6 +98,15 @@ def _stap_welkom(naam: str):
     Dit duurt slechts <b>5-7 minuten</b>. Ben je er klaar voor?
     """, "🤖")
 
+    st.markdown("""
+    <div style="font-size:0.72rem;color:#64748b;text-align:center;margin-top:4px;
+                padding:8px 16px;border-top:1px solid #1e293b;">
+        Carboo is een hulpmiddel voor recreatieve en competitieve sporters. 
+        Bij medische aandoeningen, klinische voedingsproblemen, eetstoornissen 
+        of specifieke gezondheidsvragen raadpleeg je best een erkend diëtist of arts.
+    </div>
+    """, unsafe_allow_html=True)
+
     if st.button("🚀  JA, LET'S GO!", key="welkom_ja", use_container_width=True):
         st.session_state.coach_stap = 1
         st.rerun()
@@ -105,7 +114,7 @@ def _stap_welkom(naam: str):
 
 def _stap_profiel(naam: str):
     _coach_bubble(f"""
-    Laten we starten met jouw <b>atleetprofiel</b>. Dit helpt me om je koolhydraatbehoeften 
+    Laten we starten met jouw <b>profiel als atleet</b>. Dit helpt me om je koolhydraatbehoeften 
     nauwkeurig te berekenen. Vul de gegevens zo nauwkeurig mogelijk in.
     """)
 
@@ -270,7 +279,7 @@ def _stap_carboloading():
 
     _coach_bubble(f"""
     Vul per maaltijd in wat je plant te eten. Ik bereken automatisch of je je doel haalt.<br><br>
-    Wanneer het balkje groen kleurt, bevestig je onderaan met <b>Dagdeel opslaan</b>. Er zal een groen bolletje verschijnen.
+    Wanneer het balkje onderaan groen kleurt, bevestig je met <b>Dagdeel opslaan</b>. Er zal een groen bolletje verschijnen. Eigen producten kunnen onderaan worden toegevoegd.
     """)
 
     st.markdown("""
@@ -759,7 +768,7 @@ def _stap_racedag():
     Het doel is om met volle glycogeenvoorraden aan de start te staan, maar zonder een volle of zwaar gevoel in de maag.<br><br>
     ✅ Kies <b>licht verteerbare</b> producten: laag in vezels en vetten.<br>
     🎯 Kies producten die je maag goed verdraagt en die je al kent uit training.<br><br>
-    Wanneer het balkje groen kleurt, bevestig je met <b>Dagdeel opslaan</b>.
+    Wanneer het balkje onderaan groen kleurt, bevestig je met <b>Dagdeel opslaan</b>. Er zal een groen bolletje verschijnen. Eigen producten kunnen onderaan worden toegevoegd.
     """)
 
     # Expander CSS voor leesbaarheid
@@ -1429,7 +1438,7 @@ def _stap_raceplan():
             f'<img src="{MASCOT_B64}" style="height:72px;width:auto;flex-shrink:0;margin-top:4px;">' +
             '<div style="flex:1;background:#0f172a;border:2px solid #3b82f6;border-radius:14px;padding:14px 18px;">' +
             '<div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">PREVIEW RACEPLAN — aanpasbaar</div>' +
-            '<div style="color:#94a3b8;font-size:0.82rem;">Wijzig het plan indien gewenst! Probeer zowel de koolhydraten als het vocht aan te vullen tot de balk groen is!</div>' +
+            '<div style="color:#94a3b8;font-size:0.82rem;">Wijzig het plan indien gewenst! Je kan zelf puzzelen met de tijd, voedingsmiddelen en vocht per wedstrijduur. Indien gewenst kan je per uur ook notities toevoegen. Probeer zowel de koolhydraten als het vocht aan te vullen tot de balk groen is!</div>' +
             '</div></div>',
             unsafe_allow_html=True
         )
@@ -1875,8 +1884,8 @@ def _stap_raceplan():
             'border-radius:12px;padding:14px 16px;margin-bottom:12px;">' +
             f'<img src="{MASCOT_B64}" style="height:60px;width:auto;flex-shrink:0;">' +
             '<span style="color:#f1f5f9;font-size:0.88rem;">' +
-            '<b>Tevreden met je plan?</b> Klik hieronder om je race nutrition rapport te genereren en te downloaden.<br>' +
-            '<span style="color:#94a3b8;">Je kan nog aanpassingen maken via de rijen hierboven.</span>' +
+            '<b style="font-size:1rem;">Tevreden met je plan?</b> Klik hieronder om je race nutrition rapport te genereren en te downloaden.<br>' +
+            '<span style="color:#f97316;font-weight:700;">Let op! Indien je klikt op Genereer rapport kan je niet meer terug en zal je een credit inzetten!</span>' +
             '</span></div>',
             unsafe_allow_html=True
         )
@@ -2119,6 +2128,169 @@ def _bereken_raceplan(data: dict) -> list:
 
 
 
+
+
+# ── Dynamische recepten (gedeeld door HTML en PDF) ─────────────────────────
+RECEPTEN = {
+    # Pasta
+    "Pasta (hoofdmaaltijd)": [
+        ("Pasta bolognese light",
+         "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie.<br>"
+         "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. Laag in vezels en vetten."),
+        ("Pasta met tonijn en tomaat",
+         "300g witte pasta · 1 blik tonijn op water · 200ml passata · knoflook · peterselie.<br>"
+         "Kook pasta al dente. Meng met tonijn en passata. Laag in vetten, hoog in KH en eiwitten."),
+        ("Pasta met kipfilet en lichte roomsaus",
+         "300g witte pasta · 150g kipfilet · 100ml magere room · knoflook · bieslook.<br>"
+         "Bak kip 8 min, blus met room. Serveer over pasta. Licht en verteerbaar."),
+    ],
+    "Pasta (bijgerecht)": [
+        ("Pasta als bijgerecht met kip",
+         "150g witte pasta · 150g kipfilet · 100g gestoofde groenten · scheutje olijfolie.<br>"
+         "Kook pasta, combineer met kip en groenten. Licht en verteerbaar."),
+    ],
+    # Rijst
+    "Rijst (hoofdmaaltijd)": [
+        ("Rijst met zalm en gestoomde wortels",
+         "250g witte rijst · 150g zalm · 150g wortels.<br>"
+         "Stoom wortels 12 min. Bak zalm 4 min per kant. Licht verteerbaar, hoog in KH en eiwitten."),
+        ("Rijst met kip en courgette",
+         "250g witte rijst · 150g kipfilet · 100g courgette · knoflook · beetje olijfolie.<br>"
+         "Bak kip 8 min, stoom courgette 5 min. Serveer op rijst. Ideaal pre-race avondmaal."),
+        ("Rijst met garnalen en lichte saus",
+         "250g witte rijst · 150g garnalen · 100ml magere room · ui · peterselie.<br>"
+         "Fruit ui, voeg garnalen 3 min, blus met room. Serveer op rijst. Laag in vetten."),
+    ],
+    "Rijst (bijgerecht)": [
+        ("Rijst als bijgerecht met vis",
+         "150g witte rijst · 150g magere vis (kabeljauw, tilapia) · gestoofde groenten.<br>"
+         "Stoom vis 10 min, combineer met rijst en groenten. Laag in vetten, hoog in eiwitten."),
+    ],
+    # Aardappelen
+    "Aardappelen gekookt": [
+        ("Gekookte aardappelen met kipfilet",
+         "250g gekookte aardappelen · 150g kipfilet · 100g gestoofde wortels · beetje olijfolie.<br>"
+         "Kook aardappelen 20 min. Bak kip 8 min. Vermijd boter of zware sauzen."),
+        ("Aardappelpuree light met vis",
+         "250g aardappelen · 150g kabeljauw · scheut magere melk · peterselie.<br>"
+         "Stamp aardappelen met melk, geen boter. Stoom vis 10 min. Licht en verteerbaar."),
+    ],
+    # Brood — avondmaal is ongebruikelijk maar sommige atleten kiezen hiervoor
+    "Wit brood": [
+        ("Uitgebreide boterham met eiwitrijke beleg",
+         "4-6 sneden wit brood · 100g kalkoenfilet of kipfilet · 2 eieren hardgekookt · tomaat · komkommer.<br>"
+         "Leg beleg royaal op. Eet rustig en kauw goed. Drink 1-2 glazen water erbij. "
+         "Voeg eventueel wat rijstwafels toe voor extra KH."),
+    ],
+    "Bruin brood": [
+        ("Bruine boterham avondmaal",
+         "4 sneden bruin brood · magere kaas of kalkoen · tomaat · komkommer.<br>"
+         "Licht en verteerbaar. Let op: bruin brood bevat meer vezels — eet liever wit brood de dag voor de race."),
+    ],
+    "Volkorenbrood": [
+        ("Volkorenbrood — tip voor de dag voor de race",
+         "3-4 sneden volkorenbrood · magere kaas of kipfilet · groenten naar keuze.<br>"
+         "⚠️ Volkorenbrood bevat veel vezels. Overweeg te wisselen naar wit brood op de dag voor de race."),
+    ],
+    # Ontbijtproducten als avondmaal (sommige atleten doen dit)
+    "Havermout": [
+        ("Overnight oats als avondmaal",
+         "80g havermout · 200ml magere melk of plantaardige melk · 1 banaan · 1 eetlepel honing.<br>"
+         "Meng havermout met melk, laat 30 min staan. Voeg banaan en honing toe. "
+         "Verrassend goed als licht avondmaal — laag in vetten, hoog in KH."),
+        ("Warme havermoutpap met fruit",
+         "80g havermout · 250ml melk · 1 banaan · rozijnen · snufje kaneel.<br>"
+         "Kook havermout 5 min in melk. Voeg fruit toe. Licht, verteerbaar en hoog in KH."),
+    ],
+    "Ontbijtgranen": [
+        ("Ontbijtgranen met melk en fruit",
+         "60g cornflakes of ontbijtgranen · 200ml melk · 1 banaan · handvol rozijnen.<br>"
+         "Meng en serveer koud. Snel klaar, licht verteerbaar en hoog in snelle KH. "
+         "Kies voor cornflakes of gewone ontbijtgranen — vermijd muesli of granola voor slaapgaan."),
+    ],
+    "Muesli": [
+        ("Muesli met yoghurt en honing",
+         "60g muesli · 150g magere yoghurt · 1 banaan · 1 eetlepel honing.<br>"
+         "Meng muesli met yoghurt. ⚠️ Muesli bevat meer vezels dan cornflakes — "
+         "eet dit liever 2 dagen voor de race, niet de dag ervoor."),
+    ],
+    "Granola (krokant)": [
+        ("Granola met melk en banaan",
+         "50g granola · 200ml melk · 1 banaan · 1 koffielepel honing.<br>"
+         "⚠️ Granola is vetrijker dan andere ontbijtgranen. Beperk de portie en "
+         "kies dit liever 2 dagen voor de race."),
+    ],
+}
+TUSSENDOORTJE_DAG1 = [
+    ("Rijstwafels met honing en banaan",
+     "3-4 rijstwafels · 2 koffielepels honing · 1 banaan in plakjes.<br>"
+     "Beleg rijstwafels met honing en banaan. Snel klaar, licht verteerbaar en hoog in snelle KH. "
+     "Ideaal als extra tussendoortje de dag voor de race."),
+    ("Energieballetjes van dadels en havermout",
+     "10 dadels · 50g havermout · 1 eetlepel pindakaas · 1 eetlepel honing · snufje kaneel.<br>"
+     "Mix dadels fijn, meng met havermout, pindakaas en honing. Rol tot balletjes. "
+     "30 min in koelkast. Hoog in KH en gemakkelijk mee te nemen."),
+]
+TUSSENDOORTJE_DAG2 = [
+    ("Banaan met honing en granola",
+     "2 bananen · 1 eetlepel honing · 2 eetlepels granola.<br>"
+     "Snijd bananen, druppel honing erover, bestrooi met granola. "
+     "Snelle KH voor de laatste avond voor de race. Eet 2-3 uur voor slaapgaan."),
+    ("Appelmoes met rijstwafels",
+     "1 schaaltje appelmoes (150g) · 4 rijstwafels · 1 koffielepel honing.<br>"
+     "Serveer appelmoes als dip bij rijstwafels. Licht, verteerbaar en aangenaam zoet. "
+     "Geen vezels, geen vetten — perfect als avondsnack de dag voor de race."),
+]
+
+STANDAARD_RECEPT_DAG1 = ("Pasta bolognese light",
+    "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie.<br>"
+    "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. Laag in vezels en vetten.")
+STANDAARD_RECEPT_DAG2 = ("Rijst met zalm en gestoomde wortels",
+    "250g witte rijst · 150g zalm · 150g wortels.<br>"
+    "Stoom wortels 12 min. Bak zalm 4 min per kant. Licht verteerbaar, hoog in KH en eiwitten.")
+
+CL_KH_GEWICHT = {
+    "Pasta (hoofdmaaltijd)":75,"Pasta (bijgerecht)":37,
+    "Rijst (hoofdmaaltijd)":81,"Rijst (bijgerecht)":42,
+    "Aardappelen gekookt":30,"Wit brood":17,"Bruin brood":16,
+    "Volkorenbrood":14,"Havermout":27,"Ontbijtgranen":25,
+    "Muesli":30,"Granola (krokant)":26,
+}
+
+def zoek_hoofd_product(dag_num, waarden, maaltijdmomenten):
+    """Zoek het dominante KH-product over een lijst van maaltijdmomenten.
+    Enkel producten die in RECEPTEN staan tellen mee (standaard producten).
+    Eigen producten worden genegeerd — die triggeren de cascade naar volgend moment.
+    Geeft (product, maaltijdmoment) terug of (None, None) als niets gevonden."""
+    for moment in maaltijdmomenten:
+        moment_kh = {}
+        for prod in RECEPTEN.keys():
+            val = waarden.get(f"cl_d{dag_num}_{moment}_{prod}", 0)
+            if val and val > 0:
+                moment_kh[prod] = val * CL_KH_GEWICHT.get(prod, 10)
+        if moment_kh:
+            hoofd = max(moment_kh, key=moment_kh.get)
+            return hoofd, moment
+    return None, None
+
+def detecteer_recept(dag_num, waarden, standaard):
+    """Cascade: Avondmaal → Lunch → Ontbijt → Standaard recept.
+    Eigen producten worden genegeerd en triggeren de cascade naar het volgende moment."""
+    cascade = ["Avondmaal", "Lunch", "Ontbijt"]
+    hoofd, gevonden_moment = zoek_hoofd_product(dag_num, waarden, cascade)
+
+    if hoofd is None:
+        # Alles leeg of enkel eigen producten → standaard
+        return standaard, None
+
+    recepten = RECEPTEN.get(hoofd, [])
+    if not recepten:
+        return standaard, None
+
+    # Kies recept op basis van dag_num (dag 1 → recept 0, dag 2 → recept 1, etc.)
+    recept = recepten[dag_num % len(recepten)]
+
+    return recept, gevonden_moment
 
 def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     """Volledig PDF rapport: info + carboloading + racedag + uur-per-uur + snelkaart."""
@@ -2389,21 +2561,33 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(tip_t)
     story.append(Spacer(1, 5))
 
-    avond_suggs = [
-        ("Pasta bolognese light (dag 1 voor race)",
-         "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie. "
-         "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. "
-         "Laag in vezels en vetten — ideaal als avondmaal 2 dagen voor de race."),
-        ("Rijst met zalm en gestoomde wortels (dag 2 voor race)",
-         "250g witte rijst · 150g zalm · 150g wortels. "
-         "Stoom wortels 12 min. Bak zalm 4 min per kant. "
-         "Licht verteerbaar, hoog in KH en eiwitten — perfecte avondmaaltijd de dag voor de race."),
-    ]
-    rec_rows = [[Paragraph("AVONDMAAL SUGGESTIE + RECEPT", s_kop)]]
-    for titel, recept in avond_suggs:
-        rec_rows.append([Paragraph(f"  ✦  {titel}", S("RT", fontSize=8, fontName="Helvetica-Bold",
-                                                        textColor=colors.HexColor("#1e40af"), leading=11))])
-        rec_rows.append([Paragraph(f"      {recept}", S("RB", fontSize=7.5,
+    # Detecteer dynamische recepten per dag
+    (rec1_titel, rec1_tekst), moment1 = detecteer_recept(1, cl_waarden, STANDAARD_RECEPT_DAG1)
+    (rec2_titel, rec2_tekst), moment2 = detecteer_recept(2, cl_waarden, STANDAARD_RECEPT_DAG2)
+
+    def _maak_rec_label(dag_num, moment):
+        if moment is None:
+            return f"Suggestie Tussendoortjes — Dag {dag_num}"
+        return f"DAG {dag_num} — {moment} Suggestie + Recept"
+
+    def _maak_rec_items(dag_num, titel, tekst, moment):
+        if moment is None:
+            return TUSSENDOORTJE_DAG1 if dag_num == 1 else TUSSENDOORTJE_DAG2
+        return [(f"{titel} (dag {dag_num} voor race)", tekst)]
+
+    rec_rows = []
+    for dag_num, rec_titel, rec_tekst, moment in [
+        (1, rec1_titel, rec1_tekst, moment1),
+        (2, rec2_titel, rec2_tekst, moment2),
+    ]:
+        sectie_lbl = _maak_rec_label(dag_num, moment)
+        rec_rows.append([Paragraph(sectie_lbl.upper(), s_kop)])
+        for t, r in _maak_rec_items(dag_num, rec_titel, rec_tekst, moment):
+            # Verwijder HTML tags voor ReportLab
+            r_pdf = r.replace("<br>", " ").replace("<br/>", " ").replace("&", "&amp;")
+            rec_rows.append([Paragraph(f"  ✦  {t}", S("RT", fontSize=8, fontName="Helvetica-Bold",
+                                                         textColor=colors.HexColor("#1e40af"), leading=11))])
+            rec_rows.append([Paragraph(f"      {r_pdf}", S("RB", fontSize=7.5,
                                                           textColor=colors.HexColor("#334155"),
                                                           leading=11, leftIndent=12))])
     rec_t = Table(rec_rows, colWidths=[breed])
@@ -2897,8 +3081,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS))
     story.append(Spacer(1, 4))
     story.append(Paragraph(
-        "Race Nutrition Plan  •  carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app  •  "
-        "Dit plan is een richtlijn — overleg met een sportdiëtist voor gepersonaliseerd advies.",
+        "Gegenereerd door Carboo Race Nutrition. Dit plan is een richtlijn — gemaakt door sportdiëtisten.",
         s_footer
     ))
 
@@ -3230,173 +3413,13 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             )
 
     # ── Dynamische recepten op basis van avondmaal keuze ─────────────────────
-    RECEPTEN = {
-        # Pasta
-        "Pasta (hoofdmaaltijd)": [
-            ("Pasta bolognese light",
-             "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie.<br>"
-             "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. Laag in vezels en vetten."),
-            ("Pasta met tonijn en tomaat",
-             "300g witte pasta · 1 blik tonijn op water · 200ml passata · knoflook · peterselie.<br>"
-             "Kook pasta al dente. Meng met tonijn en passata. Laag in vetten, hoog in KH en eiwitten."),
-            ("Pasta met kipfilet en lichte roomsaus",
-             "300g witte pasta · 150g kipfilet · 100ml magere room · knoflook · bieslook.<br>"
-             "Bak kip 8 min, blus met room. Serveer over pasta. Licht en verteerbaar."),
-        ],
-        "Pasta (bijgerecht)": [
-            ("Pasta als bijgerecht met kip",
-             "150g witte pasta · 150g kipfilet · 100g gestoofde groenten · scheutje olijfolie.<br>"
-             "Kook pasta, combineer met kip en groenten. Licht en verteerbaar."),
-        ],
-        # Rijst
-        "Rijst (hoofdmaaltijd)": [
-            ("Rijst met zalm en gestoomde wortels",
-             "250g witte rijst · 150g zalm · 150g wortels.<br>"
-             "Stoom wortels 12 min. Bak zalm 4 min per kant. Licht verteerbaar, hoog in KH en eiwitten."),
-            ("Rijst met kip en courgette",
-             "250g witte rijst · 150g kipfilet · 100g courgette · knoflook · beetje olijfolie.<br>"
-             "Bak kip 8 min, stoom courgette 5 min. Serveer op rijst. Ideaal pre-race avondmaal."),
-            ("Rijst met garnalen en lichte saus",
-             "250g witte rijst · 150g garnalen · 100ml magere room · ui · peterselie.<br>"
-             "Fruit ui, voeg garnalen 3 min, blus met room. Serveer op rijst. Laag in vetten."),
-        ],
-        "Rijst (bijgerecht)": [
-            ("Rijst als bijgerecht met vis",
-             "150g witte rijst · 150g magere vis (kabeljauw, tilapia) · gestoofde groenten.<br>"
-             "Stoom vis 10 min, combineer met rijst en groenten. Laag in vetten, hoog in eiwitten."),
-        ],
-        # Aardappelen
-        "Aardappelen gekookt": [
-            ("Gekookte aardappelen met kipfilet",
-             "250g gekookte aardappelen · 150g kipfilet · 100g gestoofde wortels · beetje olijfolie.<br>"
-             "Kook aardappelen 20 min. Bak kip 8 min. Vermijd boter of zware sauzen."),
-            ("Aardappelpuree light met vis",
-             "250g aardappelen · 150g kabeljauw · scheut magere melk · peterselie.<br>"
-             "Stamp aardappelen met melk, geen boter. Stoom vis 10 min. Licht en verteerbaar."),
-        ],
-        # Brood — avondmaal is ongebruikelijk maar sommige atleten kiezen hiervoor
-        "Wit brood": [
-            ("Uitgebreide boterham met eiwitrijke beleg",
-             "4-6 sneden wit brood · 100g kalkoenfilet of kipfilet · 2 eieren hardgekookt · tomaat · komkommer.<br>"
-             "Leg beleg royaal op. Eet rustig en kauw goed. Drink 1-2 glazen water erbij. "
-             "Voeg eventueel wat rijstwafels toe voor extra KH."),
-        ],
-        "Bruin brood": [
-            ("Bruine boterham avondmaal",
-             "4 sneden bruin brood · magere kaas of kalkoen · tomaat · komkommer.<br>"
-             "Licht en verteerbaar. Let op: bruin brood bevat meer vezels — eet liever wit brood de dag voor de race."),
-        ],
-        "Volkorenbrood": [
-            ("Volkorenbrood — tip voor de dag voor de race",
-             "3-4 sneden volkorenbrood · magere kaas of kipfilet · groenten naar keuze.<br>"
-             "⚠️ Volkorenbrood bevat veel vezels. Overweeg te wisselen naar wit brood op de dag voor de race."),
-        ],
-        # Ontbijtproducten als avondmaal (sommige atleten doen dit)
-        "Havermout": [
-            ("Overnight oats als avondmaal",
-             "80g havermout · 200ml magere melk of plantaardige melk · 1 banaan · 1 eetlepel honing.<br>"
-             "Meng havermout met melk, laat 30 min staan. Voeg banaan en honing toe. "
-             "Verrassend goed als licht avondmaal — laag in vetten, hoog in KH."),
-            ("Warme havermoutpap met fruit",
-             "80g havermout · 250ml melk · 1 banaan · rozijnen · snufje kaneel.<br>"
-             "Kook havermout 5 min in melk. Voeg fruit toe. Licht, verteerbaar en hoog in KH."),
-        ],
-        "Ontbijtgranen": [
-            ("Ontbijtgranen met melk en fruit",
-             "60g cornflakes of ontbijtgranen · 200ml melk · 1 banaan · handvol rozijnen.<br>"
-             "Meng en serveer koud. Snel klaar, licht verteerbaar en hoog in snelle KH. "
-             "Kies voor cornflakes of gewone ontbijtgranen — vermijd muesli of granola voor slaapgaan."),
-        ],
-        "Muesli": [
-            ("Muesli met yoghurt en honing",
-             "60g muesli · 150g magere yoghurt · 1 banaan · 1 eetlepel honing.<br>"
-             "Meng muesli met yoghurt. ⚠️ Muesli bevat meer vezels dan cornflakes — "
-             "eet dit liever 2 dagen voor de race, niet de dag ervoor."),
-        ],
-        "Granola (krokant)": [
-            ("Granola met melk en banaan",
-             "50g granola · 200ml melk · 1 banaan · 1 koffielepel honing.<br>"
-             "⚠️ Granola is vetrijker dan andere ontbijtgranen. Beperk de portie en "
-             "kies dit liever 2 dagen voor de race."),
-        ],
-    }
-    TUSSENDOORTJE_DAG1 = [
-        ("Rijstwafels met honing en banaan",
-         "3-4 rijstwafels · 2 koffielepels honing · 1 banaan in plakjes.<br>"
-         "Beleg rijstwafels met honing en banaan. Snel klaar, licht verteerbaar en hoog in snelle KH. "
-         "Ideaal als extra tussendoortje de dag voor de race."),
-        ("Energieballetjes van dadels en havermout",
-         "10 dadels · 50g havermout · 1 eetlepel pindakaas · 1 eetlepel honing · snufje kaneel.<br>"
-         "Mix dadels fijn, meng met havermout, pindakaas en honing. Rol tot balletjes. "
-         "30 min in koelkast. Hoog in KH en gemakkelijk mee te nemen."),
-    ]
-    TUSSENDOORTJE_DAG2 = [
-        ("Banaan met honing en granola",
-         "2 bananen · 1 eetlepel honing · 2 eetlepels granola.<br>"
-         "Snijd bananen, druppel honing erover, bestrooi met granola. "
-         "Snelle KH voor de laatste avond voor de race. Eet 2-3 uur voor slaapgaan."),
-        ("Appelmoes met rijstwafels",
-         "1 schaaltje appelmoes (150g) · 4 rijstwafels · 1 koffielepel honing.<br>"
-         "Serveer appelmoes als dip bij rijstwafels. Licht, verteerbaar en aangenaam zoet. "
-         "Geen vezels, geen vetten — perfect als avondsnack de dag voor de race."),
-    ]
-
-    STANDAARD_RECEPT_DAG1 = ("Pasta bolognese light",
-        "300g witte pasta · 150g mager rundergehakt · 200ml passata · ui · weinig olijfolie.<br>"
-        "Kook pasta al dente. Fruit ui, voeg gehakt en passata toe, 15 min sudderen. Laag in vezels en vetten.")
-    STANDAARD_RECEPT_DAG2 = ("Rijst met zalm en gestoomde wortels",
-        "250g witte rijst · 150g zalm · 150g wortels.<br>"
-        "Stoom wortels 12 min. Bak zalm 4 min per kant. Licht verteerbaar, hoog in KH en eiwitten.")
-
-    CL_KH_GEWICHT = {
-        "Pasta (hoofdmaaltijd)":75,"Pasta (bijgerecht)":37,
-        "Rijst (hoofdmaaltijd)":81,"Rijst (bijgerecht)":42,
-        "Aardappelen gekookt":30,"Wit brood":17,"Bruin brood":16,
-        "Volkorenbrood":14,"Havermout":27,"Ontbijtgranen":25,
-        "Muesli":30,"Granola (krokant)":26,
-    }
-
-    def zoek_hoofd_product(dag_num, waarden, maaltijdmomenten):
-        """Zoek het dominante KH-product over een lijst van maaltijdmomenten.
-        Enkel producten die in RECEPTEN staan tellen mee (standaard producten).
-        Eigen producten worden genegeerd — die triggeren de cascade naar volgend moment.
-        Geeft (product, maaltijdmoment) terug of (None, None) als niets gevonden."""
-        for moment in maaltijdmomenten:
-            moment_kh = {}
-            for prod in RECEPTEN.keys():
-                val = waarden.get(f"cl_d{dag_num}_{moment}_{prod}", 0)
-                if val and val > 0:
-                    moment_kh[prod] = val * CL_KH_GEWICHT.get(prod, 10)
-            if moment_kh:
-                hoofd = max(moment_kh, key=moment_kh.get)
-                return hoofd, moment
-        return None, None
-
-    def detecteer_recept(dag_num, waarden, standaard):
-        """Cascade: Avondmaal → Lunch → Ontbijt → Standaard recept.
-        Eigen producten worden genegeerd en triggeren de cascade naar het volgende moment."""
-        cascade = ["Avondmaal", "Lunch", "Ontbijt"]
-        hoofd, gevonden_moment = zoek_hoofd_product(dag_num, waarden, cascade)
-
-        if hoofd is None:
-            # Alles leeg of enkel eigen producten → standaard
-            return standaard, None
-
-        recepten = RECEPTEN.get(hoofd, [])
-        if not recepten:
-            return standaard, None
-
-        # Kies recept op basis van dag_num (dag 1 → recept 0, dag 2 → recept 1, etc.)
-        recept = recepten[dag_num % len(recepten)]
-
-        return recept, gevonden_moment
+    # Recepten en detecteer_recept zijn globaal gedefinieerd boven _genereer_pdf
 
     (rec1_titel, rec1_tekst), moment1 = detecteer_recept(1, cl_waarden, STANDAARD_RECEPT_DAG1)
     (rec2_titel, rec2_tekst), moment2 = detecteer_recept(2, cl_waarden, STANDAARD_RECEPT_DAG2)
 
     def maak_recept_html(dag_num, titel, tekst, moment, tussendoortjes):
         if moment is None:
-            # Niets gevonden → tussendoortje suggesties
             sectie_titel = "Suggestie Tussendoortjes"
             html_blokken = ""
             for td_titel, td_tekst in tussendoortjes:
@@ -3414,6 +3437,8 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 f'<div class="recept-tekst">{tekst}</div></div>'
             )
             return sectie_titel, html_blok
+
+
 
     sec1_titel, recept_dag1_html = maak_recept_html(1, rec1_titel, rec1_tekst, moment1, TUSSENDOORTJE_DAG1)
     sec2_titel, recept_dag2_html = maak_recept_html(2, rec2_titel, rec2_tekst, moment2, TUSSENDOORTJE_DAG2)
