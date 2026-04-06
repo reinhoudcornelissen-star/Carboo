@@ -68,23 +68,43 @@ def maak_betaling(pakket_id: str, user_id: str, user_email: str) -> str | None:
 def controleer_betaling_url():
     """Controleer of gebruiker terugkomt van Mollie betaling via URL params."""
     params = st.query_params
-    if params.get("betaling") == "ok":
-        user_id = params.get("user_id", "")
-        credits = int(params.get("credits", 0))
-        if user_id and credits > 0:
-            # Voeg credits toe via login module
-            try:
-                from login import voeg_credits_toe, get_credits
-                voeg_credits_toe(user_id, credits, f"Mollie aankoop — {credits} rapport(en)")
-                # Update session state
-                if "current_user" in st.session_state:
-                    st.session_state.current_user["credits"] = get_credits(user_id)
-                # Wis URL params
-                st.query_params.clear()
-                st.success(f"✅ Betaling ontvangen! {credits} credit(s) toegevoegd.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Fout bij credits toevoegen: {e}")
+    if params.get("betaling") != "ok":
+        return
+
+    user_id = params.get("user_id", "")
+    credits = int(params.get("credits", 0))
+
+    if not user_id or credits <= 0:
+        st.query_params.clear()
+        return
+
+    # Controleer of Mollie betaling echt geslaagd is (optioneel via payment_id)
+    payment_id = params.get("payment_id", "")
+
+    try:
+        from login import voeg_credits_toe, get_credits
+        # Voorkom dubbele verwerking via session_state flag
+        reeds_verwerkt_key = f"betaling_verwerkt_{user_id}_{credits}"
+        if st.session_state.get(reeds_verwerkt_key):
+            st.query_params.clear()
+            return
+
+        voeg_credits_toe(user_id, credits, f"Mollie aankoop — {credits} rapport(en)")
+        st.session_state[reeds_verwerkt_key] = True
+
+        # Update session state credits
+        if "current_user" in st.session_state:
+            st.session_state.current_user["credits"] = get_credits(user_id)
+        elif user_id:
+            # Gebruiker nog niet ingelogd — sla credits op als pending
+            st.session_state["pending_credits_user"] = user_id
+
+        # Wis URL params
+        st.query_params.clear()
+        st.success(f"✅ Betaling ontvangen! {credits} credit(s) toegevoegd. Log in om je rapport te genereren.")
+        st.rerun()
+    except Exception as e:
+        st.error(f"Fout bij verwerken betaling: {e}")
 
 
 def render_credits_kopen(user_id: str, user_email: str):
