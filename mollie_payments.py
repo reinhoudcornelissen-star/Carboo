@@ -78,40 +78,49 @@ def controleer_betaling_url():
         st.query_params.clear()
         return
 
-    # Controleer of Mollie betaling echt geslaagd is (optioneel via payment_id)
-    payment_id = params.get("payment_id", "")
-
     try:
-        from login import voeg_credits_toe, get_credits
-        # Voorkom dubbele verwerking via session_state flag
+        from login import voeg_credits_toe, get_credits, _get_user_by_id, herstel_coach_data, wis_coach_data
+
+        # Voorkom dubbele verwerking
         reeds_verwerkt_key = f"betaling_verwerkt_{user_id}_{credits}"
         if st.session_state.get(reeds_verwerkt_key):
             st.query_params.clear()
             return
 
+        # Credits toevoegen
         voeg_credits_toe(user_id, credits, f"Mollie aankoop — {credits} rapport(en)")
         st.session_state[reeds_verwerkt_key] = True
 
-        # Update session state credits
-        if "current_user" in st.session_state:
+        # Automatisch inloggen als sessie leeg is
+        if "current_user" not in st.session_state or not st.session_state.get("logged_in"):
+            user = _get_user_by_id(user_id)
+            if user:
+                st.session_state.logged_in    = True
+                st.session_state.current_user = {
+                    "id":      user["id"],
+                    "name":    user["naam"],
+                    "email":   user["email"],
+                    "role":    user["rol"],
+                    "credits": get_credits(user_id),
+                }
+                st.session_state.module = "coach"
+        else:
+            # Sessie actief — update credits
             st.session_state.current_user["credits"] = get_credits(user_id)
 
-        # Herstel coach_data en ga direct naar raceplan stap 5
-        try:
-            from login import herstel_coach_data, wis_coach_data
-            coach_data = herstel_coach_data(user_id)
-            if coach_data:
-                st.session_state["coach_data"]  = coach_data
-                st.session_state["coach_stap"]  = 5  # raceplan preview
-                st.session_state["module"]      = "coach"
-                wis_coach_data(user_id)  # wis na gebruik
-        except:
-            pass
+        # Herstel coach_data en ga naar stap 5
+        coach_data = herstel_coach_data(user_id)
+        if coach_data:
+            st.session_state["coach_data"] = coach_data
+            st.session_state["coach_stap"] = 5
+            st.session_state["module"]     = "coach"
+            wis_coach_data(user_id)
 
-        # Wis URL params
+        # Wis URL params en toon melding
         st.query_params.clear()
-        st.success(f"✅ Betaling geslaagd! {credits} credit(s) toegevoegd. Je plan is hersteld.")
+        st.success(f"✅ Betaling geslaagd! {credits} credit(s) toegevoegd. Je plan staat klaar.")
         st.rerun()
+
     except Exception as e:
         st.error(f"Fout bij verwerken betaling: {e}")
 
