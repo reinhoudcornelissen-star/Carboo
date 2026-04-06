@@ -1438,7 +1438,7 @@ def _stap_raceplan():
             f'<img src="{MASCOT_B64}" style="height:72px;width:auto;flex-shrink:0;margin-top:4px;">' +
             '<div style="flex:1;background:#0f172a;border:2px solid #3b82f6;border-radius:14px;padding:14px 18px;">' +
             '<div style="color:#60a5fa;font-weight:800;font-size:0.9rem;margin-bottom:4px;">PREVIEW RACEPLAN — aanpasbaar</div>' +
-            '<div style="color:#94a3b8;font-size:0.82rem;">Wijzig het plan indien gewenst! Je kan zelf puzzelen met de tijd, voedingsmiddelen en vocht per wedstrijduur. Indien gewenst kan je per uur ook notities toevoegen. Probeer zowel de koolhydraten als het vocht aan te vullen tot de balk groen is!</div>' +
+            '<div style="color:#94a3b8;font-size:0.82rem;">Wijzig het plan indien gewenst! Je kan zelf puzzelen met de tijd, voedingsmiddelen (tot op halve portie) en vocht per wedstrijduur. Indien gewenst kan je per uur ook notities toevoegen. Probeer zowel de koolhydraten als het vocht aan te vullen tot de balk groen is!</div>' +
             '</div></div>',
             unsafe_allow_html=True
         )
@@ -2951,6 +2951,22 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         balken_lijst.append(Spacer(1, 4))
         story.append(KeepTogether(balken_lijst))
 
+    # Legende onder raceplan
+    leg_items_rp = [["[H2O]","Water / mondspoeling"],["[SD]","Sportdrank"],
+                    ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"]]
+    leg_row_rp = [[Paragraph(f"{s}  {l}", S("LGR", fontSize=7.5, textColor=GRIJS, leading=11))
+                   for s, l in leg_items_rp]]
+    leg_t_rp = Table(leg_row_rp, colWidths=[breed/5]*5)
+    leg_t_rp.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0),(-1,-1), 4),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+        ("LEFTPADDING",   (0,0),(-1,-1), 4),
+        ("BACKGROUND",    (0,0),(-1,-1), LGRIJS),
+        ("BOX",           (0,0),(-1,-1), 0.3, GRIJS),
+    ]))
+    story.append(Spacer(1, 6))
+    story.append(leg_t_rp)
+
     # Supplementen
     if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
         story.append(Spacer(1, 4))
@@ -3382,27 +3398,20 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             else:                   _antal_lbl = ""
             # Water badge + ml: gebruik gekozen hoeveelheid uit plan
             _item_water_ml = item.get("water_ml", 0)
-            if item["emoji"] in ["⚡", "🍌", "☕"]:
-                # Toon [H2O Xml] als gebruiker water heeft gekozen, anders enkel [H2O]
-                _h2o_lbl = f"H2O {_item_water_ml}ml" if _item_water_ml > 0 else "H2O"
-                water_txt = (
-                    f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
-                    f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
-                    f'margin-left:3px">{_h2o_lbl}</span>'
-                )
-            elif item["emoji"] in ["🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
-                # Vast voedsel — zelfde als gel: toon [H2O xml]
-                _h2o_lbl = f"H2O {_item_water_ml}ml" if _item_water_ml > 0 else "H2O"
-                water_txt = (
-                    f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
-                    f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
-                    f'margin-left:3px">{_h2o_lbl}</span>'
-                )
+            if item["emoji"] in ["⚡", "🍌", "☕", "🍫","🍪","🌾","🍎","🌰","🍱"]:
+                # Enkel tonen als gebruiker water heeft gekozen
+                if _item_water_ml > 0:
+                    water_txt = (
+                        f' <span style="color:#64748b;border:1px solid #64748b;border-radius:2px;' +
+                        f'font-size:8px;font-weight:bold;padding:0 2px;line-height:11px;display:inline-block;' +
+                        f'margin-left:3px">H2O {_item_water_ml}ml</span>'
+                    )
+                else:
+                    water_txt = ""
             elif item["emoji"] == "💧":
-                _ml_lbl = f"{_item_water_ml}ml" if _item_water_ml > 0 else item["naam"].split("(")[0].strip()
-                water_txt = (
-                    f' <span style="color:#64748b;font-size:9px;margin-left:3px">{_ml_lbl}</span>'
-                )
+                # Water item: toon ml direct in naam, geen aparte water_txt
+                naam_kort = f"{_item_water_ml}ml" if _item_water_ml > 0 else "Water"
+                water_txt = ""
             elif item["emoji"] == "🥤":
                 # Sportdrank: toon slokken op basis van sport
                 _slok_ml  = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
@@ -3423,11 +3432,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             item_rows += f'<div class="item-comment">◂ {comment}</div>'
 
         # Vocht berekening per uur
-        u_vocht = sum(
-            item.get("water_ml", 0)
-            for item in items
-            if item["emoji"] in ["🥤", "💧", "⚡", "🍌", "☕", "🍫", "🍪", "🌾", "🍎", "🌰", "🍱"]
-        )
+        u_vocht = sum(item.get("water_ml", 0) for item in items)
         # KH balk
         kh_pct   = min(100, round((u_kh / u_max) * 100)) if u_max > 0 else 0
         kh_over  = u_kh > u_max
@@ -3439,11 +3444,13 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         else:                 kh_balk_col = "#ef4444"
 
         # Vocht balk — target = vocht_per_m × aantal innamen
-        # Vocht target: schaal voor laatste uur
+        # Vocht target: gebaseerd op aanbevolen vocht_per_m × aantal innamen
         _rest_min_html = totmin % 60 if totmin % 60 != 0 else 60
         _vocht_schaal  = (_rest_min_html / 60) if is_last else 1.0
-        vocht_target   = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal)
-        vocht_pct      = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
+        _n_vocht_items = max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
+        vocht_target   = round(vocht_per_m * _n_vocht_items * _vocht_schaal)
+        # Als geen vocht ingegeven: balk op 0%
+        vocht_pct      = min(100, round((u_vocht / vocht_target) * 100)) if (vocht_target > 0 and u_vocht > 0) else 0
         if vocht_pct >= 80:   v_balk_col = "#22c55e"
         elif vocht_pct >= 50: v_balk_col = "#fbbf24"
         else:                 v_balk_col = "#f97316"
@@ -3511,8 +3518,9 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 else:
                     lbl = f"{bd} {_rm_lbl}" if _rm_lbl else bd
                 badge = f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-right:1px">{lbl}</b>'
-                # H2O badge enkel bij gel, vast, cafeïne — NIET bij sportdrank
-                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                # H2O badge enkel als gebruiker water heeft gekozen (water_ml > 0)
+                _rm_wml = item.get("water_ml", 0)
+                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"] and _rm_wml > 0:
                     h2o = f'<b style="color:#64748b;border:1px solid #64748b;border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-left:1px;margin-right:2px">H2O</b>'
                     badges_parts.append(badge + h2o)
                 else:
