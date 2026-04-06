@@ -95,13 +95,22 @@ def controleer_betaling_url():
         # Update session state credits
         if "current_user" in st.session_state:
             st.session_state.current_user["credits"] = get_credits(user_id)
-        elif user_id:
-            # Gebruiker nog niet ingelogd — sla credits op als pending
-            st.session_state["pending_credits_user"] = user_id
+
+        # Herstel coach_data en ga direct naar raceplan stap 5
+        try:
+            from login import herstel_coach_data, wis_coach_data
+            coach_data = herstel_coach_data(user_id)
+            if coach_data:
+                st.session_state["coach_data"]  = coach_data
+                st.session_state["coach_stap"]  = 5  # raceplan preview
+                st.session_state["module"]      = "coach"
+                wis_coach_data(user_id)  # wis na gebruik
+        except:
+            pass
 
         # Wis URL params
         st.query_params.clear()
-        st.success(f"✅ Betaling ontvangen! {credits} credit(s) toegevoegd. Log in om je rapport te genereren.")
+        st.success(f"✅ Betaling geslaagd! {credits} credit(s) toegevoegd. Je plan is hersteld.")
         st.rerun()
     except Exception as e:
         st.error(f"Fout bij verwerken betaling: {e}")
@@ -146,6 +155,14 @@ def render_credits_kopen(user_id: str, user_email: str):
 
             if st.button("Kopen →", key=f"koop_{pakket['id']}", use_container_width=True):
                 with st.spinner("Betaalpagina laden..."):
+                    # Sla coach_data op in Supabase zodat plan bewaard blijft
+                    coach_data = st.session_state.get("coach_data", {})
+                    if coach_data and user_id:
+                        try:
+                            from login import sla_coach_data_op
+                            sla_coach_data_op(user_id, coach_data)
+                        except:
+                            pass
                     url = maak_betaling(pakket["id"], user_id, user_email)
                     if url:
                         st.session_state[f"betaal_url_{pakket['id']}"] = url
