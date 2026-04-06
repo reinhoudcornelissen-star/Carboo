@@ -1215,9 +1215,9 @@ def _stap_raceplan():
     if not geen_kh:
         sport_html += (
             '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #1e3a5f;">' +
-            '<span style="color:#60a5fa;font-size:0.85rem;">'
-            '📝 Kies hieronder de producten die je wenst te gebruiken in je race ' +
-            'en ik giet ze in een voorlopig schema dat je zelf nog kan aanvullen of wijzigen.</span></div>'
+            '<span style="color:#60a5fa;font-size:0.95rem;font-weight:600;">'
+            '📝 Kies hieronder je producten en druk op <b>Preview schema</b>. ' +
+            'Ik maak een voorstel dat je daarna zelf kan aanpassen.</span></div>'
         )
 
     # ORS / hitte melding in adviesbalk
@@ -2533,7 +2533,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                     eenheid = CL_PORTIE_MAP.get(prod_naam, "portie")
                     n = int(val) if val == int(val) else val
                     mv = "meervoud" if n > 1 else "enkelvoud"
-                    e_mv = eenheid + "s" if n > 1 and not eenheid.endswith("s") else eenheid
+                    _MV = {"snede":"sneden","kom":"kommen","glas":"glazen","stuk":"stuks",
+                           "potje":"potjes","eetlepel":"eetlepels","koffielepel":"koffielepels",
+                           "zakje":"zakjes","bord":"borden","portie":"porties",
+                           "schaaltje":"schaaltjes","reep":"repen","tas":"tassen"}
+                    e_mv = _MV.get(eenheid, eenheid + "s") if n > 1 else eenheid
                     items_txt.append(f"{n} {e_mv} {prod_naam.lower()}")
                     m_kh_tot += val * kh_pp
             if items_txt:
@@ -2685,7 +2689,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             kh_pp    = CL_KH_MAP.get(prod_naam, 0)
             eenheid  = CL_PORTIE_MAP.get(prod_naam, "portie")
             n = int(val) if val == int(val) else val
-            e_mv = eenheid + "s" if n > 1 and not eenheid.endswith("s") else eenheid
+            _MV2 = {"snede":"sneden","kom":"kommen","glas":"glazen","stuk":"stuks",
+                    "potje":"potjes","eetlepel":"eetlepels","koffielepel":"koffielepels",
+                    "zakje":"zakjes","bord":"borden","portie":"porties",
+                    "schaaltje":"schaaltjes","reep":"repen","tas":"tassen"}
+            e_mv = _MV2.get(eenheid, eenheid + "s") if n > 1 else eenheid
             rd_items.append((f"{n} {e_mv} {prod_naam.lower()}", round(val * kh_pp)))
 
     if rd_items:
