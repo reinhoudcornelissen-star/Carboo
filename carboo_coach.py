@@ -2815,7 +2815,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
             }
             bd, bd_hex = EMOJI_BADGE.get(item["emoji"], ("VAST", "#22c55e"))
-            naam_kort  = item["naam"].split("(")[0].strip()
+            _water_ml_item = item.get("water_ml", 0)
+            if item["emoji"] == "💧":
+                naam_kort = f"{_water_ml_item}ml" if _water_ml_item > 0 else "Water"
+            else:
+                naam_kort = item["naam"].split("(")[0].strip()
             _pdf_antal = item.get("antal", 1.0)
             if _pdf_antal == 0.5:         _pdf_lbl = "½ "
             elif _pdf_antal != 1.0:       _pdf_lbl = f"{str(_pdf_antal).replace('.', ',')}x "
@@ -3097,7 +3101,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             for item in min_items:
                 bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
                 kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
-                naam_kort = item["naam"].split("(")[0].strip()[:20]
+                _wml_rm = item.get("water_ml", 0)
+                if item["emoji"] == "💧":
+                    naam_kort = f"{_wml_rm}ml" if _wml_rm > 0 else "Water"
+                else:
+                    naam_kort = item["naam"].split("(")[0].strip()[:20]
                 _rm_antal_pdf = item.get("antal", 1.0)
                 if _rm_antal_pdf == 0.5:     _rm_pdf_lbl = "½ "
                 elif _rm_antal_pdf != 1.0:   _rm_pdf_lbl = f"{str(_rm_antal_pdf).replace('.', ',')}x "
