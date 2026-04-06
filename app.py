@@ -1,6 +1,7 @@
 import streamlit as st
 import streamlit.components.v1
 from login import render_login_page, render_admin_panel
+from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
 from carbomax import render_carbomax
 from raceprep import render_raceprep
