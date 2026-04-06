@@ -140,6 +140,9 @@ with nav_cols[-1] if is_admin else nav_cols[-1]:
 
 module = st.session_state.module
 
+# Controleer of gebruiker terugkomt van Mollie betaling
+controleer_betaling_url()
+
 if module == "menu":
     render_coach(user)
 
