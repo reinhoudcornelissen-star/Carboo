@@ -3,3 +3,4 @@ supabase
 bcrypt
 reportlab
 requests
+mollie-api-python
