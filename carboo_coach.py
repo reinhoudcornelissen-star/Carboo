@@ -1907,9 +1907,12 @@ def _stap_raceplan():
                         padding:14px 16px;text-align:center;margin-top:8px;">
                 <div style="font-size:1.2rem;margin-bottom:6px;">❌</div>
                 <div style="font-weight:800;color:#f8fafc;margin-bottom:4px;">Geen credits meer</div>
-                <div style="color:#94a3b8;font-size:0.85rem;">Koop credits om een rapport te genereren.</div>
+                <div style="color:#94a3b8;font-size:0.85rem;">Koop credits om je rapport te genereren.</div>
             </div>
             """, unsafe_allow_html=True)
+            if st.button("🛒  Credits kopen", key="koop_credits_btn", use_container_width=True):
+                st.session_state.module = "credits"
+                st.rerun()
         else:
             st.markdown(f"""
             <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
