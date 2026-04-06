@@ -1120,7 +1120,6 @@ def _stap_raceplan():
                           "Wissel regelmatig af tussen vloeibaar en vast",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (181, 9999): ["Kies voor een mix van gels, vaste voeding en sportdrank",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Kies producten die je al gebruikt hebt tijdens training",
                           "Geen nieuwe producten op racedag - alleen vertrouwde keuzes"],
         },
@@ -1131,10 +1130,8 @@ def _stap_raceplan():
             (60,  120):  ["Kies bij voorkeur vloeibare koolhydraatbronnen: sportdrank of gel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (120, 181):  ["Kies bij voorkeur vloeibare koolhydraatbronnen: sportdrank of gel",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (181, 9999): ["Kies bij voorkeur vloeibare koolhydraatbronnen: sportdrank of gel",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Kies producten die je al gebruikt hebt tijdens training"],
         },
         "Triatlon": {
@@ -1147,11 +1144,9 @@ def _stap_raceplan():
                           "Loop: gel of sportdrank, kies voor vloeibare bronnen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (120, 240):  ["Fiets: kies voor een mix van gels, vaste voeding en sportdrank",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Loop: bij voorkeur vloeibaar (gel + water), GI-gevoeliger na fietsen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (240, 9999): ["Fiets: mix van gels, repen, sportdrank en vast voedsel",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Loop: vloeibaar + cola in het laatste deel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
         },
@@ -1163,11 +1158,9 @@ def _stap_raceplan():
                           "Gel aan start 2e loop is essentieel",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (150, 210):  ["Kies voor een mix van gels, vaste voeding en sportdrank op de fiets",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "2e loop: gel + water, kies voor vloeibare bronnen",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (210, 9999): ["Kies voor een mix van gels, vaste voeding en sportdrank",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "Meer GI-stress dan triatlon — plan innametiming op rustige segmenten",
                           "Kies producten die je al gebruikt hebt tijdens training"],
         },
@@ -1179,7 +1172,6 @@ def _stap_raceplan():
                           "Neem in op vlakke/rechte stukken, nooit op technisch terrein",
                           "Kies producten die je al gebruikt hebt tijdens training"],
             (150, 9999): ["Kies voor een mix van gels en sportdrank",
-                          "Kijk op de productinformatie: kies voor gels met verhouding 2:1 of 1:0.8 (glucose:fructose)",
                           "MTB: enkel vloeibaar, geen vast voedsel op technisch terrein",
                           "Kies producten die je al gebruikt hebt tijdens training"],
         },
@@ -1559,6 +1551,8 @@ def _stap_raceplan():
         for u in range(aantal_uren):
             u_num    = u + 1
             is_last  = (u == aantal_uren - 1)
+            # rest_min altijd beschikbaar — ook voor niet-laatste uren
+            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
             uur_start = start_dt + timedelta(hours=u)
             cur_min  = round(min_kh * 0.6) if is_last else min_kh
             cur_max  = round(max_kh * 0.6) if is_last else max_kh
@@ -1617,9 +1611,6 @@ def _stap_raceplan():
                 key=f"prev_notitie_{u_num}",
                 label_visibility="collapsed"
             )
-
-            # Resterende minuten laatste uur
-            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
 
             # KH target laatste uur schalen naar resterende tijd
             if is_last:
