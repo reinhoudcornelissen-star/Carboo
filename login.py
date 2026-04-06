@@ -131,6 +131,41 @@ def voeg_credits_toe(user_id: str, aantal: int, beschrijving: str = "Credits toe
         return False
 
 # ─── Login pagina ─────────────────────────────────────────────────────────────
+
+def sla_coach_data_op(user_id: str, coach_data: dict) -> bool:
+    """Sla coach_data op in Supabase zodat het na redirect herstelbaar is."""
+    try:
+        import json
+        sb = _get_supabase()
+        sb.table("carboo_users").update({
+            "coach_data_json": json.dumps(coach_data)
+        }).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Fout bij opslaan coach_data: {e}")
+        return False
+
+def herstel_coach_data(user_id: str) -> dict | None:
+    """Haal coach_data op uit Supabase."""
+    try:
+        import json
+        sb = _get_supabase()
+        r = sb.table("carboo_users").select("coach_data_json").eq("id", user_id).execute()
+        if r.data and r.data[0].get("coach_data_json"):
+            return json.loads(r.data[0]["coach_data_json"])
+        return None
+    except Exception as e:
+        print(f"Fout bij herstellen coach_data: {e}")
+        return None
+
+def wis_coach_data(user_id: str):
+    """Wis opgeslagen coach_data na gebruik."""
+    try:
+        sb = _get_supabase()
+        sb.table("carboo_users").update({"coach_data_json": None}).eq("id", user_id).execute()
+    except:
+        pass
+
 def render_login_page():
     st.markdown("""
     <div style="max-width:420px;margin:60px auto 0 auto;">
