@@ -127,13 +127,19 @@ def render_credits_kopen(user_id: str, user_email: str):
                 with st.spinner("Betaalpagina laden..."):
                     url = maak_betaling(pakket["id"], user_id, user_email)
                     if url:
-                        # Open in nieuw tabblad via JavaScript
-                        st.markdown(
-                            f'<meta http-equiv="refresh" content="0; url={url}">',
-                            unsafe_allow_html=True
-                        )
-                        st.info(f"Je wordt doorgestuurd naar de betaalpagina...")
-                        st.markdown(f"[Klik hier als je niet automatisch doorgestuurd wordt]({url})")
+                        st.session_state[f"betaal_url_{pakket['id']}"] = url
+
+            # Toon betaallink als beschikbaar
+            betaal_url = st.session_state.get(f"betaal_url_{pakket['id']}", "")
+            if betaal_url:
+                st.markdown(
+                    f'<div style="text-align:center;margin-top:8px;">' +
+                    f'<a href="{betaal_url}" target="_blank" style="' +
+                    f'background:#f97316;color:white;padding:10px 20px;border-radius:8px;' +
+                    f'font-weight:700;text-decoration:none;display:inline-block;' +
+                    f'font-size:0.9rem;">💳 Ga naar betaalpagina →</a></div>',
+                    unsafe_allow_html=True
+                )
 
     st.markdown("""
     <div style="text-align:center;margin-top:16px;font-size:0.72rem;color:#475569;">
