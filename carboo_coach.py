@@ -2879,14 +2879,16 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             i.get("water_ml", 0)
             for i in items
         )
-        # Vocht target: schaal voor laatste uur
+        # Vocht target: consistent met preview (vocht_per_m × 3 innamen)
         _rest_pdf = totmin % 60 if totmin % 60 != 0 else 60
         _vocht_schaal_pdf = (_rest_pdf / 60) if is_last else 1.0
-        vocht_target = round(vocht_per_m * max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]])) * _vocht_schaal_pdf)
-        v_pct  = min(100, round((u_vocht / vocht_target) * 100)) if vocht_target > 0 else 0
-        if v_pct >= 80:   v_c = GROEN
-        elif v_pct >= 50: v_c = GEEL
-        else:             v_c = ORANJE
+        vocht_uur_pdf = round(vocht_per_m * 3 * _vocht_schaal_pdf)
+        v_pct  = min(100, round((u_vocht / vocht_uur_pdf) * 100)) if (vocht_uur_pdf > 0 and u_vocht > 0) else 0
+        vocht_over_pdf = u_vocht > vocht_uur_pdf * 1.3
+        if vocht_over_pdf:    v_c = ROOD
+        elif v_pct >= 80:     v_c = GROEN
+        elif v_pct >= 50:     v_c = GEEL
+        else:                 v_c = ORANJE
 
         # Progressiebalken als één tabel onder de items
         balk_breed = breed - 1.2*cm  # zelfde breedte als items tabel
@@ -3444,14 +3446,15 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
         else:                 kh_balk_col = "#ef4444"
 
         # Vocht balk — target = vocht_per_m × aantal innamen
-        # Vocht target: gebaseerd op aanbevolen vocht_per_m × aantal innamen
+        # Vocht target: consistent met preview (vocht_per_m × 3 innamen = vocht per uur)
         _rest_min_html = totmin % 60 if totmin % 60 != 0 else 60
         _vocht_schaal  = (_rest_min_html / 60) if is_last else 1.0
-        _n_vocht_items = max(1, len([i for i in items if i["emoji"] in ["🥤","💧"]]))
-        vocht_target   = round(vocht_per_m * _n_vocht_items * _vocht_schaal)
+        vocht_uur_html = round(vocht_per_m * 3 * _vocht_schaal)  # zelfde als preview
         # Als geen vocht ingegeven: balk op 0%
-        vocht_pct      = min(100, round((u_vocht / vocht_target) * 100)) if (vocht_target > 0 and u_vocht > 0) else 0
-        if vocht_pct >= 80:   v_balk_col = "#22c55e"
+        vocht_pct      = min(100, round((u_vocht / vocht_uur_html) * 100)) if (vocht_uur_html > 0 and u_vocht > 0) else 0
+        vocht_over = u_vocht > vocht_uur_html * 1.3
+        if vocht_over:        v_balk_col = "#ef4444"
+        elif vocht_pct >= 80: v_balk_col = "#22c55e"
         elif vocht_pct >= 50: v_balk_col = "#fbbf24"
         else:                 v_balk_col = "#f97316"
 
