@@ -205,3 +205,12 @@ elif module == "rapport":
     else:
         st.session_state.module = "coach"
         st.rerun()
+
+elif module == "credits":
+    _uid   = st.session_state.get("current_user", {}).get("id", "")
+    _email = st.session_state.get("current_user", {}).get("email", "")
+    render_credits_kopen(_uid, _email)
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("← Terug", key="credits_terug"):
+        st.session_state.module = "coach"
+        st.rerun()
