@@ -4,9 +4,9 @@ import json
 
 # ─── Pakketten ────────────────────────────────────────────────────────────────
 PAKKETTEN = [
-    {"id": "pack1", "credits": 1, "prijs": 4.99,  "label": "1 rapport",   "kleur": "#1e293b"},
-    {"id": "pack3", "credits": 3, "prijs": 12.00, "label": "3 rapporten", "kleur": "#1e3a5f"},
-    {"id": "pack5", "credits": 5, "prijs": 15.00, "label": "5 rapporten", "kleur": "#1e4a2f"},
+    {"id": "pack1",  "credits": 1,  "prijs": 4.99,  "label": "1 rapport",    "kleur": "#1e293b"},
+    {"id": "pack3",  "credits": 3,  "prijs": 12.00, "label": "3 rapporten",  "kleur": "#1e3a5f"},
+    {"id": "pack10", "credits": 10, "prijs": 45.00, "label": "10 rapporten", "kleur": "#1e4a2f"},
 ]
 
 def _get_mollie_key():
@@ -103,41 +103,41 @@ def render_credits_kopen(user_id: str, user_email: str):
     cols = st.columns(3)
     for i, pakket in enumerate(PAKKETTEN):
         with cols[i]:
-            # Bereken prijs per rapport
             prijs_pp = pakket["prijs"] / pakket["credits"]
             korting  = round((4.99 - prijs_pp) * pakket["credits"], 2) if pakket["credits"] > 1 else 0
+            korting_html = f'<div style="font-size:0.72rem;color:#22c55e;margin-top:6px;min-height:18px;">✓ €{korting:.2f} korting</div>' if korting > 0 else '<div style="min-height:18px;"></div>'
 
             st.markdown(f"""
-            <div style="background:{pakket['kleur']};border-radius:12px;padding:16px;
-                        text-align:center;border:1px solid #334155;margin-bottom:8px;">
-                <div style="font-size:1.4rem;font-weight:900;color:#f97316;">
+            <div style="background:{pakket['kleur']};border-radius:12px;padding:18px 16px 14px 16px;
+                        text-align:center;border:1px solid #334155;margin-bottom:12px;
+                        display:flex;flex-direction:column;align-items:center;min-height:160px;">
+                <div style="font-size:1.1rem;font-weight:900;color:#f97316;min-height:28px;">
                     {pakket['label']}
                 </div>
-                <div style="font-size:2rem;font-weight:900;color:#f8fafc;margin:8px 0;">
+                <div style="font-size:2.2rem;font-weight:900;color:#f8fafc;margin:8px 0 2px 0;">
                     €{pakket['prijs']:.2f}
                 </div>
-                <div style="font-size:0.75rem;color:#64748b;">
+                <div style="font-size:0.75rem;color:#64748b;min-height:18px;">
                     €{prijs_pp:.2f} / rapport
                 </div>
-                {f'<div style="font-size:0.72rem;color:#22c55e;margin-top:4px;">✓ €{korting:.2f} korting</div>' if korting > 0 else ''}
+                {korting_html}
             </div>
             """, unsafe_allow_html=True)
 
-            if st.button(f"Kopen →", key=f"koop_{pakket['id']}", use_container_width=True):
+            if st.button("Kopen →", key=f"koop_{pakket['id']}", use_container_width=True):
                 with st.spinner("Betaalpagina laden..."):
                     url = maak_betaling(pakket["id"], user_id, user_email)
                     if url:
                         st.session_state[f"betaal_url_{pakket['id']}"] = url
 
-            # Toon betaallink als beschikbaar
             betaal_url = st.session_state.get(f"betaal_url_{pakket['id']}", "")
             if betaal_url:
                 st.markdown(
-                    f'<div style="text-align:center;margin-top:8px;">' +
+                    f'<div style="text-align:center;margin-top:6px;">' +
                     f'<a href="{betaal_url}" target="_blank" style="' +
-                    f'background:#f97316;color:white;padding:10px 20px;border-radius:8px;' +
+                    f'background:#f97316;color:white;padding:8px 16px;border-radius:8px;' +
                     f'font-weight:700;text-decoration:none;display:inline-block;' +
-                    f'font-size:0.9rem;">💳 Ga naar betaalpagina →</a></div>',
+                    f'font-size:0.85rem;width:100%;box-sizing:border-box;">💳 Ga naar betaalpagina →</a></div>',
                     unsafe_allow_html=True
                 )
 
