@@ -245,13 +245,26 @@ elif module == "rapport":
             col_terug, col_pdf = st.columns([1, 1])
             with col_terug:
                 if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
-                    for k in list(st.session_state.keys()):
-                        if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
-                                         "coach_stap","coach_data","rapport_html",
-                                         "rapport_pdf","rapport_credit")):
-                            del st.session_state[k]
-                    st.session_state.module = "coach"
-                    st.rerun()
+                    st.session_state["bevestig_nieuw_plan"] = True
+
+                if st.session_state.get("bevestig_nieuw_plan"):
+                    st.warning("⚠️ Ben je zeker? Je huidige rapport verdwijnt en je hebt een nieuwe credit nodig voor een volgend rapport.")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.button("✅ Ja, nieuw plan starten", key="bevestig_ja",
+                                     use_container_width=True):
+                            for k in list(st.session_state.keys()):
+                                if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
+                                                 "coach_stap","coach_data","rapport_html",
+                                                 "rapport_pdf","rapport_credit","bevestig")):
+                                    del st.session_state[k]
+                            st.session_state.module = "coach"
+                            st.rerun()
+                    with c2:
+                        if st.button("❌ Annuleren", key="bevestig_nee",
+                                     use_container_width=True):
+                            st.session_state.pop("bevestig_nieuw_plan", None)
+                            st.rerun()
             with col_pdf:
                 if st.button("📄  Download PDF", key="rapport_dl_pdf_btn",
                              use_container_width=True):
