@@ -1893,27 +1893,13 @@ def _stap_raceplan():
         )
         # ── Credit check ──────────────────────────────────────────────────────
         user_id  = st.session_state.get("current_user", {}).get("id", "")
-        credits  = st.session_state.get("current_user", {}).get("credits", 0)
-        # Haal actuele credits op uit Supabase
         from login import get_credits
         credits_actueel = get_credits(user_id) if user_id else 0
-        # Update session state
         if "current_user" in st.session_state:
             st.session_state.current_user["credits"] = credits_actueel
 
-        if credits_actueel <= 0:
-            st.markdown("""
-            <div style="background:rgba(239,68,68,0.1);border:1px solid #ef4444;border-radius:10px;
-                        padding:14px 16px;text-align:center;margin-top:8px;">
-                <div style="font-size:1.2rem;margin-bottom:6px;">❌</div>
-                <div style="font-weight:800;color:#f8fafc;margin-bottom:4px;">Geen credits meer</div>
-                <div style="color:#94a3b8;font-size:0.85rem;">Koop credits om je rapport te genereren.</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button("🛒  Credits kopen", key="koop_credits_btn", use_container_width=True):
-                st.session_state.module = "credits"
-                st.rerun()
-        else:
+        # Credits teller tonen
+        if credits_actueel > 0:
             st.markdown(f"""
             <div style="background:#0f172a;border:1px solid #334155;border-radius:8px;
                         padding:8px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
@@ -1922,7 +1908,8 @@ def _stap_raceplan():
             </div>
             """, unsafe_allow_html=True)
 
-        if credits_actueel > 0 and st.button("📄  GENEREER RAPPORT", key="rp_gen", use_container_width=True):
+        # Knop altijd zichtbaar
+        if st.button("📄  GENEREER RAPPORT", key="rp_gen", use_container_width=True):
             st.session_state.coach_data["pool"] = pool
 
             # ── Bewaar preview comments per uur ──────────────────────────────
@@ -1986,14 +1973,9 @@ def _stap_raceplan():
                     gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
                     data_voor_html = st.session_state.coach_data
                     html_str = _genereer_html(data_voor_html, gebruiker_naam)
-                    # Trek 1 credit af
-                    from login import gebruik_credit
-                    _user_id = st.session_state.get("current_user", {}).get("id", "")
-                    if _user_id:
-                        gebruik_credit(_user_id, "Race Nutrition Rapport gegenereerd")
-                        st.session_state.current_user["credits"] -= 1
+                    # Sla rapport op — credit aftrek gebeurt in rapport module
                     st.session_state["rapport_html"] = html_str
-                    st.session_state.pop("rapport_pdf", None)  # wis oude PDF cache
+                    st.session_state.pop("rapport_pdf", None)
                     st.session_state["module"] = "rapport"
                     st.rerun()
                 except Exception as e:
