@@ -209,20 +209,28 @@ elif module == "rapport":
                     st.session_state.module = "coach"
                     st.rerun()
 
-            # Rapport zichtbaar maar wazig
-            st.markdown("""
-            <div style="position:relative;overflow:hidden;border-radius:12px;">
-                <div style="filter:blur(4px);pointer-events:none;opacity:0.6;">
-            """, unsafe_allow_html=True)
-            st.components.v1.html(html, height=2000, scrolling=False)
-            st.markdown("""
-                </div>
-                <div style="position:absolute;top:0;left:0;right:0;bottom:0;
-                            background:rgba(15,23,42,0.4);border-radius:12px;
+            # Rapport zichtbaar maar wazig — blur in de HTML zelf
+            blurred_html = html.replace(
+                "</body>",
+                """<style>
+                body { filter: blur(5px) !important; pointer-events: none !important;
+                       user-select: none !important; }
+                </style>
+                <div style="position:fixed;top:0;left:0;right:0;bottom:0;
+                            background:rgba(15,23,42,0.5);z-index:9999;
                             display:flex;align-items:center;justify-content:center;">
+                    <div style="background:#1e293b;border:2px solid #f97316;border-radius:16px;
+                                padding:30px 40px;text-align:center;max-width:400px;">
+                        <div style="font-size:2rem;">🔒</div>
+                        <div style="font-size:1.2rem;font-weight:900;color:#f8fafc;margin:10px 0 6px;">
+                            Jouw rapport staat klaar!</div>
+                        <div style="font-size:0.85rem;color:#94a3b8;">
+                            Koop een credit om te downloaden.</div>
+                    </div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                </body>"""
+            )
+            st.components.v1.html(blurred_html, height=2000, scrolling=False)
 
         else:
             # ── NORMAAL MODUS — credits beschikbaar ──────────────────────────
