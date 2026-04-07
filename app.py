@@ -163,51 +163,58 @@ elif module == "admin":
 
 elif module == "rapport":
     html = st.session_state.get("rapport_html", "")
-    if html:
-        data      = st.session_state.get("coach_data", {})
-        atleet    = data.get("atleet_naam", naam).replace(" ", "_")
-        wedstrijd = data.get("wedstrijd_naam", "race").replace(" ", "_")
-        pdf_naam  = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
+    if not html:
+        st.session_state.module = "coach"
+        st.rerun()
+    else:
+        data     = st.session_state.get("coach_data", {})
+        atleet   = data.get("atleet_naam", naam).replace(" ", "_")
+        wedstrijd= data.get("wedstrijd_naam", "race").replace(" ", "_")
+        pdf_naam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
 
-        # Check credits
         from login import get_credits, gebruik_credit
         _uid = st.session_state.get("current_user", {}).get("id", "")
-        credits_nu = get_credits(_uid) if _uid else 0
 
-        # Bevestig nieuw plan — altijd tonen ongeacht credits
+        # ── Bevestig nieuw plan — EERSTE CHECK, stopt de rest ────────────────
         if st.session_state.get("bevestig_nieuw_plan"):
-            st.warning("⚠️ Ben je zeker? Je huidige rapport verdwijnt en je hebt een nieuwe credit nodig voor een volgend rapport.")
+            st.warning("⚠️ Ben je zeker? Je huidige rapport verdwijnt en je hebt een nieuwe credit nodig.")
             c1, c2 = st.columns(2)
             with c1:
                 if st.button("✅ Ja, nieuw plan starten", key="bevestig_ja",
                              use_container_width=True):
-                    for k in list(st.session_state.keys()):
-                        if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
-                                         "coach_stap","coach_data","rapport_html",
-                                         "rapport_pdf","rapport_credit","bevestig")):
-                            del st.session_state[k]
+                    wis_keys = [k for k in st.session_state.keys()
+                                if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
+                                                 "coach_stap","coach_data","rapport",
+                                                 "bevestig"))]
+                    for k in wis_keys:
+                        del st.session_state[k]
                     st.session_state.module = "coach"
                     st.rerun()
             with c2:
                 if st.button("❌ Annuleren", key="bevestig_nee",
                              use_container_width=True):
-                    st.session_state.pop("bevestig_nieuw_plan", None)
+                    del st.session_state["bevestig_nieuw_plan"]
                     st.rerun()
             st.stop()
 
+        # ── Credit check ──────────────────────────────────────────────────────
+        # Gebruik gecachte waarde om dubbele DB calls te vermijden
+        if "rapport_credits_gecheckt" not in st.session_state:
+            credits_nu = get_credits(_uid) if _uid else 0
+            st.session_state["rapport_credits_gecheckt"] = credits_nu
+        credits_nu = st.session_state["rapport_credits_gecheckt"]
+
         if credits_nu <= 0:
-            # ── BLUR MODUS — rapport zichtbaar maar geblokkeerd ──────────────
+            # ── BLUR MODUS ────────────────────────────────────────────────────
             st.markdown("""
             <div style="background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(30,58,138,0.15));
                         border:2px solid #f97316;border-radius:12px;padding:20px;text-align:center;
                         margin-bottom:16px;">
                 <div style="font-size:1.5rem;margin-bottom:8px;">🔒</div>
                 <div style="font-size:1.1rem;font-weight:900;color:#f8fafc;margin-bottom:6px;">
-                    Jouw rapport staat klaar!
-                </div>
-                <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:14px;">
-                    Koop een credit om je persoonlijk rapport te downloaden.
-                </div>
+                    Jouw rapport staat klaar!</div>
+                <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:4px;">
+                    Koop een credit om te downloaden.</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -215,10 +222,8 @@ elif module == "rapport":
             with col_koop:
                 if st.button("🛒  Koop credit & download rapport", key="koop_unlock",
                              use_container_width=True):
-                    # Sla coach_data op voor na betaling
                     from login import sla_coach_data_op
                     sla_coach_data_op(_uid, data)
-                    # Sla ook rapport_html op in session zodat het na betaling direct beschikbaar is
                     st.session_state["rapport_html_pending"] = html
                     st.session_state.module = "credits"
                     st.rerun()
@@ -228,13 +233,9 @@ elif module == "rapport":
                     st.session_state["bevestig_nieuw_plan"] = True
                     st.rerun()
 
-            # Rapport zichtbaar maar wazig — blur in de HTML zelf
-            blurred_html = html.replace(
-                "</body>",
-                """<style>
-                body { filter: blur(5px) !important; pointer-events: none !important;
-                       user-select: none !important; }
-                </style>
+            blurred_html = html.replace("</body>",
+                """<style>body{filter:blur(5px)!important;pointer-events:none!important;
+                user-select:none!important;}</style>
                 <div style="position:fixed;top:0;left:0;right:0;bottom:0;
                             background:rgba(15,23,42,0.5);z-index:9999;
                             display:flex;align-items:center;justify-content:center;">
@@ -246,17 +247,15 @@ elif module == "rapport":
                         <div style="font-size:0.85rem;color:#94a3b8;">
                             Koop een credit om te downloaden.</div>
                     </div>
-                </div>
-                </body>"""
-            )
+                </div></body>""")
             st.components.v1.html(blurred_html, height=2000, scrolling=False)
 
         else:
-            # ── NORMAAL MODUS — credits beschikbaar ──────────────────────────
-            # Trek credit af bij eerste weergave
+            # ── NORMAAL MODUS — trek credit af (eenmalig) ────────────────────
             if not st.session_state.get("rapport_credit_afgetrokken"):
                 gebruik_credit(_uid, "Race Nutrition Rapport gegenereerd")
                 st.session_state.current_user["credits"] = get_credits(_uid)
+                st.session_state["rapport_credits_gecheckt"] = get_credits(_uid)
                 st.session_state["rapport_credit_afgetrokken"] = True
 
             col_terug, col_pdf = st.columns([1, 1])
@@ -270,14 +269,12 @@ elif module == "rapport":
                     with st.spinner("PDF wordt gegenereerd..."):
                         try:
                             from carboo_coach import _genereer_pdf
-                            gebruiker_naam = st.session_state.get(
-                                "current_user", {}).get("name", "Atleet")
-                            pdf_bytes = _genereer_pdf(data, gebruiker_naam)
+                            gn = st.session_state.get("current_user",{}).get("name","Atleet")
+                            pdf_bytes = _genereer_pdf(data, gn)
                             st.session_state["rapport_pdf"] = pdf_bytes
                             st.rerun()
                         except Exception as e:
                             st.error(f"PDF fout: {e}")
-
                 if st.session_state.get("rapport_pdf"):
                     st.download_button(
                         label="⬇️  Sla PDF op",
@@ -290,9 +287,7 @@ elif module == "rapport":
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.components.v1.html(html, height=3000, scrolling=True)
-    else:
-        st.session_state.module = "coach"
-        st.rerun()
+
 
 elif module == "credits":
     _uid   = st.session_state.get("current_user", {}).get("id", "")
