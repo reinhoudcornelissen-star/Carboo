@@ -108,17 +108,33 @@ def controleer_betaling_url():
             # Sessie actief — update credits
             st.session_state.current_user["credits"] = get_credits(user_id)
 
-        # Herstel coach_data en ga naar stap 5
+        # Herstel coach_data en rapport_html — ga direct naar rapport
         coach_data = herstel_coach_data(user_id)
         if coach_data:
             st.session_state["coach_data"] = coach_data
-            st.session_state["coach_stap"] = 5
-            st.session_state["module"]     = "coach"
+            # Genereer het rapport opnieuw zodat het ontgrendeld verschijnt
+            try:
+                # Gebruik pending rapport_html als beschikbaar, anders opnieuw genereren
+                pending_html = st.session_state.get("rapport_html_pending", "")
+                if pending_html:
+                    html_str = pending_html
+                    st.session_state.pop("rapport_html_pending", None)
+                else:
+                    from carboo_coach import _genereer_html
+                    gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
+                    html_str = _genereer_html(coach_data, gebruiker_naam)
+                st.session_state["rapport_html"] = html_str
+                st.session_state.pop("rapport_pdf", None)
+                st.session_state.pop("rapport_credit_afgetrokken", None)
+                st.session_state["module"] = "rapport"
+            except Exception as e:
+                st.session_state["coach_stap"] = 5
+                st.session_state["module"]     = "coach"
             wis_coach_data(user_id)
 
         # Wis URL params en toon melding
         st.query_params.clear()
-        st.success(f"✅ Betaling geslaagd! {credits} credit(s) toegevoegd. Je plan staat klaar.")
+        st.success(f"✅ Betaling geslaagd! {credits} credit(s) toegevoegd.")
         st.rerun()
 
     except Exception as e:
