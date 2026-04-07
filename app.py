@@ -182,7 +182,7 @@ elif module == "rapport":
             with c1:
                 if st.button("✅ Ja, nieuw plan starten", key="bevestig_ja",
                              use_container_width=True):
-                    wis_keys = [k for k in st.session_state.keys()
+                    wis_keys = [k for k in list(st.session_state.keys())
                                 if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
                                                  "coach_stap","coach_data","rapport",
                                                  "bevestig"))]
@@ -198,11 +198,14 @@ elif module == "rapport":
             st.stop()
 
         # ── Credit check ──────────────────────────────────────────────────────
-        # Gebruik gecachte waarde om dubbele DB calls te vermijden
-        if "rapport_credits_gecheckt" not in st.session_state:
+        # Als rapport al ontgrendeld was → blijf in normaal modus
+        if st.session_state.get("rapport_ontgrendeld"):
+            credits_nu = 1  # forceer normaal modus
+        elif "rapport_credits_gecheckt" not in st.session_state:
             credits_nu = get_credits(_uid) if _uid else 0
             st.session_state["rapport_credits_gecheckt"] = credits_nu
-        credits_nu = st.session_state["rapport_credits_gecheckt"]
+        else:
+            credits_nu = st.session_state["rapport_credits_gecheckt"]
 
         if credits_nu <= 0:
             # ── BLUR MODUS ────────────────────────────────────────────────────
@@ -255,8 +258,8 @@ elif module == "rapport":
             if not st.session_state.get("rapport_credit_afgetrokken"):
                 gebruik_credit(_uid, "Race Nutrition Rapport gegenereerd")
                 st.session_state.current_user["credits"] = get_credits(_uid)
-                st.session_state["rapport_credits_gecheckt"] = get_credits(_uid)
                 st.session_state["rapport_credit_afgetrokken"] = True
+                st.session_state["rapport_ontgrendeld"] = True  # blijf ontgrendeld na rerun
 
             col_terug, col_pdf = st.columns([1, 1])
             with col_terug:
