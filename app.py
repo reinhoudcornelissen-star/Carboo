@@ -197,6 +197,8 @@ elif module == "rapport":
                     # Sla coach_data op voor na betaling
                     from login import sla_coach_data_op
                     sla_coach_data_op(_uid, data)
+                    # Sla ook rapport_html op in session zodat het na betaling direct beschikbaar is
+                    st.session_state["rapport_html_pending"] = html
                     st.session_state.module = "credits"
                     st.rerun()
             with col_terug:
