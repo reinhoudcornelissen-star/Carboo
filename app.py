@@ -167,45 +167,107 @@ elif module == "rapport":
         data      = st.session_state.get("coach_data", {})
         atleet    = data.get("atleet_naam", naam).replace(" ", "_")
         wedstrijd = data.get("wedstrijd_naam", "race").replace(" ", "_")
-        html_naam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
         pdf_naam  = f"Carboo_RacePlan_{atleet}_{wedstrijd}.pdf"
 
-        col_terug, col_pdf = st.columns([1, 1])
-        with col_terug:
-            if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
-                for k in list(st.session_state.keys()):
-                    if k.startswith(("cl_", "rp_", "rd_", "p_", "w_", "prev_",
-                                     "coach_stap", "coach_data", "rapport_html",
-                                     "rapport_pdf")):
-                        del st.session_state[k]
-                st.session_state.module = "coach"
-                st.rerun()
-        with col_pdf:
-            # Genereer PDF on-demand
-            if st.button("📄  Download PDF", key="rapport_dl_pdf_btn", use_container_width=True):
-                with st.spinner("PDF wordt gegenereerd..."):
-                    try:
-                        from carboo_coach import _genereer_pdf
-                        gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
-                        pdf_bytes = _genereer_pdf(data, gebruiker_naam)
-                        st.session_state["rapport_pdf"] = pdf_bytes
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"PDF fout: {e}")
+        # Check credits
+        from login import get_credits, gebruik_credit
+        _uid = st.session_state.get("current_user", {}).get("id", "")
+        credits_nu = get_credits(_uid) if _uid else 0
 
-            # Toon download knop als PDF klaar is
-            if st.session_state.get("rapport_pdf"):
-                st.download_button(
-                    label="⬇️  Sla PDF op",
-                    data=st.session_state["rapport_pdf"],
-                    file_name=pdf_naam,
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="rapport_pdf_save"
-                )
+        if credits_nu <= 0:
+            # ── BLUR MODUS — rapport zichtbaar maar geblokkeerd ──────────────
+            st.markdown("""
+            <div style="background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(30,58,138,0.15));
+                        border:2px solid #f97316;border-radius:12px;padding:20px;text-align:center;
+                        margin-bottom:16px;">
+                <div style="font-size:1.5rem;margin-bottom:8px;">🔒</div>
+                <div style="font-size:1.1rem;font-weight:900;color:#f8fafc;margin-bottom:6px;">
+                    Jouw rapport staat klaar!
+                </div>
+                <div style="font-size:0.85rem;color:#94a3b8;margin-bottom:14px;">
+                    Koop een credit om je persoonlijk rapport te downloaden.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.components.v1.html(html, height=3000, scrolling=True)
+            col_koop, col_terug = st.columns([2, 1])
+            with col_koop:
+                if st.button("🛒  Koop credit & download rapport", key="koop_unlock",
+                             use_container_width=True):
+                    # Sla coach_data op voor na betaling
+                    from login import sla_coach_data_op
+                    sla_coach_data_op(_uid, data)
+                    st.session_state.module = "credits"
+                    st.rerun()
+            with col_terug:
+                if st.button("🔄 Nieuw plan", key="rapport_terug_blur",
+                             use_container_width=True):
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
+                                         "coach_stap","coach_data","rapport_html","rapport_pdf")):
+                            del st.session_state[k]
+                    st.session_state.module = "coach"
+                    st.rerun()
+
+            # Rapport zichtbaar maar wazig
+            st.markdown("""
+            <div style="position:relative;overflow:hidden;border-radius:12px;">
+                <div style="filter:blur(4px);pointer-events:none;opacity:0.6;">
+            """, unsafe_allow_html=True)
+            st.components.v1.html(html, height=2000, scrolling=False)
+            st.markdown("""
+                </div>
+                <div style="position:absolute;top:0;left:0;right:0;bottom:0;
+                            background:rgba(15,23,42,0.4);border-radius:12px;
+                            display:flex;align-items:center;justify-content:center;">
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        else:
+            # ── NORMAAL MODUS — credits beschikbaar ──────────────────────────
+            # Trek credit af bij eerste weergave
+            if not st.session_state.get("rapport_credit_afgetrokken"):
+                gebruik_credit(_uid, "Race Nutrition Rapport gegenereerd")
+                st.session_state.current_user["credits"] = get_credits(_uid)
+                st.session_state["rapport_credit_afgetrokken"] = True
+
+            col_terug, col_pdf = st.columns([1, 1])
+            with col_terug:
+                if st.button("🔄 Nieuw plan starten", key="rapport_terug"):
+                    for k in list(st.session_state.keys()):
+                        if k.startswith(("cl_","rp_","rd_","p_","w_","prev_",
+                                         "coach_stap","coach_data","rapport_html",
+                                         "rapport_pdf","rapport_credit")):
+                            del st.session_state[k]
+                    st.session_state.module = "coach"
+                    st.rerun()
+            with col_pdf:
+                if st.button("📄  Download PDF", key="rapport_dl_pdf_btn",
+                             use_container_width=True):
+                    with st.spinner("PDF wordt gegenereerd..."):
+                        try:
+                            from carboo_coach import _genereer_pdf
+                            gebruiker_naam = st.session_state.get(
+                                "current_user", {}).get("name", "Atleet")
+                            pdf_bytes = _genereer_pdf(data, gebruiker_naam)
+                            st.session_state["rapport_pdf"] = pdf_bytes
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"PDF fout: {e}")
+
+                if st.session_state.get("rapport_pdf"):
+                    st.download_button(
+                        label="⬇️  Sla PDF op",
+                        data=st.session_state["rapport_pdf"],
+                        file_name=pdf_naam,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="rapport_pdf_save"
+                    )
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.components.v1.html(html, height=3000, scrolling=True)
     else:
         st.session_state.module = "coach"
         st.rerun()
