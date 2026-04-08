@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1
-from login import render_login_page, render_admin_panel
+from login import render_login_page, render_admin_panel, render_wachtwoord_reset
 from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
 from carbomax import render_carbomax
@@ -84,6 +84,8 @@ for key, default in [
 
 # ─── NIET INGELOGD → LOGIN PAGINA ────────────────────────────────────────────
 if not st.session_state.logged_in:
+    if render_wachtwoord_reset():
+        st.stop()
     render_login_page()
     st.stop()
 
