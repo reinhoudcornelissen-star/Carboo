@@ -166,6 +166,149 @@ def wis_coach_data(user_id: str):
     except:
         pass
 
+
+import secrets
+from datetime import datetime, timedelta
+
+def stuur_reset_mail(email: str) -> bool:
+    """Genereer reset token en stuur mail."""
+    try:
+        sb    = _get_supabase()
+        user  = _get_user(email)
+        if not user:
+            return False  # geen foutmelding tonen (security)
+
+        token  = secrets.token_urlsafe(32)
+        expiry = (datetime.utcnow() + timedelta(hours=2)).isoformat()
+
+        sb.table("carboo_users").update({
+            "reset_token":        token,
+            "reset_token_expiry": expiry,
+        }).eq("id", user["id"]).execute()
+
+        app_url  = st.secrets.get("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
+        reset_url = f"{app_url}?reset_token={token}"
+
+        afzender  = st.secrets.get("MAIL_FROM", "")
+        ww_mail   = st.secrets.get("MAIL_PASSWORD", "")
+        smtp_host = st.secrets.get("MAIL_HOST", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("MAIL_PORT", 587))
+
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = "Carboo — Wachtwoord opnieuw instellen"
+        msg["From"]    = afzender
+        msg["To"]      = email
+
+        html_body = f"""
+        <html><body style="font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:20px;">
+        <div style="max-width:500px;margin:0 auto;background:#1e293b;border-radius:10px;padding:24px;">
+            <div style="font-size:22px;font-weight:900;color:#f97316;margin-bottom:16px;">
+                CAR<span style="color:#f1f5f9">BOO</span>
+            </div>
+            <p style="color:#94a3b8;">Hallo {user['naam']},</p>
+            <p style="color:#f1f5f9;">Je hebt een wachtwoordreset aangevraagd. Klik op onderstaande knop om een nieuw wachtwoord in te stellen.</p>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{reset_url}" style="background:#f97316;color:white;padding:12px 28px;
+                   border-radius:8px;font-weight:700;text-decoration:none;font-size:1rem;">
+                   🔑 Wachtwoord opnieuw instellen
+                </a>
+            </div>
+            <p style="color:#64748b;font-size:0.8rem;">Deze link is 2 uur geldig. Als je geen reset hebt aangevraagd, kan je deze mail negeren.</p>
+        </div>
+        </body></html>
+        """
+        msg.attach(MIMEText(html_body, "html"))
+
+        if ww_mail:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(afzender, ww_mail)
+                server.sendmail(afzender, email, msg.as_string())
+        return True
+    except Exception as e:
+        print(f"Reset mail fout: {e}")
+        return False
+
+
+def verifieer_reset_token(token: str) -> dict | None:
+    """Controleer of token geldig en niet verlopen is."""
+    try:
+        sb = _get_supabase()
+        r  = sb.table("carboo_users").select("*").eq("reset_token", token).execute()
+        if not r.data:
+            return None
+        user   = r.data[0]
+        expiry = user.get("reset_token_expiry")
+        if not expiry:
+            return None
+        if datetime.utcnow() > datetime.fromisoformat(expiry.replace("Z", "")):
+            return None  # verlopen
+        return user
+    except:
+        return None
+
+
+def stel_nieuw_wachtwoord_in(token: str, nieuw_ww: str) -> bool:
+    """Stel nieuw wachtwoord in en wis reset token."""
+    try:
+        sb   = _get_supabase()
+        user = verifieer_reset_token(token)
+        if not user:
+            return False
+        sb.table("carboo_users").update({
+            "wachtwoord":         _hash(nieuw_ww),
+            "reset_token":        None,
+            "reset_token_expiry": None,
+        }).eq("id", user["id"]).execute()
+        return True
+    except:
+        return False
+
+
+def render_wachtwoord_reset():
+    """Toon wachtwoord reset formulier op basis van URL token."""
+    token = st.query_params.get("reset_token", "")
+    if not token:
+        return False
+
+    st.markdown("""
+    <div style="max-width:420px;margin:40px auto 0 auto;text-align:center;">
+        <div style="font-size:2rem;font-weight:900;letter-spacing:4px;color:#f8fafc;">
+            CAR<span style="color:#f97316;">BOO</span>
+        </div>
+        <div style="font-size:0.8rem;color:#64748b;letter-spacing:2px;margin-top:4px;margin-bottom:24px;">
+            WACHTWOORD OPNIEUW INSTELLEN
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    user = verifieer_reset_token(token)
+    if not user:
+        st.error("❌ Deze link is ongeldig of verlopen. Vraag een nieuwe reset aan.")
+        st.query_params.clear()
+        return True
+
+    st.success(f"Hallo {user['naam']}! Stel hieronder je nieuw wachtwoord in.")
+    nw1 = st.text_input("Nieuw wachtwoord", type="password", key="reset_ww1")
+    nw2 = st.text_input("Herhaal wachtwoord", type="password", key="reset_ww2")
+
+    if st.button("✅ Wachtwoord opslaan", use_container_width=True):
+        if len(nw1) < 6:
+            st.error("Wachtwoord moet minstens 6 tekens zijn.")
+        elif nw1 != nw2:
+            st.error("Wachtwoorden komen niet overeen.")
+        else:
+            if stel_nieuw_wachtwoord_in(token, nw1):
+                st.success("✅ Wachtwoord gewijzigd! Je kan nu inloggen.")
+                st.query_params.clear()
+            else:
+                st.error("Fout bij opslaan. Probeer opnieuw.")
+    return True
+
 def render_login_page():
     st.markdown("""
     <div style="max-width:420px;margin:60px auto 0 auto;">
@@ -187,7 +330,21 @@ def render_login_page():
         email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
         ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
 
-        if st.button("Inloggen →", key="login_btn", use_container_width=True):
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        col_in, col_verg = st.columns([2, 1])
+        with col_in:
+            login_klik = st.button("Inloggen →", key="login_btn", use_container_width=True)
+        with col_verg:
+            verg_klik = st.button("Vergeten?", key="login_verg", use_container_width=True)
+        if verg_klik:
+            st.session_state["toon_reset"] = True
+        if st.session_state.get("toon_reset"):
+            verg_email = st.text_input("Vul je e-mailadres in voor reset", key="verg_email")
+            if st.button("📧 Stuur resetlink", key="stuur_reset", use_container_width=True):
+                stuur_reset_mail(verg_email)
+                st.success("Als dit e-mailadres bestaat, ontvang je een resetlink.")
+                st.session_state.pop("toon_reset", None)
+        if login_klik:
             if not email or not ww:
                 st.error("Vul alle velden in.")
             else:
@@ -261,17 +418,49 @@ def render_admin_panel():
     # ── Statistieken ──────────────────────────────────────────────────────────
     totaal_users   = len([u for u in users if u["rol"] == "user"])
     totaal_credits = sum(u["credits"] for u in users if u["rol"] == "user")
-    col1, col2, col3 = st.columns(3)
+    try:
+        alle_trans = sb.table("carboo_transacties").select("*").execute().data
+    except:
+        alle_trans = []
+
+    trans_gebruik  = [t for t in alle_trans if t["type"] == "gebruik"]
+    trans_aankoop  = [t for t in alle_trans if t["type"] == "aankoop"]
+    omzet_credits  = sum(abs(t["credits"]) for t in trans_aankoop)
+
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Gebruikers", totaal_users)
+        st.metric("👤 Gebruikers", totaal_users)
     with col2:
-        st.metric("Totaal credits", totaal_credits)
+        st.metric("📄 Rapporten", len(trans_gebruik))
     with col3:
-        try:
-            trans = sb.table("carboo_transacties").select("*").eq("type", "gebruik").execute().data
-            st.metric("Rapporten gegenereerd", len(trans))
-        except:
-            st.metric("Rapporten", "—")
+        st.metric("🎟 Credits resterend", totaal_credits)
+    with col4:
+        st.metric("💰 Credits verkocht", omzet_credits)
+
+    # ── Recente activiteit ────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown('<div style="font-weight:800;color:#f97316;margin-bottom:8px;">📊 RECENTE ACTIVITEIT</div>', unsafe_allow_html=True)
+
+    recente_trans = sorted(alle_trans, key=lambda x: x.get("datum",""), reverse=True)[:20]
+    if recente_trans:
+        user_map = {u["id"]: u["naam"] for u in users}
+        for t in recente_trans:
+            naam  = user_map.get(t.get("user_id",""), "?")
+            datum = str(t.get("datum",""))[:16]
+            cred  = t["credits"]
+            kleur = "#22c55e" if cred > 0 else "#ef4444"
+            icoon = "💰" if t["type"] == "aankoop" else ("📄" if t["type"] == "gebruik" else "🎁")
+            st.markdown(
+                f'<div style="display:flex;justify-content:space-between;padding:4px 8px;'
+                f'border-bottom:1px solid #1e293b;font-size:0.82rem;">'
+                f'<span style="color:#94a3b8">{datum}</span>'
+                f'<span style="color:#f1f5f9">{icoon} {naam}</span>'
+                f'<span style="color:#64748b">{t.get("beschrijving","")}</span>'
+                f'<span style="color:{kleur};font-weight:bold">{cred:+d}</span></div>',
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("Nog geen transacties.")
 
     st.markdown("---")
 
