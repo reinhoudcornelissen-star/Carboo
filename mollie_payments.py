@@ -15,6 +15,47 @@ def _get_mollie_key():
 def _get_app_url():
     return st.secrets.get("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
 
+def verifieer_mollie_betaling(payment_id: str) -> dict | None:
+    """Verifieer betaling status rechtstreeks bij Mollie API."""
+    api_key = _get_mollie_key()
+    if not api_key or not payment_id:
+        return None
+    try:
+        resp = requests.get(
+            f"https://api.mollie.com/v2/payments/{payment_id}",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return None
+    except:
+        return None
+
+
+def verwerk_mollie_webhook(payment_id: str) -> bool:
+    """Verwerk Mollie webhook — controleer status en voeg credits toe."""
+    betaling = verifieer_mollie_betaling(payment_id)
+    if not betaling:
+        return False
+    if betaling.get("status") != "paid":
+        return False
+
+    metadata = betaling.get("metadata", {})
+    user_id  = metadata.get("user_id", "")
+    credits  = int(metadata.get("credits", 0))
+
+    if not user_id or credits <= 0:
+        return False
+
+    try:
+        from login import voeg_credits_toe
+        voeg_credits_toe(user_id, credits, f"Mollie webhook — {credits} rapport(en)")
+        return True
+    except:
+        return False
+
+
 def maak_betaling(pakket_id: str, user_id: str, user_email: str) -> str | None:
     """Maak een Mollie betaling aan en geef de checkout URL terug."""
     pakket = next((p for p in PAKKETTEN if p["id"] == pakket_id), None)
@@ -35,7 +76,7 @@ def maak_betaling(pakket_id: str, user_id: str, user_email: str) -> str | None:
         },
         "description": f"Carboo — {pakket['label']}",
         "redirectUrl": f"{app_url}?betaling=ok&user_id={user_id}&credits={pakket['credits']}",
-        "webhookUrl": f"{app_url}/webhook",  # optioneel
+        "webhookUrl": f"https://carboo-webhook.railway.app/webhook",
         "metadata": {
             "user_id":  user_id,
             "credits":  pakket["credits"],
@@ -88,6 +129,14 @@ def controleer_betaling_url():
             return
 
         # Credits toevoegen
+        # Verifieer betaling bij Mollie als payment_id beschikbaar
+        payment_id = params.get("payment_id", "")
+        if payment_id:
+            betaling = verifieer_mollie_betaling(payment_id)
+            if not betaling or betaling.get("status") != "paid":
+                st.error("Betaling kon niet geverifieerd worden.")
+                st.query_params.clear()
+                return
         voeg_credits_toe(user_id, credits, f"Mollie aankoop — {credits} rapport(en)")
         st.session_state[reeds_verwerkt_key] = True
 
