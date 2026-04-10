@@ -1222,15 +1222,22 @@ def _stap_raceplan():
     _pool_data = data.get("pool", {})
     _supp_data = _pool_data.get("supplementen", {})
     _ors_naam  = _supp_data.get("ors_naam", "") if isinstance(_supp_data, dict) else ""
-    if _temp_val > 28 or (_temp_val > 24 and _vocht_val > 75):
-        _ors_msg = f" ORS ({_ors_naam}) wordt automatisch ingepland elke 2 uur." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+    _tot_min_adv = data.get("totale_min", 0)
+    if _temp_val >= 25 and _tot_min_adv >= 90:
+        if _temp_val >= 32:
+            _na_str = "1500mg Na/uur"
+        elif _temp_val >= 28:
+            _na_str = "1000mg Na/uur"
+        else:
+            _na_str = "700mg Na/uur"
+        _ors_msg = f" ORS ({_ors_naam}) automatisch ingepland op basis van natriumbehoefte ({_na_str})." if _ors_naam else f" Voeg ORS toe via supplementen — natriumbehoefte: {_na_str}."
         sport_html += (
             '<div style="margin-top:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;' +
             'border-radius:8px;padding:8px 12px;">' +
             f'<span style="color:#fca5a5;font-size:0.82rem;">🔴 <b>Extreme hitte</b> — verhoog vochtinname en gebruik ORS voor zoutbalans.{_ors_msg}</span></div>'
         )
-    elif _temp_val > 22 and _vocht_val > 70:
-        _ors_msg = f" ORS ({_ors_naam}) wordt automatisch ingepland elke 2 uur." if _ors_naam else " Voeg ORS toe via supplementen voor automatische inplanning."
+    if False:  # placeholder - vervangen door bovenstaande logica
+        pass
         sport_html += (
             '<div style="margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid #f59e0b;' +
             'border-radius:8px;padding:8px 12px;">' +
@@ -1309,12 +1316,13 @@ def _stap_raceplan():
     _sectie_header("SUPPLEMENTEN", "#8b5cf6", "💊")
     supp_col1, supp_col2 = st.columns(2)
     with supp_col1:
-        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">ORS tabletten</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">ORS tabletten / sachets</div>', unsafe_allow_html=True)
         ors_naam  = st.text_input("ORS", placeholder="bijv. SIS Hydro, Precision ORS",
                                   key="rp_ors_naam", label_visibility="collapsed")
-        ors_dosis = st.number_input("per uur", 0, 10, 0, key="rp_ors_dosis",
-                                    label_visibility="collapsed", help="Aantal ORS tabletten per uur")
-        st.caption("Tabletten per uur")
+        ors_mg    = st.number_input("mg natrium per tablet", 0, 2000, 250, 50,
+                                    key="rp_ors_mg", label_visibility="collapsed",
+                                    help="mg natrium per tablet of sachet")
+        st.caption("mg natrium per tablet/sachet")
     with supp_col2:
         st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Cafeïne gum</div>', unsafe_allow_html=True)
         gum_naam = st.text_input("Gum", placeholder="bijv. Run Gum, Athlete Gum",
@@ -1332,7 +1340,7 @@ def _stap_raceplan():
         "vast":  vast_pool,
         "supplementen": {
             "ors_naam":  ors_naam,
-            "ors_dosis": ors_dosis,
+            "ors_mg":    ors_mg,
             "gum_naam":  gum_naam,
             "gum_mg":    gum_mg,
         },
@@ -1666,15 +1674,33 @@ def _stap_raceplan():
 
             # ── ORS automatisch inplannen bij hitte ──────────────────────────
             ors_naam  = supp.get("ors_naam", "") if isinstance(supp, dict) else ""
-            ors_actief = ors_naam and (temp > 25 or (temp > 22 and vochtigheid > 70))
+            # ORS activatie: duur >= 90 min EN temp >= 25°C
+            ors_mg_pt   = supp.get("ors_mg", 250) if isinstance(supp, dict) else 250
+            ors_actief  = bool(ors_naam) and totale_min >= 90 and temp >= 25
+
             if ors_actief and not is_last:
-                # Elke 2 uur op +60min, start uur 1
-                if u_num % 2 == 1:
-                    ors_lbl = f"💊 {ors_naam} (ORS)"
-                    # Voeg toe als 60min slot leeg is
-                    if not any(t == "60min" and p != "— leeg —" for t, p in default_items):
-                        # Vervang de lege 60min rij door ORS
-                        default_items = [(t, ors_lbl if t == "60min" else p)
+                # Natrium target per uur
+                if temp >= 32:    na_target = 1500
+                elif temp >= 28:  na_target = 1000
+                else:             na_target = 700  # 25-28°C
+
+                # Natrium uit sportdrank (~450mg/uur als gebruikt)
+                heeft_sd = bool(pool.get("drank"))
+                na_sd    = 450 if heeft_sd else 0
+
+                # Natrium uit gels (~75mg per gel per uur)
+                n_gels   = sum(1 for item in items if item.get("emoji") in ["⚡","☕"])
+                na_gel   = n_gels * 75
+
+                # Tekort berekenen
+                na_tekort = max(0, na_target - na_sd - na_gel)
+                ors_stuks = max(1, round(na_tekort / ors_mg_pt)) if na_tekort > 0 else 0
+
+                if ors_stuks > 0:
+                    ors_lbl = f"💊 {ors_naam} ({ors_stuks}x {ors_mg_pt}mg Na)"
+                    # Elke uur op 30min slot als leeg
+                    if not any(t == "30min" and p != "— leeg —" for t, p in default_items):
+                        default_items = [(t, ors_lbl if t == "30min" else p)
                                         for t, p in default_items]
 
             n_items_key = f"prev_n_items_{u_num}"
@@ -2951,7 +2977,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                     ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"],["[SUP]","Supplement"]]
     leg_row_rp = [[Paragraph(f"{s}  {l}", S("LGR", fontSize=7.5, textColor=GRIJS, leading=11))
                    for s, l in leg_items_rp]]
-    leg_t_rp = Table(leg_row_rp, colWidths=[breed/5]*5)
+    leg_t_rp = Table(leg_row_rp, colWidths=[breed/6]*6)
     leg_t_rp.setStyle(TableStyle([
         ("TOPPADDING",    (0,0),(-1,-1), 4),
         ("BOTTOMPADDING", (0,0),(-1,-1), 4),
@@ -2970,7 +2996,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         supp_rows = []
         if supp.get("ors_naam"):
             supp_rows.append([Paragraph("ORS tabletten", s_body),
-                               Paragraph(f"{supp['ors_naam']} — {supp.get('ors_dosis',0)} tablet/uur", s_waarde)])
+                               Paragraph(f"{supp['ors_naam']} — {supp.get('ors_mg',250)}mg natrium/tablet", s_waarde)])
         if supp.get("gum_naam"):
             supp_rows.append([Paragraph("Cafeïne gum", s_body),
                                Paragraph(f"{supp['gum_naam']} — {supp.get('gum_mg',0)} mg/stuk", s_waarde)])
@@ -3167,7 +3193,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                  ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"],["[SUP]","Supplement"]]
     leg_row = [[Paragraph(f"{s}  {l}", S("LG", fontSize=8, textColor=DONKER, leading=12))
                for s, l in leg_items]]
-    leg_t = Table(leg_row, colWidths=[breed/5]*5)
+    leg_t = Table(leg_row, colWidths=[breed/6]*6)
     leg_t.setStyle(TableStyle([
         ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
         ("LEFTPADDING",(0,0),(-1,-1),4),
