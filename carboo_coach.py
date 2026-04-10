@@ -1223,27 +1223,23 @@ def _stap_raceplan():
     _supp_data = _pool_data.get("supplementen", {})
     _ors_naam  = _supp_data.get("ors_naam", "") if isinstance(_supp_data, dict) else ""
     _tot_min_adv = data.get("totale_min", 0)
-    if _temp_val >= 25 and _tot_min_adv >= 120:
-        _ors_msg = ""
-        sport_html += (
-            '<div style="margin-top:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;' +
-            'border-radius:8px;padding:8px 12px;">' +
-            f'<span style="color:#fca5a5;font-size:0.82rem;">🔴 <b>Extreme hitte</b> — verhoog vochtinname. ' +
-            (f'Voeg ORS toe aan je voeding tijdens de laatste 48u voor de wedstrijd en opteer voor een sportdrank tijdens de wedstrijd.' if _tot_min_adv >= 120 else '') +
-            '</span></div>'
-        )
-    if _temp_val >= 25 and _tot_min_adv >= 120:
-        sport_html += (
-            '<div style="margin-top:8px;background:rgba(249,115,22,0.12);border:1px solid #f97316;' +
-            'border-radius:8px;padding:8px 12px;">' +
-            '<span style="color:#fed7aa;font-size:0.82rem;">🌡️ <b>Warm weer & lange inspanning</b> — ' +
-            'Voeg ORS toe aan je voeding tijdens de laatste 48u voor de wedstrijd en opteer voor een sportdrank tijdens de wedstrijd.</span></div>'
-        )
-        sport_html += (
-            '<div style="margin-top:8px;background:rgba(245,158,11,0.1);border:1px solid #f59e0b;' +
-            'border-radius:8px;padding:8px 12px;">' +
-            f'<span style="color:#fcd34d;font-size:0.82rem;">⚠️ <b>Hitte + vochtigheid</b> — ORS tabletten aangeraden.{_ors_msg}</span></div>'
-        )
+    if _tot_min_adv >= 120 and _temp_val >= 25:
+        if _temp_val >= 28:
+            # Extreme hitte
+            sport_html += (
+                '<div style="margin-top:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;' +
+                'border-radius:8px;padding:8px 12px;">' +
+                '<span style="color:#fca5a5;font-size:0.82rem;">🔴 <b>Extreme hitte</b> — verhoog vochtinname. ' +
+                'Voeg ORS toe aan je voeding tijdens de laatste 48u voor de wedstrijd en opteer voor een sportdrank tijdens de wedstrijd.</span></div>'
+            )
+        else:
+            # Warm (25-28°C)
+            sport_html += (
+                '<div style="margin-top:8px;background:rgba(249,115,22,0.12);border:1px solid #f97316;' +
+                'border-radius:8px;padding:8px 12px;">' +
+                '<span style="color:#fed7aa;font-size:0.82rem;">🌡️ <b>Warm weer & lange inspanning</b> — ' +
+                'Voeg ORS toe aan je voeding tijdens de laatste 48u voor de wedstrijd en opteer voor een sportdrank tijdens de wedstrijd.</span></div>'
+            )
 
     sport_html += '</div>'
     # Avatar naast de blauwe kader
