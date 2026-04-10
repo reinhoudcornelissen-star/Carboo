@@ -1294,7 +1294,7 @@ def _stap_raceplan():
                                1, "bijv. SIS Go Gel", 22, "KH/gel")
     with gel_col2:
         st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Gels met cafeïne &nbsp;·&nbsp; KH/gel</div>', unsafe_allow_html=True)
-        cafe_pool = _prod_blok("Cafeïne gel", "#f59e0b", "⚡",
+        cafe_pool = _prod_blok("Cafeïne gel", "#8b5cf6", "⚡",
                                "rp_n_cafe", "rp_cafe", "rp_ckh",
                                0, "bijv. SIS Caffeine Gel", 22, "KH/gel")
 
@@ -1500,10 +1500,10 @@ def _stap_raceplan():
         if pool.get("cafe"):
             for p in pool["cafe"]:
                 naam = p.get("naam", p.get("name", "Cafeïne gel"))
-                lbl  = f"⚡ {naam}"
+                lbl  = f"⚡ {naam} (CAF)"
                 alle_opties.append(lbl)
                 kh_map[lbl]    = p["kh"]
-                emoji_map[lbl] = "⚡"
+                emoji_map[lbl] = "☕"
 
         # Supplementen toevoegen
         supp = pool.get("supplementen", {})
