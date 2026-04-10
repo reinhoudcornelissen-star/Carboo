@@ -3072,11 +3072,12 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
                 "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
                 "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
+                "💊": ("SUP",  "#06b6d4"),   "🍬": ("SUP",  "#06b6d4"),
                 "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
             }
             badge_parts = []
             for item in min_items:
-                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?", "#64748b"))
+                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("SUP", "#06b6d4"))
                 kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
                 _wml_rm = item.get("water_ml", 0)
                 if item["emoji"] == "💧":
