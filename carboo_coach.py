@@ -2799,6 +2799,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
                 "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
                 "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
+                "💊": ("SUP",  "#06b6d4"), "🍬": ("SUP",  "#06b6d4"),
                 "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
                 "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
             }
@@ -2947,7 +2948,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     # Legende onder raceplan
     leg_items_rp = [["[H2O]","Water / mondspoeling"],["[SD]","Sportdrank"],
-                    ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"]]
+                    ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"],["[SUP]","Supplement"]]
     leg_row_rp = [[Paragraph(f"{s}  {l}", S("LGR", fontSize=7.5, textColor=GRIJS, leading=11))
                    for s, l in leg_items_rp]]
     leg_t_rp = Table(leg_row_rp, colWidths=[breed/5]*5)
@@ -3163,7 +3164,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
     leg_items = [["[H2O]","Water / mondspoeling"],["[SD]","Sportdrank"],
-                 ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"]]
+                 ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"],["[SUP]","Supplement"]]
     leg_row = [[Paragraph(f"{s}  {l}", S("LG", fontSize=8, textColor=DONKER, leading=12))
                for s, l in leg_items]]
     leg_t = Table(leg_row, colWidths=[breed/5]*5)
@@ -3260,7 +3261,9 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
              "🍌":("VAST","#22c55e"),"🍫":("VAST","#22c55e"),"🍪":("VAST","#22c55e"),
              "🌾":("VAST","#22c55e"),"🍎":("VAST","#22c55e"),"🌰":("VAST","#22c55e"),
              "🍱":("VAST","#22c55e"),
-             "☕":("CAF","#8b5cf6"),"💧":("H2O","#64748b")}
+             "☕":("CAF","#8b5cf6"),
+             "💊":("SUP","#06b6d4"),"🍬":("SUP","#06b6d4"),
+             "💧":("H2O","#64748b")}
 
     def kh_col(pct, grens_groen=90, grens_geel=70):
         if pct >= grens_groen: return "#22c55e"
@@ -3396,7 +3399,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
             else:                   _antal_lbl = ""
             # Water badge + ml: gebruik gekozen hoeveelheid uit plan
             _item_water_ml = item.get("water_ml", 0)
-            if item["emoji"] in ["⚡", "🍌", "☕", "🍫","🍪","🌾","🍎","🌰","🍱"]:
+            if item["emoji"] in ["⚡", "🍌", "☕", "🍫","🍪","🌾","🍎","🌰","🍱","💊","🍬"]:
                 # Enkel tonen als gebruiker water heeft gekozen
                 if _item_water_ml > 0:
                     water_txt = (
@@ -3519,7 +3522,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
                 badge = f'<b style="color:{col};border:1px solid {col};border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-right:1px">{lbl}</b>'
                 # H2O badge enkel als gebruiker water heeft gekozen (water_ml > 0)
                 _rm_wml = item.get("water_ml", 0)
-                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"] and _rm_wml > 0:
+                if item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱","💊","🍬"] and _rm_wml > 0:
                     h2o = f'<b style="color:#64748b;border:1px solid #64748b;border-radius:2px;padding:0 2px;font-size:9px;line-height:10px;display:inline-block;margin-left:1px;margin-right:2px">H2O</b>'
                     badges_parts.append(badge + h2o)
                 else:
