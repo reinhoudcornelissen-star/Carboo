@@ -1689,8 +1689,10 @@ def _stap_raceplan():
                 na_sd    = 450 if heeft_sd else 0
 
                 # Natrium uit gels (~75mg per gel per uur)
-                n_gels   = sum(1 for item in items if item.get("emoji") in ["⚡","☕"])
-                na_gel   = n_gels * 75
+                # Tel gels uit default_items (product label bevat ⚡ of ☕)
+                n_gels = sum(1 for t, p in default_items
+                             if p != "— leeg —" and any(e in p for e in ["⚡","☕"]))
+                na_gel = n_gels * 75
 
                 # Tekort berekenen
                 na_tekort = max(0, na_target - na_sd - na_gel)
