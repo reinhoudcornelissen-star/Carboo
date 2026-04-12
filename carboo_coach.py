@@ -1310,24 +1310,17 @@ def _stap_raceplan():
                            0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
 
     # ── 4. Supplementen ───────────────────────────────────────────────────────
-    # ── Supplementen header met info tooltip ─────────────────────────────────
-    supp_col_h, supp_col_i = st.columns([10, 1])
-    with supp_col_h:
-        _sectie_header("SUPPLEMENTEN", "#8b5cf6", "💊")
-    with supp_col_i:
-        st.markdown("""
-        <div style="margin-top:8px;" title="Zorg ervoor dat je juist suppleert tijdens je wedstrijd!">
-            <span style="display:inline-flex;align-items:center;justify-content:center;
-                         width:22px;height:22px;border-radius:50%;
-                         background:rgba(139,92,246,0.2);border:1px solid #8b5cf6;
-                         color:#8b5cf6;font-size:12px;font-weight:700;cursor:help;"
-                  title="Zorg ervoor dat je juist suppleert tijdens je wedstrijd!">i</span>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown(
-            '<div style="font-size:10px;color:#8b5cf6;line-height:1.3;margin-top:2px;">'
-            'Zorg ervoor dat je juist suppleert!</div>',
-            unsafe_allow_html=True)
+    # ── Supplementen header met info tooltip direct naast titel ──────────────
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:0.72rem;font-weight:700;color:#8b5cf6;letter-spacing:1px;">💊 SUPPLEMENTEN</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;
+                     width:16px;height:16px;border-radius:50%;
+                     background:rgba(139,92,246,0.2);border:1px solid #8b5cf6;
+                     color:#8b5cf6;font-size:10px;font-weight:700;cursor:help;flex-shrink:0;"
+              title="Zorg ervoor dat je juist suppleert tijdens je wedstrijd!">i</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     ors_naam = ""
     ors_mg   = 0
@@ -1335,22 +1328,32 @@ def _stap_raceplan():
 
     st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Supplementen (cafeïnegum, ORS, ...)</div>', unsafe_allow_html=True)
 
-    # Dynamische supplement invoer — meerdere producten mogelijk
+    # Dynamische supplement invoer — elk supplement apart
     n_supp = st.session_state.get("rp_n_supp", 1)
     supp_namen = []
     for _si in range(n_supp):
-        _sc1, _sc2 = st.columns([4, 1])
+        _sc1, _sc2, _sc3 = st.columns([5, 1, 1])
         with _sc1:
-            _sn = st.text_input(f"Supplement {_si+1}", placeholder="bijv. Run Gum, SIS Hydro, cafeïne tablet",
-                                key=f"rp_supp_naam_{_si}", label_visibility="collapsed")
-            supp_namen.append(_sn)
+            _sn = st.text_input(f"Supplement {_si+1}",
+                                placeholder="bijv. Run Gum, SIS Hydro...",
+                                key=f"rp_supp_naam_{_si}",
+                                label_visibility="collapsed")
+            supp_namen.append(_sn.strip() if _sn else "")
         with _sc2:
-            if _si == n_supp - 1:
-                if st.button("＋", key=f"rp_supp_add_{_si}", help="Supplement toevoegen"):
-                    st.session_state["rp_n_supp"] = n_supp + 1
-                    st.rerun()
+            if _si == n_supp - 1 and st.button("＋", key=f"rp_supp_add_{_si}", help="Toevoegen"):
+                st.session_state["rp_n_supp"] = n_supp + 1
+                st.rerun()
+        with _sc3:
+            if n_supp > 1 and st.button("✕", key=f"rp_supp_del_{_si}", help="Verwijderen"):
+                for _j in range(_si, n_supp - 1):
+                    st.session_state[f"rp_supp_naam_{_j}"] = st.session_state.get(f"rp_supp_naam_{_j+1}", "")
+                st.session_state["rp_n_supp"] = n_supp - 1
+                st.rerun()
 
-    gum_naam = ", ".join([s for s in supp_namen if s])
+    # Lijst van ingevulde supplementen (zonder lege)
+    supp_lijst = [s for s in supp_namen if s]
+    gum_naam = supp_lijst[0] if supp_lijst else ""  # eerste voor backward compat
+    supp_alle = supp_lijst  # volledige lijst voor rapport
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1362,7 +1365,8 @@ def _stap_raceplan():
         "supplementen": {
             "ors_naam":  ors_naam,
             "ors_mg":    ors_mg,
-            "gum_naam":  gum_naam,
+            "gum_naam":  gum_naam,     # eerste supplement (compat)
+            "supp_lijst": supp_alle,   # volledige lijst
         },
     }
     # Pool altijd opslaan zodat preview er toegang toe heeft
@@ -1540,11 +1544,17 @@ def _stap_raceplan():
             alle_opties.append(lbl)
             kh_map[lbl]    = 0
             emoji_map[lbl] = "💊"
-        if supp.get("gum_naam"):
-            lbl = f"🍬 {supp['gum_naam']}"
-            alle_opties.append(lbl)
-            kh_map[lbl]    = 0
-            emoji_map[lbl] = "🍬"
+        # Elk supplement apart als selecteerbare optie
+        _supp_lijst = supp.get("supp_lijst", [])
+        if not _supp_lijst and supp.get("gum_naam"):
+            _supp_lijst = [supp["gum_naam"]]
+        for _sn in _supp_lijst:
+            if _sn:
+                lbl = f"🍬 {_sn}"
+                if lbl not in alle_opties:
+                    alle_opties.append(lbl)
+                    kh_map[lbl]    = 0
+                    emoji_map[lbl] = "🍬"
 
         alle_opties += ["— leeg —"]
         kh_map["— leeg —"] = 0
@@ -2767,6 +2777,30 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     uren_berekend, vocht_per_m = _bereken_raceplan(data)
     preview_uren = data.get("preview_uren", {})
+    # Supplementen HTML blok
+    _supp = data.get("pool", {}).get("supplementen", {})
+    _supp_lijst_html = _supp.get("supp_lijst", []) if _supp else []
+    if not _supp_lijst_html and _supp and _supp.get("gum_naam"):
+        _supp_lijst_html = [_supp["gum_naam"]]
+    _supp_lijst_html = [s for s in _supp_lijst_html if s]
+    if _supp_lijst_html:
+        _supp_items = "".join([
+            f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1e293b;">' +
+            f'<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;' +
+            f'background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid #06b6d4;">SUP</span>' +
+            f'<span style="font-size:13px;color:#f1f5f9;">{s}</span></div>'
+            for s in _supp_lijst_html
+        ])
+        supp_html_blok = f'''
+        <div style="background:#0f172a;border-radius:12px;padding:20px;margin:16px 0;">
+          <div style="font-size:0.7rem;font-weight:700;color:#06b6d4;letter-spacing:2px;margin-bottom:12px;">💊 SUPPLEMENTEN</div>
+          {_supp_items}
+          <div style="font-size:11px;color:#64748b;margin-top:10px;font-style:italic;">
+            ℹ️ Zorg ervoor dat je juist suppleert tijdens je wedstrijd.
+          </div>
+        </div>'''
+    else:
+        supp_html_blok = ""
 
     # Pas items aan op basis van preview_uren (gebruiker aangepast plan)
     uren = []
@@ -2990,7 +3024,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(leg_t_rp)
 
     # Supplementen
-    if supp and any([supp.get("ors_naam"), supp.get("gum_naam")]):
+    _heeft_supp = (supp and (supp.get("ors_naam") or supp.get("gum_naam") or
+                             any(s for s in supp.get("supp_lijst", []))))
+    if _heeft_supp:
         story.append(Spacer(1, 4))
         story.append(Paragraph("SUPPLEMENTEN", s_sectie))
         story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
@@ -2998,9 +3034,13 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         if supp.get("ors_naam"):
             supp_rows.append([Paragraph("ORS tabletten", s_body),
                                Paragraph(f"{supp.get('ors_naam','')}", s_waarde)])
-        if supp.get("gum_naam"):
-            supp_rows.append([Paragraph("Supplement(en)", s_body),
-                               Paragraph(f"{supp['gum_naam']} — {supp.get('gum_mg',0)} mg/stuk", s_waarde)])
+        # Alle supplementen tonen
+        _supp_lijst_pdf = supp.get("supp_lijst", [])
+        if not _supp_lijst_pdf and supp.get("gum_naam"):
+            _supp_lijst_pdf = [supp["gum_naam"]]
+        for _sn_pdf in [s for s in _supp_lijst_pdf if s]:
+            supp_rows.append([Paragraph("Supplement", s_body),
+                               Paragraph(f"{_sn_pdf}", s_waarde)])
         if supp_rows:
             st_t = Table(supp_rows, colWidths=[breed*0.3, breed*0.7])
             st_t.setStyle(TableStyle([
@@ -3392,6 +3432,30 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     # Anders terugvallen op _bereken_raceplan
     uren_berekend, vocht_per_m = _bereken_raceplan(data)
     preview_uren = data.get("preview_uren", {})
+    # Supplementen HTML blok
+    _supp = data.get("pool", {}).get("supplementen", {})
+    _supp_lijst_html = _supp.get("supp_lijst", []) if _supp else []
+    if not _supp_lijst_html and _supp and _supp.get("gum_naam"):
+        _supp_lijst_html = [_supp["gum_naam"]]
+    _supp_lijst_html = [s for s in _supp_lijst_html if s]
+    if _supp_lijst_html:
+        _supp_items = "".join([
+            f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1e293b;">' +
+            f'<span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;' +
+            f'background:rgba(6,182,212,0.15);color:#67e8f9;border:1px solid #06b6d4;">SUP</span>' +
+            f'<span style="font-size:13px;color:#f1f5f9;">{s}</span></div>'
+            for s in _supp_lijst_html
+        ])
+        supp_html_blok = f'''
+        <div style="background:#0f172a;border-radius:12px;padding:20px;margin:16px 0;">
+          <div style="font-size:0.7rem;font-weight:700;color:#06b6d4;letter-spacing:2px;margin-bottom:12px;">💊 SUPPLEMENTEN</div>
+          {_supp_items}
+          <div style="font-size:11px;color:#64748b;margin-top:10px;font-style:italic;">
+            ℹ️ Zorg ervoor dat je juist suppleert tijdens je wedstrijd.
+          </div>
+        </div>'''
+    else:
+        supp_html_blok = ""
 
     raceplan_html = ""
     for uur_data in uren_berekend:
@@ -3719,6 +3783,7 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
   </div>
 </div>
 
+{supp_html_blok}
 <div class="footer">Gegenereerd door Carboo Race Nutrition.  Dit plan is een richtlijn — gemaakt door sportdiëtisten.</div>
 </div>
 </body></html>"""
