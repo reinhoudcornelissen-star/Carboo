@@ -1310,17 +1310,47 @@ def _stap_raceplan():
                            0, "bijv. Rijstwafel, banaan", 25, "KH/portie")
 
     # ── 4. Supplementen ───────────────────────────────────────────────────────
-    _sectie_header("SUPPLEMENTEN", "#8b5cf6", "💊")
+    # ── Supplementen header met info tooltip ─────────────────────────────────
+    supp_col_h, supp_col_i = st.columns([10, 1])
+    with supp_col_h:
+        _sectie_header("SUPPLEMENTEN", "#8b5cf6", "💊")
+    with supp_col_i:
+        st.markdown("""
+        <div style="margin-top:8px;" title="Zorg ervoor dat je juist suppleert tijdens je wedstrijd!">
+            <span style="display:inline-flex;align-items:center;justify-content:center;
+                         width:22px;height:22px;border-radius:50%;
+                         background:rgba(139,92,246,0.2);border:1px solid #8b5cf6;
+                         color:#8b5cf6;font-size:12px;font-weight:700;cursor:help;"
+                  title="Zorg ervoor dat je juist suppleert tijdens je wedstrijd!">i</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div style="font-size:10px;color:#8b5cf6;line-height:1.3;margin-top:2px;">'
+            'Zorg ervoor dat je juist suppleert!</div>',
+            unsafe_allow_html=True)
+
     ors_naam = ""
     ors_mg   = 0
-    supp_col2_only = st.columns(1)
-    with supp_col2_only[0]:
-        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Cafeïne gum</div>', unsafe_allow_html=True)
-        gum_naam = st.text_input("Gum", placeholder="bijv. Run Gum, Athlete Gum",
-                                 key="rp_gum_naam", label_visibility="collapsed")
-        gum_mg   = st.number_input("mg cafeïne/stuk", 0, 200, 0, 25, key="rp_gum_mg",
-                                   label_visibility="collapsed", help="mg cafeïne per stuk")
-        st.caption("mg cafeïne per stuk")
+    gum_mg   = 0
+
+    st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Supplementen (cafeïnegum, ORS, ...)</div>', unsafe_allow_html=True)
+
+    # Dynamische supplement invoer — meerdere producten mogelijk
+    n_supp = st.session_state.get("rp_n_supp", 1)
+    supp_namen = []
+    for _si in range(n_supp):
+        _sc1, _sc2 = st.columns([4, 1])
+        with _sc1:
+            _sn = st.text_input(f"Supplement {_si+1}", placeholder="bijv. Run Gum, SIS Hydro, cafeïne tablet",
+                                key=f"rp_supp_naam_{_si}", label_visibility="collapsed")
+            supp_namen.append(_sn)
+        with _sc2:
+            if _si == n_supp - 1:
+                if st.button("＋", key=f"rp_supp_add_{_si}", help="Supplement toevoegen"):
+                    st.session_state["rp_n_supp"] = n_supp + 1
+                    st.rerun()
+
+    gum_naam = ", ".join([s for s in supp_namen if s])
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -1333,7 +1363,6 @@ def _stap_raceplan():
             "ors_naam":  ors_naam,
             "ors_mg":    ors_mg,
             "gum_naam":  gum_naam,
-            "gum_mg":    gum_mg,
         },
     }
     # Pool altijd opslaan zodat preview er toegang toe heeft
@@ -1512,7 +1541,7 @@ def _stap_raceplan():
             kh_map[lbl]    = 0
             emoji_map[lbl] = "💊"
         if supp.get("gum_naam"):
-            lbl = f"🍬 {supp['gum_naam']} (cafeïne gum)"
+            lbl = f"🍬 {supp['gum_naam']}"
             alle_opties.append(lbl)
             kh_map[lbl]    = 0
             emoji_map[lbl] = "🍬"
@@ -2823,11 +2852,21 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                             fontName="Helvetica-Bold", leading=12, alignment=TA_RIGHT)),
             ])
         if not item_rows:
-            item_rows.append([Paragraph("", s_body),
-                              Paragraph('<font color="#64748b"><b>[H2O]</b></font>  Water', s_body),
-                              Paragraph("—", s_body)])
-
-        if comment:
+            # Geen items ingegeven — enkel notitie tonen indien aanwezig
+            if comment:
+                item_rows.append([
+                    Paragraph("»", S("IC", fontSize=9, fontName="Helvetica-Bold",
+                                      textColor=GEEL, leading=12)),
+                    Paragraph(comment, S("CM", fontSize=7.5, textColor=colors.HexColor("#f59e0b"),
+                                          fontName="Helvetica-Oblique", leading=11)),
+                    Paragraph("", s_body),
+                ])
+            else:
+                # Volledig leeg uur — sla over, voeg lege rij toe zonder H2O
+                item_rows.append([Paragraph("", s_body),
+                                  Paragraph('<font color="#64748b">—</font>', s_body),
+                                  Paragraph("", s_body)])
+        elif comment:
             item_rows.append([
                 Paragraph("»", S("IC", fontSize=9, fontName="Helvetica-Bold",
                                   textColor=GEEL, leading=12)),
@@ -2958,9 +2997,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         supp_rows = []
         if supp.get("ors_naam"):
             supp_rows.append([Paragraph("ORS tabletten", s_body),
-                               Paragraph(f"{supp['ors_naam']} — {supp.get('ors_mg',250)}mg natrium/tablet", s_waarde)])
+                               Paragraph(f"{supp.get('ors_naam','')}", s_waarde)])
         if supp.get("gum_naam"):
-            supp_rows.append([Paragraph("Cafeïne gum", s_body),
+            supp_rows.append([Paragraph("Supplement(en)", s_body),
                                Paragraph(f"{supp['gum_naam']} — {supp.get('gum_mg',0)} mg/stuk", s_waarde)])
         if supp_rows:
             st_t = Table(supp_rows, colWidths=[breed*0.3, breed*0.7])
