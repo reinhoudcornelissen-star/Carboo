@@ -2866,8 +2866,8 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             else:                         _pdf_lbl = ""
             water_ml  = item.get("water_ml", 0)
             _slok_ml_pdf = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
-            if water_ml > 0 and item["emoji"] in VAST_EMOJIS | {"⚡", "☕"}:
-                # Gel/vast: toon +Xml H2O
+            if water_ml > 0 and item["emoji"] in VAST_EMOJIS | {"⚡", "☕", "💊", "🍬"}:
+                # Gel/vast/supplement: toon +Xml H2O
                 water_str = f'  <font color="#64748b" size="7">+{water_ml}ml H2O</font>'
             elif item["emoji"] == "🥤" and water_ml > 0:
                 # Sportdrank: toon slokken
@@ -3169,7 +3169,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 else:                        _rm_pdf_lbl = ""
                 water_ml = item.get("water_ml", 0)
                 _slok_ml_rm = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
-                if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱"]:
+                if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱","💊","🍬"]:
                     water_txt = f" <font size='7' color='#64748b'>+{water_ml}ml H2O</font>"
                 elif item["emoji"] == "🥤" and water_ml > 0:
                     _slk_rm = max(1, int(water_ml / _slok_ml_rm + 0.5))
