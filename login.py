@@ -309,6 +309,86 @@ def render_wachtwoord_reset():
                 st.error("Fout bij opslaan. Probeer opnieuw.")
     return True
 
+
+def controleer_promo_code(code: str) -> dict | None:
+    """Controleer of een promo code geldig is. Geeft code data terug of None."""
+    if not code:
+        return None
+    try:
+        from datetime import date
+        sb = _get_supabase()
+        r  = sb.table("carboo_codes").select("*").eq("code", code.upper().strip()).execute()
+        if not r.data:
+            return None
+        c = r.data[0]
+        if not c.get("actief", False):
+            return None
+        if c.get("vervaldatum") and date.fromisoformat(c["vervaldatum"]) < date.today():
+            return None
+        if c.get("gebruik", 0) >= c.get("max_gebruik", 100):
+            return None
+        return c
+    except Exception as e:
+        print(f"Code check fout: {e}")
+        return None
+
+
+def gebruik_promo_code(code_id: str, user_id: str, credits: int):
+    """Registreer gebruik van promo code en voeg credits toe."""
+    try:
+        sb = _get_supabase()
+        # Gebruik teller ophogen
+        huidig = sb.table("carboo_codes").select("gebruik").eq("id", code_id).execute()
+        huidig_gebruik = huidig.data[0]["gebruik"] if huidig.data else 0
+        sb.table("carboo_codes").update({
+            "gebruik": huidig_gebruik + 1
+        }).eq("id", code_id).execute()
+        # Credits toevoegen aan gebruiker
+        voeg_credits_toe(user_id, credits, f"Promo code — {credits} gratis rapport(en)")
+        # Promo code opslaan op gebruiker
+        code_data = sb.table("carboo_codes").select("code").eq("id", code_id).execute()
+        code_str = code_data.data[0]["code"] if code_data.data else ""
+        sb.table("carboo_users").update({"promo_code": code_str}).eq("id", user_id).execute()
+    except Exception as e:
+        print(f"Promo gebruik fout: {e}")
+
+
+def get_alle_codes() -> list:
+    """Haal alle promo codes op voor admin."""
+    try:
+        sb = _get_supabase()
+        return sb.table("carboo_codes").select("*").order("aangemaakt", desc=True).execute().data or []
+    except:
+        return []
+
+
+def maak_code_aan(code: str, firma: str, credits: int, max_gebruik: int, vervaldatum: str) -> bool:
+    """Maak een nieuwe promo code aan."""
+    try:
+        sb = _get_supabase()
+        sb.table("carboo_codes").insert({
+            "code":        code.upper().strip(),
+            "firma":       firma,
+            "credits":     credits,
+            "max_gebruik": max_gebruik,
+            "gebruik":     0,
+            "actief":      True,
+            "vervaldatum": vervaldatum if vervaldatum else None,
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"Code aanmaken fout: {e}")
+        return False
+
+
+def toggle_code_actief(code_id: str, actief: bool):
+    """Activeer of deactiveer een promo code."""
+    try:
+        sb = _get_supabase()
+        sb.table("carboo_codes").update({"actief": actief}).eq("id", code_id).execute()
+    except:
+        pass
+
 def render_login_page():
     st.markdown("""
     <div style="max-width:420px;margin:60px auto 0 auto;">
@@ -373,6 +453,9 @@ def render_login_page():
         r_email = st.text_input("E-mailadres", key="reg_email", placeholder="jouw@email.com")
         r_ww    = st.text_input("Wachtwoord", type="password", key="reg_ww")
         r_ww2   = st.text_input("Herhaal wachtwoord", type="password", key="reg_ww2")
+        r_code  = st.text_input("Promotiecode (optioneel)", key="reg_code",
+                                placeholder="bijv. CARBOO2026",
+                                help="Heb je een promotiecode? Vul die hier in voor een gratis rapport.")
 
         if st.button("Account aanmaken →", key="reg_btn", use_container_width=True):
             if not all([r_naam, r_email, r_ww, r_ww2]):
@@ -386,6 +469,13 @@ def render_login_page():
             else:
                 try:
                     sb = _get_supabase()
+                    # Controleer promo code voor registratie
+                    promo_data = None
+                    if r_code and r_code.strip():
+                        promo_data = controleer_promo_code(r_code.strip())
+                        if not promo_data:
+                            st.warning("⚠️ Ongeldige of verlopen promotiecode. Registratie gaat door zonder code.")
+
                     result = sb.table("carboo_users").insert({
                         "email":      r_email.lower().strip(),
                         "naam":       r_naam.strip(),
@@ -396,6 +486,10 @@ def render_login_page():
 
                     if result.data:
                         new_user = result.data[0]
+                        # Verwerk promo code
+                        if promo_data:
+                            gebruik_promo_code(promo_data["id"], new_user["id"], promo_data["credits"])
+                            st.success(f"🎉 Promotiecode geldig! Je ontvangt {promo_data['credits']} gratis rapport(en).")
                         # Stuur mail naar admin
                         _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
                         st.success("✅ Account aangemaakt! Je kan nu inloggen.")
@@ -548,6 +642,69 @@ def render_admin_panel():
 
     # ── Terug ─────────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
+    # ── PROMO CODES TAB ──────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown('<div style="font-weight:800;color:#f97316;margin-bottom:12px;font-size:1rem;">🎟 PROMO CODES</div>', unsafe_allow_html=True)
+
+    codes = get_alle_codes()
+    if codes:
+        # Overzicht tabel
+        for c in codes:
+            gebruik_pct = round((c.get("gebruik",0) / max(c.get("max_gebruik",1),1)) * 100)
+            kleur = "#22c55e" if c.get("actief") else "#ef4444"
+            status = "✅ Actief" if c.get("actief") else "❌ Inactief"
+            verval = c.get("vervaldatum","—") or "—"
+            st.markdown(f"""
+            <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
+                        padding:10px 14px;margin-bottom:8px;display:flex;
+                        justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>
+                    <span style="font-family:monospace;font-weight:700;color:#f97316;font-size:1rem;">
+                        {c['code']}</span>
+                    <span style="color:#64748b;font-size:0.8rem;margin-left:10px;">{c.get('firma','—')}</span>
+                </div>
+                <div style="display:flex;gap:16px;align-items:center;font-size:0.8rem;">
+                    <span style="color:#94a3b8;">🎟 {c.get('credits',1)} credit(s)</span>
+                    <span style="color:#94a3b8;">👥 {c.get('gebruik',0)}/{c.get('max_gebruik',100)}</span>
+                    <span style="color:#94a3b8;">📅 {verval}</span>
+                    <span style="color:{kleur};">{status}</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            ca, cb = st.columns([1,1])
+            with ca:
+                if c.get("actief"):
+                    if st.button(f"⏸ Deactiveer", key=f"deact_{c['id']}", use_container_width=True):
+                        toggle_code_actief(c["id"], False)
+                        st.rerun()
+                else:
+                    if st.button(f"▶ Activeer", key=f"act_{c['id']}", use_container_width=True):
+                        toggle_code_actief(c["id"], True)
+                        st.rerun()
+    else:
+        st.info("Nog geen promo codes aangemaakt.")
+
+    # Nieuwe code aanmaken
+    st.markdown('<div style="font-weight:600;color:#f1f5f9;margin:16px 0 8px;">Nieuwe code aanmaken</div>', unsafe_allow_html=True)
+    nc1, nc2 = st.columns(2)
+    with nc1:
+        n_code    = st.text_input("Code", placeholder="bijv. DECATHLON2026", key="new_code").upper()
+        n_firma   = st.text_input("Firma / organisatie", placeholder="bijv. Decathlon", key="new_firma")
+        n_credits = st.number_input("Gratis credits", 1, 10, 1, key="new_credits")
+    with nc2:
+        n_max     = st.number_input("Max. gebruik", 1, 10000, 100, key="new_max")
+        n_verval  = st.date_input("Vervaldatum", key="new_verval")
+    if st.button("✅ Code aanmaken", key="code_aanmaken", use_container_width=True):
+        if not n_code or not n_firma:
+            st.error("Vul code en firma in.")
+        else:
+            ok = maak_code_aan(n_code, n_firma, n_credits, n_max, str(n_verval))
+            if ok:
+                st.success(f"✅ Code '{n_code}' aangemaakt voor {n_firma}!")
+                st.rerun()
+            else:
+                st.error("Code al in gebruik of fout opgetreden.")
+
     if st.button("← Terug naar menu", key="admin_terug"):
         st.session_state.module = "menu"
         st.rerun()
