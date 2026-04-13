@@ -220,27 +220,19 @@ if module == "menu":
              "sub": "Optimaal herstelplan na wedstrijd — KH, eiwit en timing.",
              "module": None, "beschikbaar": False},
         ]
-        cols_pro = st.columns(2)
-        for i, mod in enumerate(PRO_MODULES):
-            with cols_pro[i % 2]:
-                st.markdown(f"""
-                <div style="background:#0f172a;border:1px solid {'#8b5cf6' if mod['beschikbaar'] else '#1e293b'};
-                            border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;">
-                    <div style="font-size:1.6rem;margin-bottom:6px;">{mod['icon']}</div>
-                    <div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">
-                        {mod['titel']}</div>
-                    <div style="font-size:0.75rem;color:#64748b;line-height:1.5;">
-                        {mod['sub']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                if mod["beschikbaar"]:
-                    if st.button(f"Open →", key=f"mod_{mod['key']}", use_container_width=True):
-                        st.session_state.module = mod["module"]
-                        st.rerun()
-                else:
-                    st.markdown('<div style="font-size:11px;color:#4a5568;text-align:center;margin-top:-6px;margin-bottom:8px;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
-
-
+        col_l, col_r = st.columns(2)
+        with col_l:
+            st.markdown('''<div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🧪</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Train the Gut</div><div style="font-size:0.75rem;color:#64748b;">Systematisch de maag trainen.</div></div>''', unsafe_allow_html=True)
+            if st.button("Open Train the Gut →", key="open_testing", use_container_width=True):
+                st.session_state.module = "testing"
+                st.rerun()
+        with col_r:
+            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🗓</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Meerdaagse wedstrijden</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
+        col_l2, col_r2 = st.columns(2)
+        with col_l2:
+            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">⚡</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Elektrolytenplan</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
+        with col_r2:
+            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🔄</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Recuperatie</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
 elif module == "coach":
     render_coach(user)
 
