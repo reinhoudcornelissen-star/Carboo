@@ -11,10 +11,10 @@ def _stuur_registratie_mail(naam: str, email: str):
     """Stuur notificatie mail naar admin bij nieuwe registratie."""
     try:
         ontvanger = "info@sportlab-achterbos.be"
-        afzender  = st.secrets.get("MAIL_FROM", "noreply@carboo.app")
-        ww_mail   = st.secrets.get("MAIL_PASSWORD", "")
-        smtp_host = st.secrets.get("MAIL_HOST", "smtp.gmail.com")
-        smtp_port = int(st.secrets.get("MAIL_PORT", 587))
+        afzender  = _get_secrets("MAIL_FROM", "noreply@carboo.app")
+        ww_mail   = _get_secrets("MAIL_PASSWORD", "")
+        smtp_host = _get_secrets("MAIL_HOST", "smtp.gmail.com")
+        smtp_port = int(_get_secrets("MAIL_PORT", 587))
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"🏃 Nieuwe Carboo registratie: {naam}"
@@ -58,9 +58,18 @@ def _stuur_registratie_mail(naam: str, email: str):
         print(f"Mail fout (niet kritiek): {e}")
 
 # ─── Supabase connectie ───────────────────────────────────────────────────────
+def _get_secrets(key: str, default: str = "") -> str:
+    """Haal secret op via st.secrets of os.environ."""
+    import os
+    try:
+        return st.secrets[key]
+    except:
+        return os.environ.get(key, default)
+
+
 def _get_supabase():
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    url = _get_secrets("SUPABASE_URL")
+    key = _get_secrets("SUPABASE_KEY")
     return create_client(url, key)
 
 def _hash(ww: str) -> str:
@@ -186,13 +195,13 @@ def stuur_reset_mail(email: str) -> bool:
             "reset_token_expiry": expiry,
         }).eq("id", user["id"]).execute()
 
-        app_url  = st.secrets.get("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
+        app_url  = _get_secrets("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
         reset_url = f"{app_url}?reset_token={token}"
 
-        afzender  = st.secrets.get("MAIL_FROM", "")
-        ww_mail   = st.secrets.get("MAIL_PASSWORD", "")
-        smtp_host = st.secrets.get("MAIL_HOST", "smtp.gmail.com")
-        smtp_port = int(st.secrets.get("MAIL_PORT", 587))
+        afzender  = _get_secrets("MAIL_FROM", "")
+        ww_mail   = _get_secrets("MAIL_PASSWORD", "")
+        smtp_host = _get_secrets("MAIL_HOST", "smtp.gmail.com")
+        smtp_port = int(_get_secrets("MAIL_PORT", 587))
 
         import smtplib
         from email.mime.multipart import MIMEMultipart
