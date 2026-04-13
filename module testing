@@ -1,1 +1,469 @@
+import streamlit as st
+from datetime import date, timedelta
 
+# ─── Constanten ───────────────────────────────────────────────────────────────
+SPORTEN = ["Fietsen", "Lopen", "Triatlon", "Duatlon", "Crosstriatlon"]
+
+SYMPTOMEN = [
+    "Geen klachten",
+    "Lichte maagkramp",
+    "Misselijkheid",
+    "Opgeblazen gevoel",
+    "Reflux / brandend maagzuur",
+    "Diarree",
+    "Overgeven",
+]
+
+INTENSITEITEN = ["Laag (Z1-Z2)", "Matig (Z2-Z3)", "Hoog (Z3-Z4)", "Wedstrijdintensiteit (Z4-Z5)"]
+
+# ─── Helper ───────────────────────────────────────────────────────────────────
+def _sectie(titel: str, kleur: str = "#f97316"):
+    st.markdown(
+        f'<div style="font-size:0.72rem;font-weight:700;color:{kleur};'
+        f'letter-spacing:2px;margin:18px 0 8px;">{titel}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _card(inhoud: str):
+    st.markdown(
+        f'<div style="background:#0f172a;border:1px solid #1e293b;'
+        f'border-radius:10px;padding:14px 16px;margin-bottom:10px;">{inhoud}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _score_kleur(score: int) -> str:
+    if score >= 4: return "#22c55e"
+    if score >= 3: return "#fbbf24"
+    return "#ef4444"
+
+
+def _score_label(score: int) -> str:
+    labels = {1: "Zeer slecht", 2: "Slecht", 3: "Matig", 4: "Goed", 5: "Uitstekend"}
+    return labels.get(score, "—")
+
+
+# ─── Stappen ──────────────────────────────────────────────────────────────────
+
+def _stap_intro():
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(30,58,138,0.1));
+                border:1px solid #8b5cf6;border-radius:12px;padding:20px;margin-bottom:20px;">
+        <div style="font-size:1.1rem;font-weight:800;color:#f8fafc;margin-bottom:8px;">
+            🧪 Voedingstesting
+        </div>
+        <div style="font-size:0.85rem;color:#94a3b8;line-height:1.7;">
+            Je maag moet getraind worden om voeding te verteren tijdens inspanning.
+            Deze module helpt je systematisch testen welke producten jij verdraagt
+            tijdens training — zodat je op racedag met vertrouwen kan eten en drinken.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        _card('<div style="font-size:1.4rem;margin-bottom:4px;">📅</div>'
+              '<div style="font-size:0.75rem;color:#64748b;">Duur</div>'
+              '<div style="font-weight:700;color:#f8fafc;">4–8 weken</div>')
+    with col2:
+        _card('<div style="font-size:1.4rem;margin-bottom:4px;">📈</div>'
+              '<div style="font-size:0.75rem;color:#64748b;">Aanpak</div>'
+              '<div style="font-weight:700;color:#f8fafc;">Oplopende hoeveelheden</div>')
+    with col3:
+        _card('<div style="font-size:1.4rem;margin-bottom:4px;">✅</div>'
+              '<div style="font-size:0.75rem;color:#64748b;">Doel</div>'
+              '<div style="font-weight:700;color:#f8fafc;">Wedstrijdproducten bepalen</div>')
+
+
+def _stap_profiel():
+    _sectie("JOUW PROFIEL")
+
+    data = st.session_state.get("testing_data", {})
+
+    col1, col2 = st.columns(2)
+    with col1:
+        sport = st.selectbox("Sport", SPORTEN,
+                             index=SPORTEN.index(data.get("sport", "Fietsen")),
+                             key="t_sport")
+        duur = st.number_input("Typische trainingsduur (min)", 30, 360,
+                                data.get("duur", 90), 15, key="t_duur")
+    with col2:
+        weken = st.number_input("Testperiode (weken)", 2, 12,
+                                 data.get("weken", 6), 1, key="t_weken")
+        start_datum = st.date_input("Startdatum", value=date.today(), key="t_startdatum")
+
+    target_kh = st.slider("KH-target op racedag (g/uur)", 30, 120,
+                           data.get("target_kh", 60), 5, key="t_target_kh")
+
+    st.markdown(f"""
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
+                padding:10px 14px;font-size:0.82rem;color:#94a3b8;">
+        💡 Je traint je maag van <b style="color:#f97316;">{round(target_kh*0.4)}g/uur</b>
+        naar <b style="color:#22c55e;">{target_kh}g/uur</b> over {weken} weken.
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Volgende →", key="t_prof_next", use_container_width=True):
+        st.session_state.testing_data = {
+            "sport": sport, "duur": duur, "weken": weken,
+            "start_datum": str(start_datum), "target_kh": target_kh,
+        }
+        st.session_state.testing_stap = 2
+        st.rerun()
+
+
+def _stap_producten():
+    _sectie("TE TESTEN PRODUCTEN")
+
+    data = st.session_state.get("testing_data", {})
+    producten = data.get("producten", [{"naam": "", "type": "Gel", "kh": 22}])
+
+    types = ["Gel", "Sportdrank", "Vast voedsel", "Cafeïnegel", "Supplement"]
+
+    st.markdown('<div style="font-size:0.75rem;color:#64748b;margin-bottom:8px;">'
+                'Voeg de producten toe die je wil testen tijdens training.</div>',
+                unsafe_allow_html=True)
+
+    n_prod = st.session_state.get("t_n_prod", len(producten))
+    nieuwe_producten = []
+
+    for i in range(n_prod):
+        prod = producten[i] if i < len(producten) else {"naam": "", "type": "Gel", "kh": 22}
+        c1, c2, c3, c4 = st.columns([3, 2, 1, 1])
+        with c1:
+            naam = st.text_input(f"Product {i+1}", value=prod.get("naam", ""),
+                                  key=f"t_prod_naam_{i}",
+                                  placeholder="bijv. Maurten Gel 100",
+                                  label_visibility="collapsed")
+        with c2:
+            ptype = st.selectbox("Type", types,
+                                  index=types.index(prod.get("type", "Gel")),
+                                  key=f"t_prod_type_{i}",
+                                  label_visibility="collapsed")
+        with c3:
+            kh = st.number_input("KH", 0, 100, prod.get("kh", 22),
+                                   key=f"t_prod_kh_{i}",
+                                   label_visibility="collapsed",
+                                   help="KH per portie")
+        with c4:
+            if n_prod > 1:
+                if st.button("✕", key=f"t_prod_del_{i}"):
+                    st.session_state["t_n_prod"] = n_prod - 1
+                    st.rerun()
+        nieuwe_producten.append({"naam": naam, "type": ptype, "kh": kh})
+
+    if st.button("＋ Product toevoegen", key="t_prod_add"):
+        st.session_state["t_n_prod"] = n_prod + 1
+        st.rerun()
+
+    col_terug, col_next = st.columns(2)
+    with col_terug:
+        if st.button("← Terug", key="t_prod_back"):
+            st.session_state.testing_stap = 1
+            st.rerun()
+    with col_next:
+        if st.button("Genereer testschema →", key="t_prod_next", use_container_width=True):
+            data["producten"] = [p for p in nieuwe_producten if p["naam"]]
+            if not data["producten"]:
+                st.error("Voeg minstens 1 product toe.")
+            else:
+                st.session_state.testing_data = data
+                st.session_state.testing_stap = 3
+                st.rerun()
+
+
+def _genereer_schema(data: dict) -> list:
+    """Genereer een testschema op basis van profiel en producten."""
+    weken    = data.get("weken", 6)
+    target   = data.get("target_kh", 60)
+    start    = date.fromisoformat(data.get("start_datum", str(date.today())))
+    producten = data.get("producten", [])
+    schema   = []
+
+    for w in range(1, weken + 1):
+        week_datum = start + timedelta(weeks=w - 1)
+        kh_doel    = round(target * 0.4 + (target * 0.6 * (w - 1) / max(weken - 1, 1)))
+        kh_doel    = min(kh_doel, target)
+
+        # Productkeuze roteren per week
+        prod = producten[(w - 1) % len(producten)] if producten else {}
+        porties = max(1, round(kh_doel / prod.get("kh", 22))) if prod.get("kh") else 1
+
+        schema.append({
+            "week":       w,
+            "datum":      week_datum,
+            "kh_doel":    kh_doel,
+            "product":    prod.get("naam", "—"),
+            "type":       prod.get("type", "Gel"),
+            "porties":    porties,
+            "intensiteit": INTENSITEITEN[min(w - 1, len(INTENSITEITEN) - 1)],
+        })
+
+    return schema
+
+
+def _stap_schema():
+    _sectie("TESTSCHEMA")
+
+    data   = st.session_state.get("testing_data", {})
+    schema = _genereer_schema(data)
+
+    st.markdown(f"""
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
+                padding:10px 14px;font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">
+        📋 Je testschema loopt over <b style="color:#f8fafc;">{data.get('weken',6)} weken</b>
+        en bouwt op van <b style="color:#f97316;">{schema[0]['kh_doel']}g/uur</b>
+        naar <b style="color:#22c55e;">{schema[-1]['kh_doel']}g/uur</b>.
+    </div>
+    """, unsafe_allow_html=True)
+
+    for week in schema:
+        pct = round((week["kh_doel"] / data.get("target_kh", 60)) * 100)
+        kleur = "#22c55e" if pct >= 90 else ("#fbbf24" if pct >= 60 else "#f97316")
+        st.markdown(f"""
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;
+                    padding:12px 14px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                <div>
+                    <span style="font-weight:700;color:#f8fafc;">Week {week['week']}</span>
+                    <span style="color:#64748b;font-size:0.8rem;margin-left:10px;">
+                        {week['datum'].strftime('%d/%m/%Y')}
+                    </span>
+                    <span style="background:rgba(139,92,246,0.15);color:#c4b5fd;
+                                 font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px;">
+                        {week['intensiteit']}
+                    </span>
+                </div>
+                <span style="color:{kleur};font-weight:700;">{week['kh_doel']}g/uur</span>
+            </div>
+            <div style="background:#1e293b;border-radius:4px;height:6px;overflow:hidden;margin-bottom:8px;">
+                <div style="width:{pct}%;height:100%;background:{kleur};border-radius:4px;"></div>
+            </div>
+            <div style="font-size:0.8rem;color:#94a3b8;">
+                🧪 <b style="color:#f8fafc;">{week['product']}</b>
+                &nbsp;·&nbsp; {week['porties']}x portie
+                &nbsp;·&nbsp; {week['type']}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    col_terug, col_log = st.columns(2)
+    with col_terug:
+        if st.button("← Terug", key="t_schema_back"):
+            st.session_state.testing_stap = 2
+            st.rerun()
+    with col_log:
+        if st.button("📝 Start logboek →", key="t_schema_next", use_container_width=True):
+            st.session_state.testing_data["schema"] = [
+                {**w, "datum": str(w["datum"])} for w in schema
+            ]
+            st.session_state.testing_stap = 4
+            st.rerun()
+
+
+def _stap_logboek():
+    _sectie("LOGBOEK")
+
+    data   = st.session_state.get("testing_data", {})
+    schema = data.get("schema", [])
+    logs   = st.session_state.get("testing_logs", {})
+
+    st.markdown('<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
+                'Vul na elke training in hoe je je voelde. Dit helpt je de juiste producten '
+                'te kiezen voor je wedstrijd.</div>', unsafe_allow_html=True)
+
+    for week in schema:
+        w   = week["week"]
+        log = logs.get(str(w), {})
+        ingevuld = log.get("ingevuld", False)
+
+        kleur_border = "#22c55e" if ingevuld else "#1e293b"
+        with st.expander(
+            f"Week {w} — {week['product']} ({week['kh_doel']}g/uur) "
+            f"{'✅' if ingevuld else '○'}",
+            expanded=not ingevuld and w == 1
+        ):
+            col1, col2 = st.columns(2)
+            with col1:
+                score = st.slider("Verdraagbaarheid (1=slecht, 5=uitstekend)",
+                                   1, 5, log.get("score", 3),
+                                   key=f"t_log_score_{w}")
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:{_score_kleur(score)};">'
+                    f'{_score_label(score)}</div>',
+                    unsafe_allow_html=True)
+            with col2:
+                symptoom = st.selectbox("Symptomen", SYMPTOMEN,
+                                         index=SYMPTOMEN.index(log.get("symptoom", "Geen klachten")),
+                                         key=f"t_log_symp_{w}")
+
+            notitie = st.text_area("Notitie (optioneel)",
+                                    value=log.get("notitie", ""),
+                                    key=f"t_log_notitie_{w}",
+                                    height=60,
+                                    placeholder="Hoe voelde je je? Extra opmerkingen...")
+
+            if st.button(f"Opslaan week {w}", key=f"t_log_save_{w}",
+                          use_container_width=True):
+                if "testing_logs" not in st.session_state:
+                    st.session_state.testing_logs = {}
+                st.session_state.testing_logs[str(w)] = {
+                    "score":    score,
+                    "symptoom": symptoom,
+                    "notitie":  notitie,
+                    "ingevuld": True,
+                }
+                st.success(f"✅ Week {w} opgeslagen!")
+                st.rerun()
+
+    # Rapport knop als alle weken ingevuld
+    ingevuld_count = sum(1 for w in schema if st.session_state.get("testing_logs", {}).get(str(w["week"]), {}).get("ingevuld"))
+    st.markdown(f"""
+    <div style="text-align:right;font-size:0.8rem;color:#64748b;margin:8px 0;">
+        {ingevuld_count}/{len(schema)} weken ingevuld
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_terug, col_rapport = st.columns(2)
+    with col_terug:
+        if st.button("← Schema", key="t_log_back"):
+            st.session_state.testing_stap = 3
+            st.rerun()
+    with col_rapport:
+        if st.button("📊 Bekijk rapport →", key="t_log_rapport",
+                      use_container_width=True):
+            st.session_state.testing_stap = 5
+            st.rerun()
+
+
+def _stap_rapport():
+    _sectie("TESTRAPPORT")
+
+    data    = st.session_state.get("testing_data", {})
+    schema  = data.get("schema", [])
+    logs    = st.session_state.get("testing_logs", {})
+    producten = data.get("producten", [])
+
+    st.markdown(f"""
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;
+                padding:16px;margin-bottom:16px;">
+        <div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin-bottom:8px;">
+            SAMENVATTING TESTPERIODE
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div style="text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#f97316;">
+                    {len([l for l in logs.values() if l.get('ingevuld')])}
+                </div>
+                <div style="font-size:0.75rem;color:#64748b;">trainingen gelogd</div>
+            </div>
+            <div style="text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#22c55e;">
+                    {len([l for l in logs.values() if l.get('score',0) >= 4])}
+                </div>
+                <div style="font-size:0.75rem;color:#64748b;">geslaagde tests</div>
+            </div>
+            <div style="text-align:center;">
+                <div style="font-size:1.6rem;font-weight:800;color:#f8fafc;">
+                    {data.get('target_kh',60)}g
+                </div>
+                <div style="font-size:0.75rem;color:#64748b;">KH/uur target</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Per product samenvatting
+    _sectie("PRODUCTRESULTATEN", "#8b5cf6")
+    prod_scores = {}
+    for w in schema:
+        log = logs.get(str(w["week"]), {})
+        if log.get("ingevuld"):
+            prod = w["product"]
+            if prod not in prod_scores:
+                prod_scores[prod] = []
+            prod_scores[prod].append(log.get("score", 0))
+
+    for prod, scores in prod_scores.items():
+        gem = round(sum(scores) / len(scores), 1)
+        kleur = _score_kleur(round(gem))
+        aanbevolen = gem >= 4
+        st.markdown(f"""
+        <div style="background:#0f172a;border:1px solid {'#22c55e' if aanbevolen else '#1e293b'};
+                    border-radius:10px;padding:12px 14px;margin-bottom:8px;
+                    display:flex;justify-content:space-between;align-items:center;">
+            <div>
+                <div style="font-weight:700;color:#f8fafc;">{prod}</div>
+                <div style="font-size:0.75rem;color:#64748b;">{len(scores)} test(s)</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:1.2rem;font-weight:800;color:{kleur};">{gem}/5</div>
+                <div style="font-size:10px;color:{'#22c55e' if aanbevolen else '#ef4444'};">
+                    {'✅ Aanbevolen voor racedag' if aanbevolen else '⚠️ Verder testen of vermijden'}
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Aanbeveling
+    _sectie("AANBEVELING VOOR RACEDAG", "#22c55e")
+    aanbevolen_prod = [p for p, s in prod_scores.items() if sum(s)/len(s) >= 4]
+    if aanbevolen_prod:
+        st.success(f"✅ Gebruik op racedag: **{', '.join(aanbevolen_prod)}**")
+        st.markdown(
+            f'<div style="font-size:0.82rem;color:#94a3b8;margin-top:8px;">'
+            f'Je hebt aangetoond dat je maag {data.get("target_kh",60)}g KH/uur verdraagt '
+            f'met deze producten. Gebruik enkel geteste producten op racedag.</div>',
+            unsafe_allow_html=True)
+    else:
+        st.warning("Nog geen producten met score ≥ 4. Ga verder met testen.")
+
+    if st.button("← Terug naar logboek", key="t_rapport_back"):
+        st.session_state.testing_stap = 4
+        st.rerun()
+
+
+# ─── Hoofdfunctie ─────────────────────────────────────────────────────────────
+
+def render_testing(user: dict):
+    st.markdown("""
+    <div style="font-size:2rem;font-weight:900;letter-spacing:3px;
+                color:#f8fafc;margin-bottom:4px;">
+        CAR<span style="color:#f97316;">BOO</span>
+        <span style="font-size:0.9rem;color:#8b5cf6;font-weight:700;
+                     letter-spacing:2px;margin-left:10px;">TESTING</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    stap = st.session_state.get("testing_stap", 1)
+
+    # Voortgangsbalk
+    stappen = ["Intro", "Profiel", "Producten", "Schema", "Logboek", "Rapport"]
+    cols = st.columns(len(stappen))
+    for i, (col, naam) in enumerate(zip(cols, stappen)):
+        actief = (i + 1) == stap
+        kleur = "#f97316" if actief else ("#22c55e" if i + 1 < stap else "#334155")
+        col.markdown(
+            f'<div style="text-align:center;font-size:10px;font-weight:700;'
+            f'color:{kleur};border-bottom:2px solid {kleur};padding-bottom:4px;">'
+            f'{naam}</div>',
+            unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if stap == 1:
+        _stap_intro()
+        if st.button("Start voedingstesting →", key="t_start", use_container_width=True):
+            st.session_state.testing_stap = 2
+            st.rerun()
+    elif stap == 2:
+        _stap_profiel()
+    elif stap == 3:
+        _stap_producten()
+    elif stap == 4:
+        _stap_schema()
+    elif stap == 5:
+        _stap_logboek()
+    elif stap == 6:
+        _stap_rapport()
