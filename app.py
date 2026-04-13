@@ -165,25 +165,25 @@ module = st.session_state.module
 controleer_betaling_url()
 
 if module == "menu":
-    # ── Moduledashboard ──────────────────────────────────────────────────────
     st.markdown("""
-    <div style="text-align:center;padding:16px 0 8px;">
-        <div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin-bottom:6px;">JOUW NUTRITION TOOLS</div>
-        <div style="font-size:1.3rem;font-weight:800;color:#f8fafc;">Kies een module</div>
+    <div style="text-align:center;padding:16px 0 20px;">
+        <div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin-bottom:6px;">
+            JOUW NUTRITION TOOLS</div>
+        <div style="font-size:1.3rem;font-weight:800;color:#f8fafc;">
+            Kies een module om te starten</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── BESCHIKBARE MODULE — groot weergegeven ────────────────────────────────
-    st.markdown('<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin:14px 0 8px;">BESCHIKBAAR</div>', unsafe_allow_html=True)
+    # ── Race Nutrition Plan — groot ───────────────────────────────────────────
     st.markdown("""
-    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #f97316;
-                border-radius:16px;padding:28px 24px;margin-bottom:6px;">
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
+                border:2px solid #f97316;border-radius:16px;padding:24px;
+                margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:16px;">
             <div style="font-size:2.5rem;">🏁</div>
             <div>
                 <div style="font-size:1.2rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">
-                    Race Nutrition
-                </div>
+                    Race Nutrition Plan</div>
                 <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
                     Carboloading · Laatste maaltijd · Uur-per-uur raceplan · PDF rapport
                 </div>
@@ -191,50 +191,60 @@ if module == "menu":
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Start Race Nutrition Plan →", key="mod_coach", use_container_width=True):
+    if st.button("🏁  Start Race Nutrition Plan", key="mod_coach",
+                 use_container_width=True):
         st.session_state.module = "coach"
         st.rerun()
 
-    # ── CARBOO PRO ────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Admin modules ─────────────────────────────────────────────────────────
+    if is_admin:
+        st.markdown(
+            '<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;'
+            'font-weight:700;margin-bottom:10px;">EXTRA MODULES — ENKEL ADMIN</div>',
+            unsafe_allow_html=True)
+        st.markdown("""
+        <div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:12px;
+                    padding:18px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="font-size:1.8rem;">🧪</div>
+                <div>
+                    <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
+                        Train the Gut</div>
+                    <div style="font-size:0.78rem;color:#64748b;">
+                        Systematisch de maag trainen met oplopende KH-hoeveelheden.</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🧪  Open Train the Gut", key="open_testing",
+                     use_container_width=True):
+            st.session_state.module = "testing"
+            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Binnenkort beschikbaar ────────────────────────────────────────────────
+    st.markdown(
+        '<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;'
+        'margin-bottom:10px;">BINNENKORT BESCHIKBAAR</div>',
+        unsafe_allow_html=True)
     st.markdown("""
-    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px;">
-        <div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;font-weight:700;">CARBOO PRO</div>
-        <div style="flex:1;height:1px;background:#1e293b;"></div>
-        <div style="font-size:10px;color:#64748b;font-style:italic;">Enkel voor admin</div>
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;
+                padding:18px;filter:blur(0px);opacity:0.6;">
+        <div style="display:flex;align-items:center;gap:14px;">
+            <div style="font-size:1.8rem;">🔄</div>
+            <div>
+                <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
+                    Race Weight Plan</div>
+                <div style="font-size:0.78rem;color:#64748b;">
+                    Optimaal gewichtsplan richting je wedstrijd.</div>
+                <div style="font-size:10px;color:#f97316;margin-top:4px;">
+                    Binnenkort beschikbaar</div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-
-    if is_admin:
-        st.markdown('<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;font-weight:700;margin:24px 0 10px;">EXTRA MODULES — ENKEL ADMIN</div>', unsafe_allow_html=True)
-        PRO_MODULES = [
-            {"key": "testing",   "icon": "🧪", "titel": "Train the Gut",
-             "sub": "Systematisch de maag trainen met oplopende KH-hoeveelheden.",
-             "module": "testing", "beschikbaar": True},
-            {"key": "meerdaags", "icon": "🗓", "titel": "Meerdaagse wedstrijden & stages",
-             "sub": "Dag per dag nutrition voor etappewedstrijden en stage races.",
-             "module": None, "beschikbaar": False},
-            {"key": "elektro",   "icon": "⚡", "titel": "Elektrolytenplan",
-             "sub": "Natrium & vochtbalans bij extreme omstandigheden.",
-             "module": None, "beschikbaar": False},
-            {"key": "recup",     "icon": "🔄", "titel": "Recuperatie",
-             "sub": "Optimaal herstelplan na wedstrijd — KH, eiwit en timing.",
-             "module": None, "beschikbaar": False},
-        ]
-        col_l, col_r = st.columns(2)
-        with col_l:
-            st.markdown('''<div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🧪</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Train the Gut</div><div style="font-size:0.75rem;color:#64748b;">Systematisch de maag trainen.</div></div>''', unsafe_allow_html=True)
-            if st.button("Open Train the Gut →", key="open_testing", use_container_width=True):
-                st.session_state.module = "testing"
-                st.rerun()
-        with col_r:
-            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🗓</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Meerdaagse wedstrijden</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
-        col_l2, col_r2 = st.columns(2)
-        col_l2, col_r2 = st.columns(2)
-        with col_l2:
-            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🔄</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Race Weight Plan</div><div style="font-size:0.75rem;color:#64748b;">Optimaal gewichtsplan richting je wedstrijd.</div><div style="font-size:10px;color:#f97316;margin-top:6px;">Binnenkort beschikbaar</div></div>''', unsafe_allow_html=True)
-        with col_r2:
-            pass
-    render_coach(user)
 
 elif module == "carbomax":
     render_carbomax()
