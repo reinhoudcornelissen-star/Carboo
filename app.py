@@ -3,10 +3,22 @@ import streamlit.components.v1
 from login import render_login_page, render_admin_panel, render_wachtwoord_reset
 from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
-from carbomax import render_carbomax
-from raceprep import render_raceprep
-from optimeal import render_optimeal
-from carboo_assets import MASCOT_B64 as CARBOO_AVATAR
+try:
+    from carbomax import render_carbomax
+except ImportError:
+    def render_carbomax(): st.info("Module niet beschikbaar.")
+try:
+    from raceprep import render_raceprep
+except ImportError:
+    def render_raceprep(): st.info("Module niet beschikbaar.")
+try:
+    from optimeal import render_optimeal
+except ImportError:
+    def render_optimeal(): st.info("Module niet beschikbaar.")
+try:
+    from carboo_assets import MASCOT_B64 as CARBOO_AVATAR
+except ImportError:
+    CARBOO_AVATAR = ""
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
