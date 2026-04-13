@@ -90,7 +90,10 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ─── INGELOGD ─────────────────────────────────────────────────────────────────
-user = st.session_state.current_user
+user = st.session_state.get("current_user")
+if not user:
+    st.session_state.logged_in = False
+    st.rerun()
 naam = user.get("name", "Atleet")
 is_admin = user.get("role") == "admin"
 
