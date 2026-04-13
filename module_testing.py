@@ -15,6 +15,25 @@ INTENSITEITEN = [
     "Z1 — Actief herstel", "Z2 — Duurtraining", "Z3 — Tempo",
     "Z4 — Drempeltraining", "Z5 — Wedstrijdintensiteit",
 ]
+
+# Zelfde KH targets als Race Nutrition Plan (carboo_coach.py)
+KH_TARGETS = {
+    "Fietsen":      {(0,75):(0,0),(75,120):(30,60),(120,180):(60,90),(180,9999):(85,110)},
+    "Lopen":        {(0,60):(0,0),(60,90):(30,60),(90,180):(60,90),(180,9999):(75,90)},
+    "Duatlon":      {(0,60):(0,0),(60,120):(30,60),(120,9999):(60,90)},
+    "Triatlon":     {(0,90):(0,0),(90,180):(60,90),(180,9999):(80,110)},
+    "Crosstriatlon":{(0,90):(0,0),(90,180):(60,90),(180,9999):(75,100)},
+}
+
+def _get_richtlijn(sport, duur_min):
+    """Geeft (kh_min, kh_max) op basis van sport en wedstrijdduur."""
+    ranges = KH_TARGETS.get(sport, KH_TARGETS["Fietsen"])
+    for (lo, hi), (mn, mx) in ranges.items():
+        if lo <= duur_min < hi:
+            return mn, mx
+    return 0, 0
+
+
 SPORT_START_PCT = {
     "Fietsen": 0.40, "Lopen": 0.30, "Triatlon": 0.35,
     "Duatlon": 0.35, "Crosstriatlon": 0.35,
@@ -116,7 +135,7 @@ def _stap_intro():
         <div style="font-size:0.85rem;color:#94a3b8;line-height:1.8;">
             Tijdens intensieve inspanning vermindert de bloedtoevoer naar je maag.
             Dit maakt het moeilijker om voeding te verteren. Door systematisch te trainen
-            went je maag aan grotere hoeveelheden koolhydraten — tot 90g of meer per uur.
+            went je maag aan grotere hoeveelheden koolhydraten.
             <br><br>
             Onderzoek toont aan dat atleten die hun maag trainen
             <b style="color:#f97316;">significant minder maagklachten</b>
@@ -124,20 +143,6 @@ def _stap_intro():
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-    for col, icon, lbl, val in [
-        (c1,"📅","Duur","4–8 weken"),
-        (c2,"📈","Aanpak","Oplopende KH"),
-        (c3,"🎯","Doel","90g/uur tolerantie"),
-    ]:
-        col.markdown(
-            f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
-            f'padding:14px;text-align:center;">'
-            f'<div style="font-size:1.4rem;">{icon}</div>'
-            f'<div style="font-size:10px;color:#64748b;margin:4px 0;">{lbl}</div>'
-            f'<div style="font-weight:700;color:#f8fafc;font-size:0.85rem;">{val}</div>'
-            f'</div>', unsafe_allow_html=True)
 
     _sectie("HOE WERKT HET?")
     for nr, naam, uitleg in [
@@ -166,36 +171,85 @@ def _stap_profiel():
     with c1:
         sport = st.selectbox("Sport", SPORTEN,
                               index=SPORTEN.index(data.get("sport","Fietsen")), key="tg_sport")
-        weken = st.number_input("Testperiode (weken)", 4, 12, int(data.get("weken",6)), 1, key="tg_weken")
-        target_kh = st.slider("KH-target op racedag (g/uur)", 30, 120, int(data.get("target_kh",60)), 5, key="tg_target")
+        wedstrijd_datum = st.date_input("Wedstrijddatum",
+                                         value=date.fromisoformat(data.get("wedstrijd_datum", str(date.today() + timedelta(weeks=8)))),
+                                         key="tg_wedstrijddatum")
+        wedstrijd_duur = st.number_input("Geschatte wedstrijdduur (min)", 30, 600,
+                                          int(data.get("wedstrijd_duur", 180)), 15,
+                                          key="tg_wedstrijdduur")
+        erv_weken = st.number_input("Weken ervaring met wedstrijdvoeding", 0, 200,
+                                     int(data.get("erv_weken", 0)), 1,
+                                     key="tg_erv_weken",
+                                     help="0 = geen ervaring, meer weken = meer ervaring")
     with c2:
+        weken = 6  # vast op 6 weken
         duur = st.number_input("Typische trainingsduur (min)", 45, 360, int(data.get("duur",90)), 15, key="tg_duur")
-        start_datum = st.date_input("Startdatum", value=date.today(), key="tg_start")
         niveau = st.selectbox("Niveau", ["Recreatief","Competitief","Elite"],
                                index=["Recreatief","Competitief","Elite"].index(data.get("niveau","Recreatief")),
                                key="tg_niveau")
+        start_datum = st.date_input("Startdatum eerste testtraining",
+                                     value=date.today(), key="tg_start")
+
+    _sectie("WEDSTRIJDOMSTANDIGHEDEN")
+    c3, c4, c5 = st.columns(3)
+    with c3:
+        wedstrijd_plaats = st.text_input("Plaats van wedstrijd",
+                                          value=data.get("wedstrijd_plaats",""),
+                                          placeholder="bijv. Gent, Mallorca",
+                                          key="tg_plaats")
+        temp = st.number_input("Verwachte temperatuur (°C)", -10, 50,
+                                int(data.get("temp",16)), 1, key="tg_temp")
+    with c4:
+        hoogte = st.number_input("Hoogte (m)", 0, 5000,
+                                  int(data.get("hoogte",0)), 50, key="tg_hoogte")
+        vochtigheid = st.number_input("Luchtvochtigheid (%)", 0, 100,
+                                       int(data.get("vochtigheid",60)), 5, key="tg_vochtigheid")
+    with c5:
+        maag_gevoelig = st.selectbox("Gevoelige maag?",
+                                      ["Altijd met sportvoeding", "Af en toe", "Nooit"],
+                                      index=["Altijd met sportvoeding","Af en toe","Nooit"].index(
+                                          data.get("maag_gevoelig","Af en toe")),
+                                      key="tg_maag")
+
+    # KH target slider met richtlijn
+    kh_min_r, kh_max_r = _get_richtlijn(sport, wedstrijd_duur)
+    target_kh = st.slider("KH-target op racedag (g/uur)", 0, 120,
+                           int(data.get("target_kh", max(kh_min_r, 30))), 5, key="tg_target")
+
+    # Richtlijn weergave — simpele tekst onder schuifbalk
+    if kh_max_r > 0:
+        st.markdown(
+            f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">' +
+            f'Richtlijn literatuur: <b style="color:#f8fafc;">{kh_min_r}–{kh_max_r}g/uur</b></div>',
+            unsafe_allow_html=True)
+    else:
+        st.markdown(
+            '<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">' +
+            'Richtlijn literatuur: <b style="color:#f8fafc;">geen extra KH nodig</b> voor deze duur</div>',
+            unsafe_allow_html=True)
 
     start_kh = round(target_kh * SPORT_START_PCT.get(sport, 0.35) / 5) * 5
+    toename = round((target_kh - start_kh) / weken, 1) if weken > 1 else 0
     st.markdown(f"""
     <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
-                padding:12px 14px;margin-top:10px;font-size:0.82rem;color:#94a3b8;">
+                padding:10px 14px;margin-top:8px;font-size:0.82rem;color:#94a3b8;">
         📋 Je begint op <b style="color:#f97316;">{start_kh}g/uur</b> en bouwt op naar
         <b style="color:#22c55e;">{target_kh}g/uur</b> over {weken} weken
-        (+{round((target_kh-start_kh)/weken,1)}g per week).
+        (+{toename}g per week).
     </div>
     """, unsafe_allow_html=True)
-
-    if sport == "Lopen":
-        st.markdown(
-            '<div style="background:rgba(139,92,246,0.1);border:1px solid #8b5cf6;'
-            'border-radius:8px;padding:10px 14px;font-size:0.8rem;color:#c4b5fd;margin-top:8px;">'
-            '💡 Voor lopen wordt conservatiever gestart — de maag heeft meer moeite '
-            'bij loopbewegingen.</div>', unsafe_allow_html=True)
 
     if st.button("Volgende →", key="tg_prof_next", use_container_width=True):
         st.session_state.tg_data = {
             "sport": sport, "weken": weken, "target_kh": target_kh,
             "duur": duur, "start_datum": str(start_datum), "niveau": niveau,
+            "wedstrijd_datum": str(wedstrijd_datum),
+            "wedstrijd_duur": wedstrijd_duur,
+            "erv_weken": erv_weken,
+            "wedstrijd_plaats": wedstrijd_plaats,
+            "temp": temp, "hoogte": hoogte,
+            "vochtigheid": vochtigheid,
+            "maag_gevoelig": maag_gevoelig,
         }
         st.session_state.tg_stap = 3
         st.rerun()
@@ -208,59 +262,38 @@ def _stap_producten():
     opgeslagen = data.get("producten", [{"naam":"","type":"Gel","kh":22,"ml":0}])
     n = st.session_state.get("tg_n_prod", len(opgeslagen))
 
-    st.markdown(
-        '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:12px;">'
-        'Voeg de producten toe die je wil testen. Carboo roteert ze doorheen het schema. '
-        'Voeg meerdere types toe om te vergelijken.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:12px;">'
+                'Voeg de producten toe die je wil testen voor de wedstrijd.</div>',
+                unsafe_allow_html=True)
 
-    h1, h2, h3, h4, h5 = st.columns([3,2,1,1,1])
-    for col, lbl in [(h1,"Product naam"),(h2,"Type"),(h3,"KH/portie"),(h4,"ml/portie"),(h5,"")]:
+    h1, h2, h3, h4 = st.columns([3,2,1,1])
+    for col, lbl in [(h1,'Product naam'),(h2,'Type'),(h3,'KH/portie'),(h4,'')]:
         col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>', unsafe_allow_html=True)
 
     producten = []
     for i in range(n):
-        p = opgeslagen[i] if i < len(opgeslagen) else {"naam":"","type":"Gel","kh":22,"ml":0}
-        c1,c2,c3,c4,c5 = st.columns([3,2,1,1,1])
+        p = opgeslagen[i] if i < len(opgeslagen) else {'naam':'','type':'Gel','kh':22}
+        c1,c2,c3,c4 = st.columns([3,2,1,1])
         with c1:
-            naam = st.text_input(f"n{i}", value=p.get("naam",""),
-                                  placeholder="bijv. Maurten Gel 100",
-                                  key=f"tg_pnaam_{i}", label_visibility="collapsed")
+            naam = st.text_input(f'n{i}', value=p.get('naam',''),
+                                  placeholder='Productnaam',
+                                  key=f'tg_pnaam_{i}', label_visibility='collapsed')
         with c2:
-            idx_t = PRODUCT_TYPES.index(p.get("type","Gel")) if p.get("type") in PRODUCT_TYPES else 0
-            ptype = st.selectbox(f"t{i}", PRODUCT_TYPES, index=idx_t,
-                                  key=f"tg_ptype_{i}", label_visibility="collapsed")
+            idx_t = PRODUCT_TYPES.index(p.get('type','Gel')) if p.get('type') in PRODUCT_TYPES else 0
+            ptype = st.selectbox(f't{i}', PRODUCT_TYPES, index=idx_t,
+                                  key=f'tg_ptype_{i}', label_visibility='collapsed')
         with c3:
-            kh = st.number_input(f"k{i}", 0, 120, int(p.get("kh",22)),
-                                   key=f"tg_pkh_{i}", label_visibility="collapsed")
+            kh = st.number_input(f'k{i}', 0, 120, int(p.get('kh',22)),
+                                   key=f'tg_pkh_{i}', label_visibility='collapsed')
         with c4:
-            ml = st.number_input(f"m{i}", 0, 1000, int(p.get("ml",0)),
-                                  key=f"tg_pml_{i}", label_visibility="collapsed")
-        with c5:
-            if n > 1 and st.button("✕", key=f"tg_pdel_{i}"):
-                st.session_state["tg_n_prod"] = n - 1
+            if n > 1 and st.button('✕', key=f'tg_pdel_{i}'):
+                st.session_state['tg_n_prod'] = n - 1
                 st.rerun()
-        producten.append({"naam":naam,"type":ptype,"kh":kh,"ml":ml})
+        producten.append({'naam':naam,'type':ptype,'kh':kh})
 
-    if st.button("＋ Product toevoegen", key="tg_padd"):
-        st.session_state["tg_n_prod"] = n + 1
+    if st.button('＋ Product toevoegen', key='tg_padd'):
+        st.session_state['tg_n_prod'] = n + 1
         st.rerun()
-
-    with st.expander("📋 Voorbeeldproducten met KH-waarden"):
-        voor = [
-            ("Maurten Gel 100","Gel",25,0),("SIS Go Gel","Gel",22,0),
-            ("Maurten 320 (500ml)","Sportdrank",80,500),
-            ("SIS Beta Fuel (500ml)","Sportdrank",80,500),
-            ("Rijstwafel","Vast voedsel",25,0),("Banaan","Vast voedsel",23,0),
-            ("Maurten Gel 100 CAF","Cafeïnegel",25,0),
-        ]
-        for nm, pt, kh, ml in voor:
-            st.markdown(
-                f'<div style="display:flex;justify-content:space-between;padding:4px 0;'
-                f'font-size:12px;border-bottom:1px solid #1e293b;">'
-                f'<span style="color:#f8fafc;">{nm}</span>'
-                f'<span style="color:#64748b;">{pt} · {kh}g KH'
-                f'{f" · {ml}ml" if ml else ""}</span></div>',
-                unsafe_allow_html=True)
 
     c_terug, c_next = st.columns(2)
     with c_terug:
