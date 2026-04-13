@@ -246,6 +246,9 @@ if module == "menu":
     </div>
     """, unsafe_allow_html=True)
 
+elif module == "coach":
+    render_coach(user)
+
 elif module == "carbomax":
     render_carbomax()
 
