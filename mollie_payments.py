@@ -10,10 +10,18 @@ PAKKETTEN = [
 ]
 
 def _get_mollie_key():
-    return st.secrets.get("MOLLIE_API_KEY", "")
+    import os
+    try:
+        return st.secrets.get("MOLLIE_API_KEY", "")
+    except:
+        return os.environ.get("MOLLIE_API_KEY", "")
 
 def _get_app_url():
-    return st.secrets.get("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
+    import os
+    try:
+        return st.secrets.get("APP_URL", "")
+    except:
+        return os.environ.get("APP_URL", "https://carboo-z9tbmypf2zc56jzqjwc6bo.streamlit.app")
 
 def verifieer_mollie_betaling(payment_id: str) -> dict | None:
     """Verifieer betaling status rechtstreeks bij Mollie API."""
