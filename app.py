@@ -182,7 +182,7 @@ if module == "menu":
             <div style="font-size:2.5rem;">🏁</div>
             <div>
                 <div style="font-size:1.2rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">
-                    Race Nutrition Coach
+                    Race Nutrition
                 </div>
                 <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
                     Carboloading · Laatste maaltijd · Uur-per-uur raceplan · PDF rapport
@@ -191,7 +191,7 @@ if module == "menu":
         </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button("Start Race Nutrition Coach →", key="mod_coach", use_container_width=True):
+    if st.button("Start Race Nutrition Plan →", key="mod_coach", use_container_width=True):
         st.session_state.module = "coach"
         st.rerun()
 
@@ -229,11 +229,11 @@ if module == "menu":
         with col_r:
             st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🗓</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Meerdaagse wedstrijden</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
         col_l2, col_r2 = st.columns(2)
+        col_l2, col_r2 = st.columns(2)
         with col_l2:
-            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">⚡</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Elektrolytenplan</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
+            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🔄</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Race Weight Plan</div><div style="font-size:0.75rem;color:#64748b;">Optimaal gewichtsplan richting je wedstrijd.</div><div style="font-size:10px;color:#f97316;margin-top:6px;">Binnenkort beschikbaar</div></div>''', unsafe_allow_html=True)
         with col_r2:
-            st.markdown('''<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;"><div style="font-size:1.6rem;margin-bottom:6px;">🔄</div><div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Recuperatie</div><div style="font-size:0.75rem;color:#64748b;">Binnenkort beschikbaar.</div></div>''', unsafe_allow_html=True)
-elif module == "coach":
+            pass
     render_coach(user)
 
 elif module == "carbomax":
