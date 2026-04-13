@@ -59,12 +59,17 @@ def _stuur_registratie_mail(naam: str, email: str):
 
 # ─── Supabase connectie ───────────────────────────────────────────────────────
 def _get_secrets(key: str, default: str = "") -> str:
-    """Haal secret op via st.secrets of os.environ."""
+    """Haal secret op via os.environ of st.secrets."""
     import os
+    # Probeer eerst os.environ (Render/Railway)
+    val = os.environ.get(key, "")
+    if val:
+        return val
+    # Fallback naar st.secrets (Streamlit Cloud)
     try:
         return st.secrets[key]
     except:
-        return os.environ.get(key, default)
+        return default
 
 
 def _get_supabase():
