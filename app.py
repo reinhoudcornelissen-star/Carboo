@@ -91,9 +91,9 @@ if not st.session_state.logged_in:
 
 # ─── INGELOGD ─────────────────────────────────────────────────────────────────
 user = st.session_state.get("current_user")
-if not user:
-    st.session_state.logged_in = False
-    st.rerun()
+if not user or not st.session_state.get("logged_in"):
+    render_login_page()
+    st.stop()
 naam = user.get("name", "Atleet")
 is_admin = user.get("role") == "admin"
 
