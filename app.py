@@ -167,34 +167,84 @@ controleer_betaling_url()
 if module == "menu":
     # ── Moduledashboard ──────────────────────────────────────────────────────
     st.markdown("""
-    <div style="text-align:center;padding:20px 0 10px;">
-        <div style="font-size:0.75rem;color:#64748b;letter-spacing:3px;margin-bottom:6px;">JOUW NUTRITION TOOLS</div>
-        <div style="font-size:1.4rem;font-weight:800;color:#f8fafc;">Kies een module om te starten</div>
+    <div style="text-align:center;padding:16px 0 8px;">
+        <div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin-bottom:6px;">JOUW NUTRITION TOOLS</div>
+        <div style="font-size:1.3rem;font-weight:800;color:#f8fafc;">Kies een module</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Actieve modules
-    st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:16px 0 8px;">BESCHIKBAAR</div>', unsafe_allow_html=True)
-    if st.button("🏁  Race Nutrition Coach — Carboloading · Raceplan · PDF rapport", key="mod_coach", use_container_width=True):
+    # ── BESCHIKBARE MODULE — groot weergegeven ────────────────────────────────
+    st.markdown('<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin:14px 0 8px;">BESCHIKBAAR</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:2px solid #f97316;
+                border-radius:16px;padding:28px 24px;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+            <div style="font-size:2.5rem;">🏁</div>
+            <div>
+                <div style="font-size:1.2rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">
+                    Race Nutrition Coach
+                </div>
+                <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
+                    Carboloading · Laatste maaltijd · Uur-per-uur raceplan · PDF rapport
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Start Race Nutrition Coach →", key="mod_coach", use_container_width=True):
         st.session_state.module = "coach"
         st.rerun()
 
-    # In ontwikkeling
-    st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:20px 0 8px;">IN ONTWIKKELING</div>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🧪  Voedingstesting\nTrainingschema voor maagtraining", key="mod_testing", use_container_width=True):
-            st.session_state.module = "testing"
-            st.rerun()
-        st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:12px 0 8px;"></div>', unsafe_allow_html=True)
-        if st.button("⚡  Natrium & vochtbalans\nElektrolytenplan bij extreme hitte", key="mod_natrium", use_container_width=True):
-            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
-    with col2:
-        if st.button("🗓  Meerdaagse wedstrijden\nEtappewedstrijden & stage races", key="mod_meerdaags", use_container_width=True):
-            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
-        st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:12px 0 8px;"></div>', unsafe_allow_html=True)
-        if st.button("🔄  Recuperatie\nHerstelplan na wedstrijd", key="mod_recup", use_container_width=True):
-            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
+    # ── CARBOO PRO ────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="display:flex;align-items:center;gap:10px;margin:24px 0 10px;">
+        <div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;font-weight:700;">CARBOO PRO</div>
+        <div style="flex:1;height:1px;background:#1e293b;"></div>
+        <div style="font-size:10px;color:#64748b;font-style:italic;">Enkel voor admin</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    PRO_MODULES = [
+        {"key": "testing",   "icon": "🧪", "titel": "Train the Gut",
+         "sub": "Systematisch de maag trainen met oplopende KH-hoeveelheden.",
+         "module": "testing"},
+        {"key": "meerdaags", "icon": "🗓", "titel": "Meerdaagse wedstrijden & stages",
+         "sub": "Dag per dag nutrition voor etappewedstrijden en stage races.",
+         "module": None},
+        {"key": "elektro",   "icon": "⚡", "titel": "Elektrolytenplan",
+         "sub": "Natrium & vochtbalans bij extreme omstandigheden.",
+         "module": None},
+        {"key": "recup",     "icon": "🔄", "titel": "Recuperatie",
+         "sub": "Optimaal herstelplan na wedstrijd — KH, eiwit en timing.",
+         "module": None},
+    ]
+
+    cols_pro = st.columns(2)
+    for i, mod in enumerate(PRO_MODULES):
+        with cols_pro[i % 2]:
+            beschikbaar = mod["module"] is not None
+            # Tegel met blur voor niet-admin
+            blur_css = "" if is_admin else "filter:blur(3px);pointer-events:none;user-select:none;"
+            st.markdown(f"""
+            <div style="{blur_css}background:#0f172a;border:1px solid #2d1b69;
+                        border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;">
+                <div style="font-size:1.6rem;margin-bottom:6px;">{mod['icon']}</div>
+                <div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">
+                    {mod['titel']}</div>
+                <div style="font-size:0.75rem;color:#64748b;line-height:1.5;">
+                    {mod['sub']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if is_admin and beschikbaar:
+                if st.button(f"Open {mod['titel']}", key=f"mod_{mod['key']}",
+                             use_container_width=True):
+                    st.session_state.module = mod["module"]
+                    st.rerun()
+            elif is_admin and not beschikbaar:
+                st.markdown('<div style="font-size:11px;color:#4a5568;text-align:center;'
+                             'margin-top:-6px;margin-bottom:8px;">Binnenkort beschikbaar</div>',
+                             unsafe_allow_html=True)
+
 
 elif module == "coach":
     render_coach(user)
