@@ -51,7 +51,7 @@ def _stap_intro():
     <div style="background:linear-gradient(135deg,rgba(139,92,246,0.1),rgba(30,58,138,0.1));
                 border:1px solid #8b5cf6;border-radius:12px;padding:20px;margin-bottom:20px;">
         <div style="font-size:1.1rem;font-weight:800;color:#f8fafc;margin-bottom:8px;">
-            🧪 Voedingstesting
+            🧪 Train the Gut
         </div>
         <div style="font-size:0.85rem;color:#94a3b8;line-height:1.7;">
             Je maag moet getraind worden om voeding te verteren tijdens inspanning.
@@ -432,7 +432,7 @@ def render_testing(user: dict):
                 color:#f8fafc;margin-bottom:4px;">
         CAR<span style="color:#f97316;">BOO</span>
         <span style="font-size:0.9rem;color:#8b5cf6;font-weight:700;
-                     letter-spacing:2px;margin-left:10px;">TESTING</span>
+                     letter-spacing:2px;margin-left:10px;">TRAIN THE GUT</span>
     </div>
     """, unsafe_allow_html=True)
 
