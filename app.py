@@ -4,6 +4,10 @@ from login import render_login_page, render_admin_panel, render_wachtwoord_reset
 from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
 try:
+    from module_testing import render_testing
+except ImportError:
+    def render_testing(user): st.info("Module nog niet beschikbaar.")
+try:
     from carbomax import render_carbomax
 except ImportError:
     def render_carbomax(): st.info("Module niet beschikbaar.")
@@ -161,7 +165,36 @@ module = st.session_state.module
 controleer_betaling_url()
 
 if module == "menu":
-    render_coach(user)
+    # ── Moduledashboard ──────────────────────────────────────────────────────
+    st.markdown("""
+    <div style="text-align:center;padding:20px 0 10px;">
+        <div style="font-size:0.75rem;color:#64748b;letter-spacing:3px;margin-bottom:6px;">JOUW NUTRITION TOOLS</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#f8fafc;">Kies een module om te starten</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Actieve modules
+    st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:16px 0 8px;">BESCHIKBAAR</div>', unsafe_allow_html=True)
+    if st.button("🏁  Race Nutrition Coach — Carboloading · Raceplan · PDF rapport", key="mod_coach", use_container_width=True):
+        st.session_state.module = "coach"
+        st.rerun()
+
+    # In ontwikkeling
+    st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:20px 0 8px;">IN ONTWIKKELING</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🧪  Voedingstesting\nTrainingschema voor maagtraining", key="mod_testing", use_container_width=True):
+            st.session_state.module = "testing"
+            st.rerun()
+        st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:12px 0 8px;"></div>', unsafe_allow_html=True)
+        if st.button("⚡  Natrium & vochtbalans\nElektrolytenplan bij extreme hitte", key="mod_natrium", use_container_width=True):
+            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
+    with col2:
+        if st.button("🗓  Meerdaagse wedstrijden\nEtappewedstrijden & stage races", key="mod_meerdaags", use_container_width=True):
+            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
+        st.markdown('<div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;margin:12px 0 8px;"></div>', unsafe_allow_html=True)
+        if st.button("🔄  Recuperatie\nHerstelplan na wedstrijd", key="mod_recup", use_container_width=True):
+            st.markdown('<div style="background:rgba(249,115,22,0.1);border:1px solid #f97316;border-radius:8px;padding:10px;font-size:0.82rem;color:#fed7aa;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
 
 elif module == "coach":
     render_coach(user)
@@ -308,6 +341,12 @@ elif module == "rapport":
             st.markdown("<br>", unsafe_allow_html=True)
             st.components.v1.html(html, height=3000, scrolling=True)
 
+
+elif module == "testing":
+    render_testing(user)
+    if st.button("← Terug naar modules", key="testing_terug"):
+        st.session_state.module = "menu"
+        st.rerun()
 
 elif module == "credits":
     _uid   = st.session_state.get("current_user", {}).get("id", "")
