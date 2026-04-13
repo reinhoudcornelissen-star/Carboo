@@ -204,46 +204,41 @@ if module == "menu":
     </div>
     """, unsafe_allow_html=True)
 
-    PRO_MODULES = [
-        {"key": "testing",   "icon": "🧪", "titel": "Train the Gut",
-         "sub": "Systematisch de maag trainen met oplopende KH-hoeveelheden.",
-         "module": "testing"},
-        {"key": "meerdaags", "icon": "🗓", "titel": "Meerdaagse wedstrijden & stages",
-         "sub": "Dag per dag nutrition voor etappewedstrijden en stage races.",
-         "module": None},
-        {"key": "elektro",   "icon": "⚡", "titel": "Elektrolytenplan",
-         "sub": "Natrium & vochtbalans bij extreme omstandigheden.",
-         "module": None},
-        {"key": "recup",     "icon": "🔄", "titel": "Recuperatie",
-         "sub": "Optimaal herstelplan na wedstrijd — KH, eiwit en timing.",
-         "module": None},
-    ]
-
-    cols_pro = st.columns(2)
-    for i, mod in enumerate(PRO_MODULES):
-        with cols_pro[i % 2]:
-            beschikbaar = mod["module"] is not None
-            # Tegel met blur voor niet-admin
-            blur_css = "" if is_admin else "filter:blur(3px);pointer-events:none;user-select:none;"
-            st.markdown(f"""
-            <div style="{blur_css}background:#0f172a;border:1px solid #2d1b69;
-                        border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;">
-                <div style="font-size:1.6rem;margin-bottom:6px;">{mod['icon']}</div>
-                <div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">
-                    {mod['titel']}</div>
-                <div style="font-size:0.75rem;color:#64748b;line-height:1.5;">
-                    {mod['sub']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if is_admin and beschikbaar:
-                if st.button(f"Open {mod['titel']}", key=f"mod_{mod['key']}",
-                             use_container_width=True):
-                    st.session_state.module = mod["module"]
-                    st.rerun()
-            elif is_admin and not beschikbaar:
-                st.markdown('<div style="font-size:11px;color:#4a5568;text-align:center;'
-                             'margin-top:-6px;margin-bottom:8px;">Binnenkort beschikbaar</div>',
-                             unsafe_allow_html=True)
+    if is_admin:
+        st.markdown('<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;font-weight:700;margin:24px 0 10px;">EXTRA MODULES — ENKEL ADMIN</div>', unsafe_allow_html=True)
+        PRO_MODULES = [
+            {"key": "testing",   "icon": "🧪", "titel": "Train the Gut",
+             "sub": "Systematisch de maag trainen met oplopende KH-hoeveelheden.",
+             "module": "testing", "beschikbaar": True},
+            {"key": "meerdaags", "icon": "🗓", "titel": "Meerdaagse wedstrijden & stages",
+             "sub": "Dag per dag nutrition voor etappewedstrijden en stage races.",
+             "module": None, "beschikbaar": False},
+            {"key": "elektro",   "icon": "⚡", "titel": "Elektrolytenplan",
+             "sub": "Natrium & vochtbalans bij extreme omstandigheden.",
+             "module": None, "beschikbaar": False},
+            {"key": "recup",     "icon": "🔄", "titel": "Recuperatie",
+             "sub": "Optimaal herstelplan na wedstrijd — KH, eiwit en timing.",
+             "module": None, "beschikbaar": False},
+        ]
+        cols_pro = st.columns(2)
+        for i, mod in enumerate(PRO_MODULES):
+            with cols_pro[i % 2]:
+                st.markdown(f"""
+                <div style="background:#0f172a;border:1px solid {'#8b5cf6' if mod['beschikbaar'] else '#1e293b'};
+                            border-radius:12px;padding:18px;margin-bottom:10px;min-height:110px;">
+                    <div style="font-size:1.6rem;margin-bottom:6px;">{mod['icon']}</div>
+                    <div style="font-size:0.92rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">
+                        {mod['titel']}</div>
+                    <div style="font-size:0.75rem;color:#64748b;line-height:1.5;">
+                        {mod['sub']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                if mod["beschikbaar"]:
+                    if st.button(f"Open →", key=f"mod_{mod['key']}", use_container_width=True):
+                        st.session_state.module = mod["module"]
+                        st.rerun()
+                else:
+                    st.markdown('<div style="font-size:11px;color:#4a5568;text-align:center;margin-top:-6px;margin-bottom:8px;">Binnenkort beschikbaar</div>', unsafe_allow_html=True)
 
 
 elif module == "coach":
