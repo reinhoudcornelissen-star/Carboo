@@ -3170,9 +3170,9 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     story.append(HRFlowable(width=breed, thickness=0.5, color=ORANJE, spaceAfter=8))
 
     # Strip breedte
-    STRIP_B   = 4.5 * cm
+    STRIP_B   = 4.0 * cm
     COL_TIJD  = 1.0 * cm
-    COL_LIJN  = 0.3 * cm
+    COL_LIJN  = 0.5 * cm
     COL_BADGE = STRIP_B - COL_TIJD - COL_LIJN
 
     from datetime import datetime as DT3, timedelta as TD3
@@ -3202,9 +3202,14 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                  textColor=colors.HexColor("#1e293b"), leading=9)
 
     for uur_data in uren:
+        u_num3   = uur_data["uur"]
         u_start3 = uur_data["uur_start"]
-        items3   = uur_data["items"]
         is_last3 = uur_data["is_last"]
+        # Gebruik preview_uren (wat gebruiker ingesteld heeft) net als raceplan
+        if str(u_num3) in preview_uren and preview_uren[str(u_num3)]:
+            items3 = preview_uren[str(u_num3)]
+        else:
+            items3 = uur_data["items"]
 
         ipm3 = dd3(list)
         for item in items3:
@@ -3237,14 +3242,14 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                 kh3 = f"({item['kh']}g)" if item["kh"] > 0 else ""
                 wml3 = item.get("water_ml", 0)
                 if wml3 > 0 and item["emoji"] not in ["🥤","💧"]:
-                    w3 = f"+{wml3}ml"
+                    w3 = f'<font color="#64748b">[H2O] +{wml3}ml</font>'
                 elif item["emoji"] == "🥤" and wml3 > 0:
-                    w3 = f"≈{max(1,int(wml3/_slok3+0.5))}slk"
+                    w3 = f'<font color="#64748b">≈{max(1,int(wml3/_slok3+0.5))} slokjes</font>'
                 else:
                     w3 = ""
                 line3 = f'<font color="{bh3}"><b>[{bd3}]</b></font> {nm3}{kh3}'
                 if w3:
-                    line3 += f'<br/><font size="6" color="#64748b"> {w3}</font>'
+                    line3 += f"<br/>{w3}"
                 parts3.append(line3)
 
             b_cel = Paragraph("<br/>".join(parts3), s_badge)
