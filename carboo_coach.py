@@ -171,7 +171,10 @@ Je verdient (geld)prijzen met je sport. Prestatie staat centraal.
 
     # ── Logo upload ───────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
-    _sectie_header("LOGO OP RAPPORT (optioneel)", "#64748b", "🖼️")
+    st.markdown(
+        '<div style="font-size:0.72rem;font-weight:700;color:#64748b;'
+        'letter-spacing:2px;margin:18px 0 6px;">🖼️ LOGO OP RAPPORT (optioneel)</div>',
+        unsafe_allow_html=True)
     st.markdown(
         '<div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;">'
         'Upload je club- of teamlogo. Dit verschijnt professioneel op de PDF rapporten.</div>',
