@@ -373,7 +373,10 @@ elif module == "rapport":
                         try:
                             from carboo_coach import _genereer_pdf
                             gn = st.session_state.get("current_user",{}).get("name","Atleet")
-                            pdf_bytes = _genereer_pdf(data, gn)
+                            data_pdf = dict(data)
+                            data_pdf["logo_b64"]  = st.session_state.get("coach_logo_b64", "")
+                            data_pdf["logo_mime"] = st.session_state.get("coach_logo_mime", "image/png")
+                            pdf_bytes = _genereer_pdf(data_pdf, gn)
                             st.session_state["rapport_pdf"] = pdf_bytes
                             st.rerun()
                         except Exception as e:
