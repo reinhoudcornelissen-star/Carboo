@@ -2498,6 +2498,15 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         return [hdr_t, Spacer(1, 6)]
 
 
+    atleet         = data.get("atleet_naam", gebruiker_naam)
+    wedstrijd_naam = data.get("wedstrijd_naam", "")
+    sport          = data.get("sport", "—")
+    niveau         = data.get("niveau", "—")
+    gewicht        = data.get("gewicht", "—")
+    datum          = data.get("wedstrijd_datum", "—")
+    start          = data.get("start_time", "—")
+    eind           = data.get("eind_time", "—")
+
     for blok in maak_header("RACE NUTRITION PLAN", wedstrijd_naam.upper()):
         story.append(blok)
     story.append(Spacer(1, 10))
@@ -2505,14 +2514,6 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     # Atleet & wedstrijd
     story.append(Paragraph("ATLEET & WEDSTRIJD", s_sectie))
     story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
-    atleet        = data.get("atleet_naam", gebruiker_naam)
-    wedstrijd_naam = data.get("wedstrijd_naam", "")
-    sport         = data.get("sport", "—")
-    niveau        = data.get("niveau", "—")
-    gewicht       = data.get("gewicht", "—")
-    datum         = data.get("wedstrijd_datum", "—")
-    start         = data.get("start_time", "—")
-    eind          = data.get("eind_time", "—")
     totmin   = data.get("totale_min", 0)
     duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
     temp     = data.get("temp", "—")
