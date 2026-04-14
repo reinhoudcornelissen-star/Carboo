@@ -296,7 +296,9 @@ def _stap_intro():
 # ── Stap 2: Profiel ───────────────────────────────────────────────────────────
 def _stap_profiel():
     _sectie("JOUW TRAININGSPROFIEL")
-    data = st.session_state.get("tg_data", {})
+    data    = st.session_state.get("tg_data", {})
+    weken   = 6
+    ERV_OPTIES = ["Nog nooit","2-4 wedstrijden","5-10 wedstrijden","Meer dan 10 wedstrijden"]
 
     c1, c2 = st.columns(2)
     with c1:
@@ -307,49 +309,59 @@ def _stap_profiel():
                                          value=date.fromisoformat(data.get("wedstrijd_datum",
                                              str(date.today() + timedelta(weeks=8)))),
                                          key="tg_wedstrijddatum")
-        wd_uur = st.number_input("Wedstrijdduur — uur", 0, 20,
-                                  int(data.get("wedstrijd_duur", 180)) // 60,
-                                  1, key="tg_wd_uur")
-        wd_min = st.number_input("Wedstrijdduur — minuten", 0, 55,
-                                  int(data.get("wedstrijd_duur", 180)) % 60,
-                                  5, key="tg_wd_min")
-        wedstrijd_duur = wd_uur * 60 + wd_min
-        ERV_OPTIES = ["Nog nooit","2-4 wedstrijden","5-10 wedstrijden","Meer dan 10 wedstrijden"]
+        # Wedstrijdduur als vrij tekstveld — formaat 3u15
+        wd_raw = st.text_input("Geschatte wedstrijdduur (bv. 3u15 of 2u30)",
+                                value=data.get("wedstrijd_duur_str",""),
+                                placeholder="bijv. 3u15",
+                                key="tg_wd_raw")
+        # Parse uur en minuten
+        import re as _re
+        _m = _re.match(r"(\d+)u(\d+)?", wd_raw.strip().lower())
+        if _m:
+            wedstrijd_duur = int(_m.group(1)) * 60 + int(_m.group(2) or 0)
+        else:
+            wedstrijd_duur = int(data.get("wedstrijd_duur", 180))
+
         ervaring = st.selectbox("Ervaring met wedstrijdvoeding", ERV_OPTIES,
                                  index=ERV_OPTIES.index(data.get("ervaring","Nog nooit")),
                                  key="tg_ervaring")
+        heeft_erv = ervaring != "Nog nooit"
 
     with c2:
-        weken = 6
         niveau = st.selectbox("Niveau", ["Recreatief","Competitief","Elite"],
                                index=["Recreatief","Competitief","Elite"].index(
                                    data.get("niveau","Recreatief")),
                                key="tg_niveau")
-        start_datum = st.date_input("Startdatum eerste testtraining",
-                                     value=date.today(), key="tg_start")
         maag_gevoelig = st.selectbox("Gevoelige maag?",
-                                      ["Altijd met sportvoeding","Af en toe","Nooit"],
-                                      index=["Altijd met sportvoeding","Af en toe","Nooit"].index(
-                                          data.get("maag_gevoelig","Af en toe")),
+                                      ["Nooit","Af en toe","Altijd met sportvoeding"],
+                                      index=["Nooit","Af en toe","Altijd met sportvoeding"].index(
+                                          data.get("maag_gevoelig","Nooit")),
                                       key="tg_maag")
-        huidige_inname = st.number_input("Geschatte inname KH/uur in wedstrijd (g)",
-                                          0, 150, int(data.get("huidige_inname",40)),
-                                          5, key="tg_huidige_inname")
+        # Geschatte inname KH — enkel bij ervaring
+        huidige_inname = 0
+        if heeft_erv:
+            huidige_inname = st.number_input(
+                "Geschatte inname KH tijdens vorige wedstrijden (g/uur)",
+                0, 150, int(data.get("huidige_inname",40)), 5,
+                key="tg_huidige_inname")
 
-    # Eetmomenten en drinkmomenten
-    _sectie("INNAME PATROON")
-    c3, c4 = st.columns(2)
-    with c3:
-        eetmomenten = st.radio("Hoeveel eetmomenten per uur?", [1,2,3],
-                                index=[1,2,3].index(int(data.get("eetmomenten",2))),
-                                key="tg_eetmomenten", horizontal=True)
-    with c4:
-        drinkmomenten = st.radio("Hoeveel drinkmomenten per uur?", [1,2,3],
-                                  index=[1,2,3].index(int(data.get("drinkmomenten",2))),
-                                  key="tg_drinkmomenten", horizontal=True)
+    # Inname patroon — enkel bij ervaring
+    eetmomenten  = int(data.get("eetmomenten",2))
+    drinkmomenten = int(data.get("drinkmomenten",2))
+    if heeft_erv:
+        _sectie("INNAME PATROON BIJ VORIGE WEDSTRIJDEN")
+        c3, c4 = st.columns(2)
+        with c3:
+            eetmomenten = st.radio("Hoeveel eetmomenten per uur?", [1,2,3],
+                                    index=[1,2,3].index(eetmomenten),
+                                    key="tg_eetmomenten", horizontal=True)
+        with c4:
+            drinkmomenten = st.radio("Hoeveel drinkmomenten per uur?", [1,2,3],
+                                      index=[1,2,3].index(drinkmomenten),
+                                      key="tg_drinkmomenten", horizontal=True)
 
     # KH target slider
-    _sectie("KH TARGET")
+    _sectie("KH TARGET RACEDAG")
     kh_min_r, kh_max_r = _get_richtlijn(sport, wedstrijd_duur)
     target_kh = st.slider("KH-target op racedag (g/uur)", 0, 120,
                            int(data.get("target_kh", max(kh_min_r, 30))), 5, key="tg_target")
@@ -366,47 +378,45 @@ def _stap_profiel():
 
     start_kh = round(target_kh * SPORT_START_PCT.get(sport, 0.35) / 5) * 5
 
-    # Extra vragen bij maaglast
+    # Maagklachten — enkel bij Altijd of Af en toe
     klachten_producten = data.get("klachten_producten","")
     klachten_lijst     = data.get("klachten_lijst",[])
-    klachten_bij       = data.get("klachten_bij","")
     laatste_maaltijd   = data.get("laatste_maaltijd","")
     uren_voor_start    = data.get("uren_voor_start",3)
     vocht_voor_start   = data.get("vocht_voor_start",500)
 
     if maag_gevoelig in ["Altijd met sportvoeding","Af en toe"]:
-        _sectie("EXTRA INFORMATIE MAAGKLACHTEN", "#ef4444" if maag_gevoelig=="Altijd met sportvoeding" else "#fbbf24")
+        kleur_s = "#ef4444" if maag_gevoelig=="Altijd met sportvoeding" else "#fbbf24"
+        _sectie("MAAGKLACHTEN BIJ VORIGE WEDSTRIJDEN", kleur_s)
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:10px;">' +
+            'De vragen hieronder gaan over ervaringen uit vorige wedstrijden.</div>',
+            unsafe_allow_html=True)
 
         klachten_producten = st.text_area(
-            "Welke producten gebruik je momenteel?",
+            "Welke producten gebruik(te) je?",
             value=klachten_producten, key="tg_kl_prod", height=68,
             placeholder="bijv. Maurten gels, SIS sportdrank, rijstwafels...")
 
-        if maag_gevoelig == "Af en toe":
-            klachten_bij = st.text_area(
-                "Bij welke producten krijg je soms klachten?",
-                value=klachten_bij, key="tg_kl_bij", height=68,
-                placeholder="bijv. geconcentreerde gels, fructosedranken...")
-
         KLACHTEN_OPTIES = ["Misselijkheid","Krampen","Opgeblazen gevoel","Diarree"]
         klachten_lijst = st.multiselect(
-            "Welke klachten ervaar je?", KLACHTEN_OPTIES,
+            "Welke klachten had je?", KLACHTEN_OPTIES,
             default=[k for k in data.get("klachten_lijst",[]) if k in KLACHTEN_OPTIES],
             key="tg_kl_lijst")
 
         c5, c6 = st.columns(2)
         with c5:
             laatste_maaltijd = st.text_area(
-                "Samenstelling laatste maaltijd",
+                "Samenstelling laatste maaltijd voor de wedstrijd",
                 value=laatste_maaltijd, key="tg_lm", height=68,
                 placeholder="bijv. pasta, rijst, brood, havermout...")
             uren_voor_start = st.number_input(
-                "Uren voor start", 1, 6, int(uren_voor_start), 1,
-                key="tg_uren_start")
+                "Hoeveel uur voor de start at je de laatste maaltijd?",
+                1, 6, int(uren_voor_start), 1, key="tg_uren_start")
         with c6:
             vocht_voor_start = st.number_input(
-                "Vocht voor wedstrijd (ml)", 0, 2000,
-                int(vocht_voor_start), 100, key="tg_vocht_start")
+                "Hoeveel ml dronk je voor de wedstrijd?",
+                0, 2000, int(vocht_voor_start), 100, key="tg_vocht_start")
 
     # Wedstrijdomstandigheden
     _sectie("WEDSTRIJDOMSTANDIGHEDEN")
@@ -427,16 +437,15 @@ def _stap_profiel():
     if st.button("Volgende →", key="tg_prof_next", use_container_width=True):
         st.session_state.tg_data = {
             "sport": sport, "weken": weken, "target_kh": target_kh,
-            "start_datum": str(start_datum), "niveau": niveau,
+            "niveau": niveau, "ervaring": ervaring,
             "wedstrijd_datum": str(wedstrijd_datum),
             "wedstrijd_duur": wedstrijd_duur,
-            "ervaring": ervaring,
+            "wedstrijd_duur_str": wd_raw,
             "maag_gevoelig": maag_gevoelig,
             "huidige_inname": huidige_inname,
             "eetmomenten": eetmomenten,
             "drinkmomenten": drinkmomenten,
             "klachten_producten": klachten_producten,
-            "klachten_bij": klachten_bij,
             "klachten_lijst": klachten_lijst,
             "laatste_maaltijd": laatste_maaltijd,
             "uren_voor_start": uren_voor_start,
