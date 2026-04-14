@@ -1445,7 +1445,7 @@ def _stap_raceplan():
         sport      = data.get("sport", "Fietsen")
         totale_min = data.get("totale_min", 180)
         temp       = data.get("temp", 18)
-        vochtigheid = data.get("vochtigheid", 50)
+        vochtigheid = int(data.get("vochtigheid", 50) or 50)
         hoogte     = data.get("hoogte", 0)
         start_str  = data.get("start_time", "09:00")
         gewicht    = data.get("gewicht", 70)
@@ -1521,7 +1521,7 @@ def _stap_raceplan():
         )
 
         # Vocht berekening
-        basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 400)
+        basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 400)
         f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
         # Sportniveau-correctie: enkel Elite/Semi-pro +5%
         niveau_factor = 1.05 if niveau == "Elite / Semi-pro" else 1.0
@@ -2105,12 +2105,12 @@ def _bereken_raceplan(data: dict) -> list:
     from datetime import datetime, timedelta
 
     pool        = data.get("pool", {})
-    totale_min  = data.get("totale_min", 180)
+    totale_min  = int(data.get("totale_min", 180) or 180)
     min_kh      = data.get("min_kh", 60)
     max_kh      = data.get("max_kh", 90)
-    temp        = data.get("temp", 18)
-    hoogte      = data.get("hoogte", 0)
-    vochtigheid = data.get("vochtigheid", 50)
+    temp        = int(data.get("temp", 18) or 18)
+    hoogte      = int(data.get("hoogte", 0) or 0)
+    vochtigheid = int(data.get("vochtigheid", 50) or 50)
     start_str   = data.get("start_time", "09:00")
     sport       = data.get("sport", "Fietsen")
     start_dt    = datetime.strptime(start_str, "%H:%M")
@@ -2119,7 +2119,7 @@ def _bereken_raceplan(data: dict) -> list:
     geen_kh_drempel = {"Fietsen": 75, "Lopen": 60, "Duatlon": 75, "Crossduatlon": 90}
     geen_kh = totale_min < geen_kh_drempel.get(sport, 75)
 
-    basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 500)
+    basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 500)
     f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
     vocht_per_m = round(((basis_vocht * (1 + f_factor)) / 3) / 10) * 10
 
@@ -2514,7 +2514,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     # Atleet & wedstrijd
     story.append(Paragraph("ATLEET & WEDSTRIJD", s_sectie))
     story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
-    totmin   = data.get("totale_min", 0)
+    totmin   = int(data.get("totale_min", 0) or 0)
     duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
     temp     = data.get("temp", "—")
     vocht    = data.get("vochtigheid", "—")
@@ -3368,7 +3368,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     datum         = data.get("wedstrijd_datum", "—")
     start         = data.get("start_time", "—")
     eind          = data.get("eind_time", "—")
-    totmin   = data.get("totale_min", 0)
+    totmin   = int(data.get("totale_min", 0) or 0)
     duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
     temp     = data.get("temp", "—")
     vocht    = data.get("vochtigheid", "—")
@@ -4026,7 +4026,7 @@ def _stap_samenvatting():
         max_kh = data.get("max_kh", 90)
         temp = data.get("temp", 18)
         hoogte = data.get("hoogte", 0)
-        vochtigheid = data.get("vochtigheid", 50)
+        vochtigheid = int(data.get("vochtigheid", 50) or 50)
         start_dt = datetime.strptime(data.get("start_time", "09:00"), "%H:%M")
         aantal_uren = math.ceil(totale_min / 60)
 
@@ -4038,7 +4038,7 @@ def _stap_samenvatting():
             </div>
             """, unsafe_allow_html=True)
         else:
-            basis_vocht = 800 if temp > 25 else (600 if temp > 15 else 500)
+            basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 500)
             f_factor = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
             vocht_per_m = round(((basis_vocht * (1 + f_factor)) / 3) / 10) * 10
 
