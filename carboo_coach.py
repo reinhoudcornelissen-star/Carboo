@@ -267,13 +267,13 @@ def _stap_wedstrijd():
     col4, col5 = st.columns(2)
     with col4:
         temp = st.number_input("🌡️ Verwachte temperatuur (°C)", -10, 50,
-            data.get("temp", 18), key="w_temp")
+            int(data.get("temp", 18) or 18), key="w_temp")
     with col5:
         vochtigheid = st.number_input("💧 Vochtigheid (%)", 0, 100,
-            data.get("vochtigheid", 50), key="w_vocht")
+            int(data.get("vochtigheid", 50) or 50), key="w_vocht")
 
     hoogte = st.number_input("⛰️ Hoogte boven zeeniveau (m)", 0, 5000,
-        data.get("hoogte", 0), key="w_hoogte")
+        int(data.get("hoogte", 0) or 0), key="w_hoogte")
 
     start_dt = datetime.combine(datetime.today(), start_time)
     eind_dt = datetime.combine(datetime.today(), eind_time)
@@ -286,8 +286,8 @@ def _stap_wedstrijd():
     st.markdown(f"""
     <div style="background:rgba(59,130,246,0.1); border:1px solid #3b82f6; padding:14px; 
          border-radius:10px; margin:16px 0; text-align:center; color:#93c5fd; font-weight:700;">
-        ⏱️ Duur: {totale_min // 60}u{totale_min % 60:02d}m &nbsp;|&nbsp;
-        📊 {math.ceil(totale_min/60)} uur te plannen
+        ⏱️ Duur: {totale_min // 60}u{int(totale_min or 0) % 60:02d}m &nbsp;|&nbsp;
+        📊 {math.ceil(int(totale_min or 0) / 60)} uur te plannen
     </div>
     """, unsafe_allow_html=True)
 
@@ -315,8 +315,8 @@ def _stap_wedstrijd():
 
 def _stap_carboloading():
     data       = st.session_state.get("coach_data", {})
-    gewicht    = data.get("gewicht", 70)
-    totale_min = data.get("totale_min", 180)
+    gewicht    = int(data.get("gewicht", 70) or 70)
+    totale_min = int(data.get("totale_min", 180) or 180)
 
     # Herstel groene status bij terugkeren
     for k, v in data.get("cl_status", {}).items():
@@ -787,7 +787,7 @@ def _stap_carboloading():
 def _stap_racedag():
     data           = st.session_state.get("coach_data", {})
     start_time_str = data.get("start_time", "09:00")
-    gewicht        = data.get("gewicht", 70)
+    gewicht        = int(data.get("gewicht", 70) or 70)
     # KH richtlijn afhankelijk van timing (wetenschappelijk: g/kg/uur voor de start)
     # Wordt pas correct berekend na timing keuze — hier als fallback
     kh_min = round(gewicht * 1)
@@ -1157,7 +1157,7 @@ def _stap_raceplan():
     data = st.session_state.get("coach_data", {})
     # Sport + duur balk + wetenschappelijke adviezen (geen KH grammen)
     _sport     = data.get("sport", "")
-    _tot_min   = data.get("totale_min", 0)
+    _tot_min   = int(data.get("totale_min", 0) or 0)
     _sport_icon = SPORT_ICONS.get(_sport, "🏅")
 
     # Adviezen per sport per tijdsduur
@@ -1266,12 +1266,12 @@ def _stap_raceplan():
         )
 
     # ORS / hitte melding in adviesbalk
-    _temp_val  = data.get("temp", 18)
-    _vocht_val = data.get("vochtigheid", 50)
+    _temp_val  = int(data.get("temp", 18) or 18)
+    _vocht_val = int(data.get("vochtigheid", 50) or 50)
     _pool_data = data.get("pool", {})
     _supp_data = _pool_data.get("supplementen", {})
     _ors_naam  = _supp_data.get("ors_naam", "") if isinstance(_supp_data, dict) else ""
-    _tot_min_adv = data.get("totale_min", 0)
+    _tot_min_adv = int(data.get("totale_min", 0) or 0)
     if _tot_min_adv >= 120 and _temp_val >= 25:
         if _temp_val >= 28:
             # Extreme hitte
@@ -1443,18 +1443,18 @@ def _stap_raceplan():
 
         data       = st.session_state.get("coach_data", {})
         sport      = data.get("sport", "Fietsen")
-        totale_min = data.get("totale_min", 180)
-        temp       = data.get("temp", 18)
-        vochtigheid = int(data.get("vochtigheid", 50) or 50)
-        hoogte     = data.get("hoogte", 0)
+        totale_min = int(data.get("totale_min", 180) or 180)
+        temp       = int(data.get("temp", 18) or 18)
+        vochtigheid = int(int(data.get("vochtigheid", 50) or 50) or 50)
+        hoogte     = int(data.get("hoogte", 0) or 0)
         start_str  = data.get("start_time", "09:00")
-        gewicht    = data.get("gewicht", 70)
+        gewicht    = int(data.get("gewicht", 70) or 70)
         niveau     = data.get("niveau", "Recreatief")
         ervaring   = data.get("ervaring", "Eerste wedstrijd")
         min_kh     = data.get("min_kh", 60)
         max_kh     = data.get("max_kh", 90)
         start_dt   = datetime.strptime(start_str, "%H:%M")
-        aantal_uren = math.ceil(totale_min / 60)
+        aantal_uren = math.ceil(int(totale_min or 0) / 60)
 
         # ── Sport-fase labels ──────────────────────────────────────────────────
         FASE_LABELS = {
@@ -1500,7 +1500,7 @@ def _stap_raceplan():
 
         # ── Geen KH drempel ───────────────────────────────────────────────────
         geen_kh_drempel = {"Fietsen": 75, "Lopen": 60, "Duatlon": 75, "Crossduatlon": 90}
-        geen_kh = totale_min < geen_kh_drempel.get(sport, 75)
+        geen_kh = int(totale_min or 0) < geen_kh_drempel.get(sport, 75)
 
         # ── Globale instellingen ──────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
@@ -1522,7 +1522,7 @@ def _stap_raceplan():
 
         # Vocht berekening
         basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 400)
-        f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
+        f_factor    = (int(hoogte or 0) / 1000) * 0.15 + (0.15 if int(vochtigheid or 0) > 70 else 0)
         # Sportniveau-correctie: enkel Elite/Semi-pro +5%
         niveau_factor = 1.05 if niveau == "Elite / Semi-pro" else 1.0
 
@@ -1643,7 +1643,7 @@ def _stap_raceplan():
             u_num    = u + 1
             is_last  = (u == aantal_uren - 1)
             # rest_min altijd beschikbaar — ook voor niet-laatste uren
-            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
+            rest_min = int(totale_min or 0) % 60 if int(totale_min or 0) % 60 != 0 else 60
             uur_start = start_dt + timedelta(hours=u)
             cur_min  = round(min_kh * 0.6) if is_last else min_kh
             cur_max  = round(max_kh * 0.6) if is_last else max_kh
@@ -1662,7 +1662,7 @@ def _stap_raceplan():
             if geen_kh or (fase and "Geen inname" in fase[2]):
                 _uur_tip = "💧 Enkel water of mondspoeling"
             elif is_last:
-                _rest_tip = totale_min % 60 if totale_min % 60 != 0 else 60
+                _rest_tip = int(totale_min or 0) % 60 if int(totale_min or 0) % 60 != 0 else 60
                 _vocht_tip = round(vocht_uur * (_rest_tip / 60))
                 if _rest_tip < 15:
                     _kh_tip = "geen KH meer"
@@ -1891,7 +1891,7 @@ def _stap_raceplan():
             # ── Vocht balk kleur ──────────────────────────────────────────────
             # Laatste uur: vochttarget op basis van resterende minuten
             if is_last:
-                _rest = totale_min % 60 if totale_min % 60 != 0 else 60
+                _rest = int(totale_min or 0) % 60 if int(totale_min or 0) % 60 != 0 else 60
                 vocht_target_uur = round(vocht_uur * (_rest / 60))
             else:
                 vocht_target_uur = vocht_uur
@@ -2105,22 +2105,31 @@ def _bereken_raceplan(data: dict) -> list:
     from datetime import datetime, timedelta
 
     pool        = data.get("pool", {})
-    totale_min  = int(data.get("totale_min", 180) or 180)
+
+    def _pool_item(key):
+        """Haal eerste item uit pool — werkt voor zowel dict als lijst."""
+        val = pool.get(key, {})
+        if isinstance(val, list) and val:
+            return val[0]
+        if isinstance(val, dict) and val:
+            return val
+        return {}
+    totale_min  = int(int(data.get("totale_min", 180) or 180) or 180)
     min_kh      = data.get("min_kh", 60)
     max_kh      = data.get("max_kh", 90)
-    temp        = int(data.get("temp", 18) or 18)
-    hoogte      = int(data.get("hoogte", 0) or 0)
-    vochtigheid = int(data.get("vochtigheid", 50) or 50)
+    temp        = int(int(data.get("temp", 18) or 18) or 18)
+    hoogte      = int(int(data.get("hoogte", 0) or 0) or 0)
+    vochtigheid = int(int(data.get("vochtigheid", 50) or 50) or 50)
     start_str   = data.get("start_time", "09:00")
     sport       = data.get("sport", "Fietsen")
     start_dt    = datetime.strptime(start_str, "%H:%M")
-    aantal_uren = math.ceil(totale_min / 60)
+    aantal_uren = math.ceil(int(totale_min or 0) / 60)
 
     geen_kh_drempel = {"Fietsen": 75, "Lopen": 60, "Duatlon": 75, "Crossduatlon": 90}
-    geen_kh = totale_min < geen_kh_drempel.get(sport, 75)
+    geen_kh = int(totale_min or 0) < geen_kh_drempel.get(sport, 75)
 
     basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 500)
-    f_factor    = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
+    f_factor    = (int(hoogte or 0) / 1000) * 0.15 + (0.15 if int(vochtigheid or 0) > 70 else 0)
     vocht_per_m = round(((basis_vocht * (1 + f_factor)) / 3) / 10) * 10
 
     uren = []
@@ -2131,7 +2140,7 @@ def _bereken_raceplan(data: dict) -> list:
         is_last  = (u == aantal_uren - 1)
         if is_last:
             # Schaal KH target op basis van resterende minuten
-            rest_min = totale_min % 60 if totale_min % 60 != 0 else 60
+            rest_min = int(totale_min or 0) % 60 if int(totale_min or 0) % 60 != 0 else 60
             if rest_min < 15:
                 cur_min, cur_max = 0, 0
             elif rest_min < 31:
@@ -2154,7 +2163,7 @@ def _bereken_raceplan(data: dict) -> list:
             items.append({"min": "40min", "emoji": "💧", "naam": "Water / mondspoeling", "kh": 0, "water_ml": vocht_per_m})
         else:
             if pool.get("drank"):
-                d = pool["drank"][0]
+                d = _pool_item("drank")
                 naam_d = d.get("naam", d.get("name", "Sportdrank"))
                 kh_per_m = round((d["kh"] / 500) * vocht_per_m)
                 for label in ["20min", "40min", "60min"]:
@@ -2164,13 +2173,13 @@ def _bereken_raceplan(data: dict) -> list:
                     uur_kh += kh_per_m
 
             if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
-                c = pool["cafe"][0]
+                c = _pool_item("cafe")
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
                 items.append({"min": "20min", "emoji": "⚡", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
 
             if "verspreid" in cafe_strat and not is_last and pool.get("cafe") and u % 2 == 1:
-                c = pool["cafe"][0]
+                c = _pool_item("cafe")
                 naam_c = c.get("naam", c.get("name", "Cafeïne gel"))
                 items.append({"min": "40min", "emoji": "⚡", "naam": naam_c, "kh": c["kh"]})
                 uur_kh += c["kh"]
@@ -2183,13 +2192,13 @@ def _bereken_raceplan(data: dict) -> list:
                 vast_idx += 1
 
             if pool.get("gels") and uur_kh < cur_min:
-                g = pool["gels"][0]
+                g = _pool_item("gels")
                 naam_g = g.get("naam", g.get("name", "Gel"))
                 items.append({"min": "45min", "emoji": "⚡", "naam": naam_g, "kh": g["kh"]})
                 uur_kh += g["kh"]
 
             if is_last:
-                rest_min_vocht = totale_min % 60 if totale_min % 60 != 0 else 60
+                rest_min_vocht = int(totale_min or 0) % 60 if int(totale_min or 0) % 60 != 0 else 60
                 vocht_last = max(round(vocht_per_m * (rest_min_vocht / 60) / 10) * 10, 100)
                 if geen_kh or rest_min_vocht < 15:
                     # Geen KH, enkel water
@@ -2462,47 +2471,53 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             logo_img = None
 
     def maak_header(titel_tekst, subtitel_tekst=""):
-        LOGO_B  = 2.5 * cm
-        TEXT_B  = breed - LOGO_B - 0.3*cm if logo_img else breed
+        """Professionele header — altijd 1 rij, geen SPAN, logo rechts."""
+        LOGO_B  = 2.2 * cm
+        LOGO_B2 = LOGO_B + 0.4 * cm
+        TEXT_B  = breed - LOGO_B2 if logo_img else breed
 
-        # Tekst cel
-        header_inhoud = [Paragraph(titel_tekst, s_titel)]
+        # Combineer titel + subtitel in één Paragraph
         if subtitel_tekst:
-            header_inhoud.append(Paragraph(subtitel_tekst,
-                S("HDRSUB", fontSize=8, textColor=GRIJS,
-                  leading=11, fontName="Helvetica")))
+            hdr_tekst = (f"{titel_tekst}<br/>"
+                         f"<font size='8' color='#64748b'>{subtitel_tekst}</font>")
+        else:
+            hdr_tekst = titel_tekst
+        tekst_p = Paragraph(hdr_tekst, s_titel)
 
+        # Logo cel
         if logo_img:
             from reportlab.platypus import Image as RLImage
             try:
-                logo_draw = RLImage(BytesIO(base64.b64decode(logo_b64)),
-                                    width=LOGO_B, height=1.4*cm, kind="proportional")
+                logo_p = RLImage(BytesIO(base64.b64decode(logo_b64)),
+                                 width=LOGO_B, height=1.3*cm, kind="proportional")
             except Exception:
-                logo_draw = Paragraph("", s_body)
-            hdr_data  = [header_inhoud + [logo_draw]]
-            col_w     = [TEXT_B, LOGO_B]
+                logo_p = Paragraph("", s_body)
+            hdr_data = [[tekst_p, logo_p]]
+            col_w    = [TEXT_B, LOGO_B2]
         else:
-            hdr_data  = [header_inhoud]
-            col_w     = [breed]
+            hdr_data = [[tekst_p]]
+            col_w    = [breed]
 
-        hdr_t = Table(hdr_data, colWidths=col_w)
+        hdr_t = Table(hdr_data, colWidths=col_w,
+                      rowHeights=[1.8*cm])
         hdr_t.setStyle(TableStyle([
             ("BACKGROUND",    (0,0), (-1,-1), DONKER),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
-            ("TOPPADDING",    (0,0), (-1,-1), 12),
+            ("TOPPADDING",    (0,0), (-1,-1), 8),
             ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-            ("LEFTPADDING",   (0,0), (0,-1),  10),
-            ("RIGHTPADDING",  (-1,0),(-1,-1), 10),
-            ("SPAN",          (0,0), (0,-1)) if not logo_img else ("VALIGN",(1,0),(1,-1),"MIDDLE"),
+            ("LEFTPADDING",   (0,0), (0,0),   10),
+            ("RIGHTPADDING",  (0,0), (0,0),   6),
+            ("LEFTPADDING",   (1,0), (1,0),   4),
+            ("RIGHTPADDING",  (1,0), (1,0),   6),
         ]))
         return [hdr_t, Spacer(1, 6)]
 
 
     atleet         = data.get("atleet_naam", gebruiker_naam)
     wedstrijd_naam = data.get("wedstrijd_naam", "")
-    sport          = data.get("sport", "—")
+    sport          = data.get("sport", "Fietsen")
     niveau         = data.get("niveau", "—")
-    gewicht        = data.get("gewicht", "—")
+    gewicht        = int(data.get("gewicht", 70) or 70)
     datum          = data.get("wedstrijd_datum", "—")
     start          = data.get("start_time", "—")
     eind           = data.get("eind_time", "—")
@@ -2514,8 +2529,8 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     # Atleet & wedstrijd
     story.append(Paragraph("ATLEET & WEDSTRIJD", s_sectie))
     story.append(HRFlowable(width=breed, thickness=1, color=ORANJE, spaceAfter=5))
-    totmin   = int(data.get("totale_min", 0) or 0)
-    duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
+    totmin   = int(int(data.get("totale_min", 0) or 0) or 0)
+    duur_str = f"{int(totmin or 0) // 60}u{int(totmin or 0) % 60:02d}m" if totmin else "—"
     temp     = data.get("temp", "—")
     vocht    = data.get("vochtigheid", "—")
     hoogte   = data.get("hoogte", "—")
@@ -2743,7 +2758,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     ont_tijd     = data.get("ontbijt_tijd", "—")
     ont_kh       = data.get("ontbijt_kh", 0)
     rd_waarden   = data.get("rd_waarden", {})
-    temp_val     = data.get("temp", 18)
+    temp_val     = int(data.get("temp", 18) or 18)
 
     if temp_val > 25:   vocht_advies = "600–800ml in de 2–3u voor de start (warm weer)"
     elif temp_val > 15: vocht_advies = "400–600ml in de 2–3u voor de start"
@@ -2801,7 +2816,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
         ]))
         story.append(rd_food_t)
         # Kleurenbalk — geen grammen
-        kh_max_rd = round(data.get("gewicht", 70) * 4)
+        kh_max_rd = round(int(data.get("gewicht", 70) or 70) * 4)
         rd_pct    = min(100, round((rd_kh_tot / kh_max_rd)*100)) if kh_max_rd > 0 else 0
         rd_over   = rd_kh_tot > kh_max_rd
         if rd_over:            balk_c = ROOD
@@ -3023,7 +3038,7 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             for i in items
         )
         # Vocht target: consistent met preview (vocht_per_m × 3 innamen)
-        _rest_pdf = totmin % 60 if totmin % 60 != 0 else 60
+        _rest_pdf = int(totmin or 0) % 60 if int(totmin or 0) % 60 != 0 else 60
         _vocht_schaal_pdf = (_rest_pdf / 60) if is_last else 1.0
         vocht_uur_pdf = round(vocht_per_m * 3 * _vocht_schaal_pdf)
         v_pct  = min(100, round((u_vocht / vocht_uur_pdf) * 100)) if (vocht_uur_pdf > 0 and u_vocht > 0) else 0
@@ -3143,187 +3158,166 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
     # ── PAGINA 3 — RACEMAP ────────────────────────────────────────────────────
     story.append(PageBreak())
 
-    # Volledige breedte header — professioneel
     for blok in maak_header("CARBOO RACEMAP",
                              f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
         story.append(blok)
     story.append(Spacer(1, 6))
     story.append(Paragraph(
-        "Tijdlijn voor stuurbuis of bovenbuis. Knip de strip uit op 4cm breed.",
+        "Knip de strip uit (±4.5cm breed) voor stuurbuis of bovenbuis.",
         S("INS", fontSize=8, textColor=GRIJS, leading=11)
     ))
-    story.append(Spacer(1, 8))
-    story.append(HRFlowable(width=breed, thickness=0.5, color=ORANJE, spaceAfter=10))
+    story.append(Spacer(1, 6))
+    story.append(HRFlowable(width=breed, thickness=0.5, color=ORANJE, spaceAfter=8))
 
-    # Strip constanten — enkel de tijdlijn is 4cm breed
-    STRIP_B   = 4 * cm
+    # Strip breedte
+    STRIP_B   = 4.5 * cm
     COL_TIJD  = 1.0 * cm
-    COL_LIJN  = 0.4 * cm
+    COL_LIJN  = 0.3 * cm
     COL_BADGE = STRIP_B - COL_TIJD - COL_LIJN
 
-    # Kniplijn indicatie
-    story.append(Paragraph(
-        "✂  ←  knip hier op 4cm  →  ✂",
-        S("KNI", fontSize=6, textColor=GRIJS, leading=9)
-    ))
-    story.append(Spacer(1, 3))
+    from datetime import datetime as DT3, timedelta as TD3
+    from collections import defaultdict as dd3
 
-    # Tijdlijn opbouw
-    tl_data    = []
-    tl_stijlen = []
-    rij        = 0
-
-    BADGE_MAP = {
-        "🥤": ("SD",   "#3b82f6"), "⚡": ("GEL",  "#f97316"),
-        "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
-        "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
-        "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
-        "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
-        "💊": ("SUP",  "#06b6d4"), "🍬": ("SUP",  "#06b6d4"),
-        "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
+    BADGE_MAP3 = {
+        "🥤":("SD","#3b82f6"),"⚡":("GEL","#f97316"),
+        "🍌":("VAST","#22c55e"),"🍫":("VAST","#22c55e"),
+        "🍪":("VAST","#22c55e"),"🌾":("VAST","#22c55e"),
+        "🍎":("VAST","#22c55e"),"🌰":("VAST","#22c55e"),
+        "🍱":("VAST","#22c55e"),"☕":("CAF","#8b5cf6"),
+        "💊":("SUP","#06b6d4"),"🍬":("SUP","#06b6d4"),
+        "💧":("H2O","#64748b"),"🧃":("SD","#3b82f6"),
     }
+    _slok3 = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
 
-    from datetime import datetime as DT2, timedelta as TD2
-    from collections import defaultdict as dd2
+    tl3_data   = []
+    tl3_styles = []
+    r3 = 0
+
+    s_tc = S("TC3", fontSize=8, fontName="Helvetica-Bold",
+               textColor=ORANJE, leading=10, alignment=TA_RIGHT)
+    s_tc2 = S("TC4", fontSize=7, textColor=GRIJS, leading=9, alignment=TA_RIGHT)
+    s_dot = S("DC3", fontSize=8, textColor=ORANJE, alignment=TA_CENTER, leading=10)
+    s_dot2 = S("DC4", fontSize=6, textColor=GRIJS, alignment=TA_CENTER, leading=8)
+    s_badge = S("BC3", fontSize=7, fontName="Helvetica",
+                 textColor=colors.HexColor("#1e293b"), leading=9)
 
     for uur_data in uren:
-        u_num   = uur_data["uur"]
-        u_start = uur_data["uur_start"]
-        items   = uur_data["items"]
-        is_last = uur_data["is_last"]
-        _slok_ml_rm = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
+        u_start3 = uur_data["uur_start"]
+        items3   = uur_data["items"]
+        is_last3 = uur_data["is_last"]
 
-        items_per_min = dd2(list)
-        for item in items:
-            items_per_min[item["min"]].append(item)
+        ipm3 = dd3(list)
+        for item in items3:
+            ipm3[item["min"]].append(item)
 
-        min_volgorde = ["+20min","+30min","+40min","+45min","+60min"]
-        gesorteerd = [(m, items_per_min[m]) for m in min_volgorde if m in items_per_min]
-        for m, its in items_per_min.items():
-            if m not in min_volgorde:
-                gesorteerd.append((m, its))
+        mo3 = ["+20min","+30min","+40min","+45min","+60min"]
+        gs3 = [(m, ipm3[m]) for m in mo3 if m in ipm3]
+        for m, its in ipm3.items():
+            if m not in mo3:
+                gs3.append((m, its))
 
-        if not gesorteerd:
+        if not gs3:
             continue
 
-        uur_dt = DT2.strptime(u_start, "%H:%M")
+        uur_dt3 = DT3.strptime(u_start3, "%H:%M")
 
-        for i2, (min_label, min_items) in enumerate(gesorteerd):
-            offset = int(min_label.replace("+","").replace("min","")) if min_label != "+60min" else 60
-            exact_tijd = (uur_dt + TD2(minutes=offset)).strftime("%H:%M")
+        for i3, (ml3, mitems3) in enumerate(gs3):
+            off3 = int(ml3.replace("+","").replace("min","")) if ml3 != "+60min" else 60
+            tijd3 = (uur_dt3 + TD3(minutes=off3)).strftime("%H:%M")
 
-            # Tijdstip cel
-            t_stijl = "Helvetica-Bold" if i2 == 0 else "Helvetica"
-            t_kleur = ORANJE if i2 == 0 else GRIJS
-            tijd_cel = Paragraph(
-                f"<b>{exact_tijd}</b>" if i2 == 0 else exact_tijd,
-                S(f"TC{rij}", fontSize=8, fontName=t_stijl,
-                  textColor=t_kleur, leading=11, alignment=TA_RIGHT))
+            t_cel = Paragraph(f"<b>{tijd3}</b>" if i3==0 else tijd3,
+                               s_tc if i3==0 else s_tc2)
+            d_cel = Paragraph("●", s_dot if i3==0 else s_dot2)
 
-            # Dot cel
-            dot_cel = Paragraph(
-                "●",
-                S(f"DC{rij}", fontSize=9,
-                  textColor=ORANJE if i2 == 0 else colors.HexColor("#334155"),
-                  alignment=TA_CENTER, leading=13))
-
-            # Badge + product + water — apart op nieuwe lijn
-            badge_lines = []
-            for item in min_items:
-                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?","#888"))
-                naam_kort  = item["naam"].split("(")[0].strip()[:16]
-                kh_txt     = f" ({item['kh']}g)" if item["kh"] > 0 else ""
-                _antal     = item.get("antal", 1.0)
-                antal_lbl  = "½ " if _antal==0.5 else (f"{str(_antal).replace('.', ',')}x " if _antal!=1.0 else "")
-                water_ml   = item.get("water_ml", 0)
-                if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱","💊","🍬"]:
-                    water_lbl = f"+{water_ml}ml"
-                elif item["emoji"] == "🥤" and water_ml > 0:
-                    slk = max(1, int(water_ml / _slok_ml_rm + 0.5))
-                    water_lbl = f"≈{slk} slokjes"
+            # Badge tekst — kort houden
+            parts3 = []
+            for item in mitems3:
+                bd3, bh3 = BADGE_MAP3.get(item["emoji"], ("?","#888"))
+                nm3 = item["naam"].split("(")[0].strip()[:12]
+                kh3 = f"({item['kh']}g)" if item["kh"] > 0 else ""
+                wml3 = item.get("water_ml", 0)
+                if wml3 > 0 and item["emoji"] not in ["🥤","💧"]:
+                    w3 = f"+{wml3}ml"
+                elif item["emoji"] == "🥤" and wml3 > 0:
+                    w3 = f"≈{max(1,int(wml3/_slok3+0.5))}slk"
                 else:
-                    water_lbl = ""
+                    w3 = ""
+                line3 = f'<font color="{bh3}"><b>[{bd3}]</b></font> {nm3}{kh3}'
+                if w3:
+                    line3 += f'<br/><font size="6" color="#64748b"> {w3}</font>'
+                parts3.append(line3)
 
-                lijn1 = (f'<font color="{bd_hex}"><b>[{bd}]</b></font>'
-                         f'  <font size="7">{antal_lbl}{naam_kort}{kh_txt}</font>')
-                badge_lines.append(lijn1)
-                if water_lbl:
-                    badge_lines.append(
-                        f'<font size="6" color="#64748b">     {water_lbl}</font>')
+            b_cel = Paragraph("<br/>".join(parts3), s_badge)
+            tl3_data.append([t_cel, d_cel, b_cel])
 
-            sym_cel = Paragraph("<br/>".join(badge_lines),
-                                S(f"SC{rij}", fontSize=7, fontName="Helvetica",
-                                  textColor=DONKER, leading=10))
-
-            tl_data.append([tijd_cel, dot_cel, sym_cel])
-
-            if i2 == 0:
-                tl_stijlen.append(("BACKGROUND", (0,rij), (0,rij), colors.HexColor("#fff7ed")))
-                tl_stijlen.append(("TOPPADDING", (0,rij), (-1,rij), 4))
-            else:
-                tl_stijlen.append(("TOPPADDING", (0,rij), (-1,rij), 2))
-
-            tl_stijlen += [
-                ("BOTTOMPADDING", (0,rij), (-1,rij), 2),
-                ("LEFTPADDING",   (0,rij), (0,rij),  3),
-                ("RIGHTPADDING",  (0,rij), (0,rij),  2),
-                ("LEFTPADDING",   (1,rij), (1,rij),  0),
-                ("RIGHTPADDING",  (1,rij), (1,rij),  0),
-                ("LEFTPADDING",   (2,rij), (2,rij),  3),
-                ("RIGHTPADDING",  (2,rij), (2,rij),  2),
-                ("VALIGN",        (0,rij), (-1,rij),  "MIDDLE"),
+            tp3 = 4 if i3 == 0 else 2
+            tl3_styles += [
+                ("TOPPADDING",    (0,r3),(-1,r3), tp3),
+                ("BOTTOMPADDING", (0,r3),(-1,r3), 1),
+                ("LEFTPADDING",   (0,r3),(0,r3),  1),
+                ("RIGHTPADDING",  (0,r3),(0,r3),  1),
+                ("LEFTPADDING",   (1,r3),(1,r3),  0),
+                ("RIGHTPADDING",  (1,r3),(1,r3),  0),
+                ("LEFTPADDING",   (2,r3),(2,r3),  2),
+                ("RIGHTPADDING",  (2,r3),(2,r3),  1),
+                ("VALIGN",        (0,r3),(-1,r3),  "TOP"),
             ]
-            rij += 1
+            if i3 == 0:
+                tl3_styles.append(("BACKGROUND",(0,r3),(0,r3),colors.HexColor("#fff7ed")))
+            r3 += 1
 
-        # Scheidingslijn na elk uur
-        if not is_last:
-            tl_data.append([
-                Paragraph("", s_body),
-                Paragraph("·", S(f"SEP{rij}", fontSize=5, textColor=GRIJS,
-                                  alignment=TA_CENTER, leading=7)),
-                Paragraph("", s_body),
+        if not is_last3:
+            tl3_data.append([
+                Paragraph(" ", S(f"sp{r3}", fontSize=3, leading=4)),
+                Paragraph("-", S(f"sep{r3}", fontSize=4, textColor=GRIJS,
+                                  alignment=TA_CENTER, leading=4)),
+                Paragraph(" ", S(f"sp2{r3}", fontSize=3, leading=4)),
             ])
-            tl_stijlen += [
-                ("TOPPADDING",    (0,rij), (-1,rij), 1),
-                ("BOTTOMPADDING", (0,rij), (-1,rij), 1),
+            tl3_styles += [
+                ("TOPPADDING",    (0,r3),(-1,r3), 0),
+                ("BOTTOMPADDING", (0,r3),(-1,r3), 0),
+                ("ROWHEIGHT",     (0,r3),(-1,r3), 5),
             ]
-            rij += 1
+            r3 += 1
 
-    if tl_data:
-        tl_stijlen += [
-            ("BOX",        (0,0), (-1,-1), 0.5, ORANJE),
-            ("LINEAFTER",  (0,0), (0,-1),  0.3, colors.HexColor("#334155")),
-            ("LINEAFTER",  (1,0), (1,-1),  0.3, colors.HexColor("#334155")),
-            ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#f8fafc")),
-            ("BACKGROUND", (1,0), (1,-1),  colors.HexColor("#1e293b")),
+    if tl3_data:
+        tl3_styles += [
+            ("BOX",          (0,0),(-1,-1), 0.5, ORANJE),
+            ("LINEAFTER",    (0,0),(0,-1),  0.3, colors.HexColor("#334155")),
+            ("LINEAFTER",    (1,0),(1,-1),  0.3, colors.HexColor("#334155")),
+            ("BACKGROUND",   (0,0),(-1,-1), colors.HexColor("#f8fafc")),
+            ("BACKGROUND",   (1,0),(1,-1),  colors.HexColor("#1e293b")),
+            # Dot kolom: GEEN padding — kolom is te smal
+            ("LEFTPADDING",  (1,0),(1,-1),  0),
+            ("RIGHTPADDING", (1,0),(1,-1),  0),
+            ("TOPPADDING",   (1,0),(1,-1),  0),
+            ("BOTTOMPADDING",(1,0),(1,-1),  0),
         ]
-        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_BADGE],
-                     repeatRows=0, hAlign="LEFT")
-        tl_t.setStyle(TableStyle(tl_stijlen))
-        story.append(tl_t)
+        tl3_t = Table(tl3_data,
+                      colWidths=[COL_TIJD, COL_LIJN, COL_BADGE],
+                      repeatRows=0, hAlign="LEFT")
+        tl3_t.setStyle(TableStyle(tl3_styles))
+        story.append(tl3_t)
 
-    # Legende — volledige breedte, professioneel
+    # Legende — volledige breedte
     story.append(Spacer(1, 12))
     story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
-    leg_items_rm = [
-        ("[H2O]","Water / mondspoeling"), ("[SD]","Sportdrank"),
-        ("[GEL]","Energy gel"),           ("[VAST]","Vast voedsel"),
-        ("[CAF]","Gel + cafeïne"),        ("[SUP]","Supplement"),
-    ]
-    leg_row_rm = [[Paragraph(
+    leg_rm = [("[H2O]","Water"),("[SD]","Sportdrank"),("[GEL]","Energy gel"),
+              ("[VAST]","Vast voedsel"),("[CAF]","Cafeïne"),("[SUP]","Supplement")]
+    leg_rm_row = [[Paragraph(
         f'<font color="#64748b"><b>{s}</b></font>  {l}',
-        S("LGR", fontSize=7.5, textColor=DONKER, leading=11))
-        for s, l in leg_items_rm]]
-    leg_t_rm = Table(leg_row_rm, colWidths=[breed/6]*6)
-    leg_t_rm.setStyle(TableStyle([
-        ("TOPPADDING",    (0,0), (-1,-1), 5),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
-        ("LEFTPADDING",   (0,0), (-1,-1), 4),
-        ("BOX",           (0,0), (-1,-1), 0.5, GRIJS),
-        ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ("BACKGROUND",    (0,0), (-1,-1), LGRIJS),
+        S("LR", fontSize=7.5, textColor=DONKER, leading=11))
+        for s, l in leg_rm]]
+    leg_rm_t = Table(leg_rm_row, colWidths=[breed/6]*6)
+    leg_rm_t.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0),(-1,-1), 5),
+        ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+        ("LEFTPADDING",   (0,0),(-1,-1), 4),
+        ("BOX",           (0,0),(-1,-1), 0.5, GRIJS),
+        ("INNERGRID",     (0,0),(-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND",    (0,0),(-1,-1), LGRIJS),
     ]))
-    story.append(leg_t_rm)
+    story.append(leg_rm_t)
 
 
     story.append(Spacer(1, 10))
@@ -3364,12 +3358,12 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     wedstrijd_naam = data.get("wedstrijd_naam", "")
     sport         = data.get("sport", "—")
     niveau        = data.get("niveau", "—")
-    gewicht       = data.get("gewicht", "—")
+    gewicht       = (data.get("gewicht", "—") or "—")
     datum         = data.get("wedstrijd_datum", "—")
     start         = data.get("start_time", "—")
     eind          = data.get("eind_time", "—")
-    totmin   = int(data.get("totale_min", 0) or 0)
-    duur_str = f"{totmin//60}u{totmin%60:02d}m" if totmin else "—"
+    totmin   = int(int(data.get("totale_min", 0) or 0) or 0)
+    duur_str = f"{int(totmin or 0) // 60}u{int(totmin or 0) % 60:02d}m" if totmin else "—"
     temp     = data.get("temp", "—")
     vocht    = data.get("vochtigheid", "—")
     hoogte   = data.get("hoogte", "—")
@@ -3384,7 +3378,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     maaltijd_mom = data.get("maaltijd_moment", "Ontbijt")
     min_kh     = data.get("min_kh", 0)
     max_kh     = data.get("max_kh", 0)
-    temp_val   = data.get("temp", 18)
+    temp_val   = int(data.get("temp", 18) or 18)
     pool       = data.get("pool", {})
     preview_comments = data.get("preview_comments", {})
 
@@ -3642,7 +3636,7 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
 
         # Vocht balk — target = vocht_per_m × aantal innamen
         # Vocht target: consistent met preview (vocht_per_m × 3 innamen = vocht per uur)
-        _rest_min_html = totmin % 60 if totmin % 60 != 0 else 60
+        _rest_min_html = int(totmin or 0) % 60 if int(totmin or 0) % 60 != 0 else 60
         _vocht_schaal  = (_rest_min_html / 60) if is_last else 1.0
         vocht_uur_html = round(vocht_per_m * 3 * _vocht_schaal)  # zelfde als preview
         # Als geen vocht ingegeven: balk op 0%
@@ -3941,7 +3935,7 @@ def _stap_samenvatting():
              border-radius:10px; margin-bottom:16px; text-align:center; color:#fb923c; font-weight:700;">
             📊 Protocol: {factor}g KH/kg/dag &nbsp;|&nbsp; 
             🎯 Dagdoel: {dag_target}g KH &nbsp;|&nbsp;
-            ⚖️ Gewicht: {data.get("gewicht",70)}kg
+            ⚖️ Gewicht: {int(data.get("gewicht", 70) or 70)}kg
         </div>
         """, unsafe_allow_html=True)
 
@@ -4021,14 +4015,14 @@ def _stap_samenvatting():
 
     with tab_plan:
         pool = data.get("pool", {})
-        totale_min = data.get("totale_min", 180)
+        totale_min = int(data.get("totale_min", 180) or 180)
         min_kh = data.get("min_kh", 60)
         max_kh = data.get("max_kh", 90)
-        temp = data.get("temp", 18)
-        hoogte = data.get("hoogte", 0)
-        vochtigheid = int(data.get("vochtigheid", 50) or 50)
+        temp = int(data.get("temp", 18) or 18)
+        hoogte = int(data.get("hoogte", 0) or 0)
+        vochtigheid = int(int(data.get("vochtigheid", 50) or 50) or 50)
         start_dt = datetime.strptime(data.get("start_time", "09:00"), "%H:%M")
-        aantal_uren = math.ceil(totale_min / 60)
+        aantal_uren = math.ceil(int(totale_min or 0) / 60)
 
         if not any(len(pool.get(k, [])) > 0 for k in ["drank", "gels", "vast", "cafe"]):
             st.markdown("""
@@ -4039,10 +4033,10 @@ def _stap_samenvatting():
             """, unsafe_allow_html=True)
         else:
             basis_vocht = 800 if int(temp or 18) > 25 else (600 if int(temp or 18) > 15 else 500)
-            f_factor = (hoogte / 1000) * 0.15 + (0.15 if vochtigheid > 70 else 0)
+            f_factor = (int(hoogte or 0) / 1000) * 0.15 + (0.15 if int(vochtigheid or 0) > 70 else 0)
             vocht_per_m = round(((basis_vocht * (1 + f_factor)) / 3) / 10) * 10
 
-            if temp > 28 or (temp > 24 and vochtigheid > 75):
+            if int(temp or 0) > 28 or (int(temp or 0) > 24 and int(vochtigheid or 0) > 75):
                 st.markdown('<div class="alert-red">⚠️ <b>ORS NODIG:</b> Hitte + vochtigheid. Gebruik ORS voor zoutbalans.</div>', unsafe_allow_html=True)
 
             vast_idx = 0
@@ -4058,7 +4052,7 @@ def _stap_samenvatting():
                 uur_label = uur_start.strftime("%H:%M")
 
                 if pool.get("drank"):
-                    d = pool["drank"][0]
+                    d = _pool_item("drank")
                     _d_naam = d.get("naam", d.get("name", "Sportdrank"))
                     kh_per_m = round((d["kh"] / 500) * vocht_per_m)
                     for m in [1, 2, 3]:
@@ -4067,14 +4061,14 @@ def _stap_samenvatting():
 
                 cafe_strat = data.get("cafeine_strategie", "")
                 if u == 1 and not is_last and pool.get("cafe") and "uur 2" in cafe_strat:
-                    c = pool["cafe"][0]
+                    c = _pool_item("cafe")
                     _c_naam = c.get("naam", c.get("name", "Cafeïne gel"))
                     moment_items[1].append({"label": f"⚡ <b>{_c_naam}</b> ({c['kh']}g)", "kh": c["kh"]})
                     uur_kh += c["kh"]
                     cafeine_gebruikt = True
 
                 if "verspreid" in cafe_strat and not is_last and pool.get("cafe") and u % 2 == 1:
-                    c = pool["cafe"][0]
+                    c = _pool_item("cafe")
                     moment_items[2].append({"label": f"⚡ <b>{c.get('naam', c.get('name','Cafeïne gel'))}</b> ({c['kh']}g)", "kh": c["kh"]})
                     uur_kh += c["kh"]
 
@@ -4085,7 +4079,7 @@ def _stap_samenvatting():
                     vast_idx += 1
 
                 if pool.get("gels") and uur_kh < cur_min_kh:
-                    g = pool["gels"][0]
+                    g = _pool_item("gels")
                     moment_items[3].append({"label": f"🧪 <b>{g.get('naam', g.get('name','Gel'))}</b> ({g['kh']}g)", "kh": g["kh"]})
                     uur_kh += g["kh"]
 
