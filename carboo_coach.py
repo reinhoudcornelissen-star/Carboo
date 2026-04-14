@@ -169,6 +169,52 @@ Je verdient (geld)prijzen met je sport. Prestatie staat centraal.
         erv_idx = erv_list.index(erv_default) if erv_default in erv_list else 0
         ervaring = st.selectbox("🎯 Ervaring met wedstrijdvoeding", erv_list, index=erv_idx, key="p_erv")
 
+    # ── Logo upload ───────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    _sectie_header("LOGO OP RAPPORT (optioneel)", "#64748b", "🖼️")
+    st.markdown(
+        '<div style="font-size:0.78rem;color:#64748b;margin-bottom:8px;">'
+        'Upload je club- of teamlogo. Dit verschijnt professioneel op de PDF rapporten.</div>',
+        unsafe_allow_html=True)
+
+    logo_col1, logo_col2 = st.columns([2,1])
+    with logo_col1:
+        logo_file = st.file_uploader(
+            "Logo uploaden (PNG of JPG, max 2MB)",
+            type=["png","jpg","jpeg"],
+            key="p_logo_upload",
+            label_visibility="collapsed")
+
+        if logo_file:
+            import base64
+            logo_bytes = logo_file.read()
+            logo_b64 = base64.b64encode(logo_bytes).decode()
+            logo_mime = "image/png" if logo_file.name.lower().endswith(".png") else "image/jpeg"
+            st.session_state["coach_logo_b64"] = logo_b64
+            st.session_state["coach_logo_mime"] = logo_mime
+            st.success("✅ Logo opgeladen!")
+
+    with logo_col2:
+        if st.session_state.get("coach_logo_b64"):
+            logo_b64_prev = st.session_state["coach_logo_b64"]
+            logo_mime_prev = st.session_state.get("coach_logo_mime","image/png")
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;' +
+                f'padding:8px;text-align:center;">' +
+                f'<img src="data:{logo_mime_prev};base64,{logo_b64_prev}" ' +
+                f'style="max-height:60px;max-width:100%;object-fit:contain;">' +
+                f'<div style="font-size:10px;color:#64748b;margin-top:4px;">Voorbeeld</div></div>',
+                unsafe_allow_html=True)
+            if st.button("🗑 Logo verwijderen", key="p_logo_del"):
+                del st.session_state["coach_logo_b64"]
+                del st.session_state["coach_logo_mime"]
+                st.rerun()
+        else:
+            st.markdown(
+                '<div style="background:#0f172a;border:1px dashed #334155;border-radius:8px;' +
+                'padding:16px;text-align:center;color:#64748b;font-size:0.75rem;">Nog geen logo</div>',
+                unsafe_allow_html=True)
+
     st.markdown("<br>", unsafe_allow_html=True)
     col_prev, col_next = st.columns(2)
     with col_prev:
@@ -2002,7 +2048,9 @@ def _stap_raceplan():
             with st.spinner("Rapport wordt gegenereerd..."):
                 try:
                     gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
-                    data_voor_html = st.session_state.coach_data
+                    data_voor_html = dict(st.session_state.coach_data)
+                    data_voor_html["logo_b64"]  = st.session_state.get("coach_logo_b64", "")
+                    data_voor_html["logo_mime"] = st.session_state.get("coach_logo_mime", "image/png")
                     html_str = _genereer_html(data_voor_html, gebruiker_naam)
                     # Sla rapport op — credit aftrek gebeurt in rapport module
                     st.session_state["rapport_html"] = html_str
@@ -2396,9 +2444,47 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     story = []
 
+    # ── Logo laden ──────────────────────────────────────────────────────────
+    import base64
+    from io import BytesIO
+    logo_b64   = data.get("logo_b64", "")
+    logo_mime  = data.get("logo_mime", "image/png")
+    logo_img   = None
+    if logo_b64:
+        try:
+            from reportlab.lib.utils import ImageReader
+            logo_bytes = base64.b64decode(logo_b64)
+            logo_img   = ImageReader(BytesIO(logo_bytes))
+        except Exception:
+            logo_img = None
+
     def maak_header(titel_tekst, subtitel_tekst=""):
-        hdr_data = [[Paragraph(titel_tekst, s_titel)]]
-        hdr_t = Table(hdr_data, colWidths=[breed])
+        LOGO_B = 2.5 * cm
+        TEXT_B = breed - (LOGO_B + 0.3*cm if logo_img else 0)
+        titel_p = Paragraph(titel_tekst, s_titel)
+        if subtitel_tekst:
+            sub_p = Paragraph(subtitel_tekst, S("HDRSUB", fontSize=8,
+                              textColor=GRIJS, leading=11, fontName="Helvetica"))
+            tekst_cel = [titel_p, sub_p]
+        else:
+            tekst_cel = [titel_p]
+
+        if logo_img:
+            from reportlab.platypus import Image as RLImage
+            try:
+                logo_draw = RLImage(BytesIO(base64.b64decode(logo_b64)),
+                                    width=LOGO_B, height=1.2*cm, kind="proportional")
+            except Exception:
+                logo_draw = Paragraph("", s_body)
+            hdr_data = [[tekst_cel if len(tekst_cel)==1 else
+                         [titel_p, sub_p][0] if subtitel_tekst else titel_p,
+                         logo_draw]]
+            col_w = [TEXT_B, LOGO_B]
+        else:
+            hdr_data = [[titel_p]]
+            col_w = [breed]
+
+        hdr_t = Table(hdr_data if logo_img else [[titel_p]], colWidths=col_w)
         hdr_t.setStyle(TableStyle([
             ("BACKGROUND", (0,0),(-1,-1), DONKER),
             ("VALIGN",     (0,0),(-1,-1), "MIDDLE"),
@@ -2777,6 +2863,15 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
 
     uren_berekend, vocht_per_m = _bereken_raceplan(data)
     preview_uren = data.get("preview_uren", {})
+
+    # Logo voor HTML rapport
+    logo_b64_html  = data.get("logo_b64", "")
+    logo_mime_html = data.get("logo_mime", "image/png")
+    logo_html_tag  = (
+        f'<img src="data:{logo_mime_html};base64,{logo_b64_html}" ' +
+        'style="max-height:48px;max-width:120px;object-fit:contain;">' 
+        if logo_b64_html else ""
+    )
     # Supplementen HTML blok
     _supp = data.get("pool", {}).get("supplementen", {})
     _supp_lijst_html = _supp.get("supp_lijst", []) if _supp else []
@@ -3051,39 +3146,38 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             story.append(st_t)
 
-    # ── PAGINA 3 — SNELKAART ──────────────────────────────────────────────────
+    # ── PAGINA 3 — SNELKAART (smalle strip 4cm breed) ─────────────────────────
     story.append(PageBreak())
-    for blok in maak_header("CARBOO RACEMAP",
-                             f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
-        story.append(blok)
-    story.append(Spacer(1, 8))
+    # Strip breedte = 4cm, links uitgelijnd op pagina
+    STRIP_B   = 4 * cm
+    COL_TIJD  = 1.0 * cm
+    COL_LIJN  = 0.4 * cm
+    COL_BADGE = STRIP_B - COL_TIJD - COL_LIJN
+
+    # Strip header
+    hdr_strip = Table([[
+        Paragraph("CARBOO", S("SH1", fontSize=7, fontName="Helvetica-Bold",
+                               textColor=colors.HexColor("#f97316"), leading=9)),
+        Paragraph(f"{atleet}", S("SH2", fontSize=6, textColor=GRIJS,
+                                  leading=8, alignment=TA_RIGHT)),
+    ]], colWidths=[STRIP_B*0.5, STRIP_B*0.5])
+    hdr_strip.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#0f172a")),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING", (0,0), (-1,-1), 3),
+        ("RIGHTPADDING", (0,0), (-1,-1), 3),
+    ]))
+    story.append(hdr_strip)
+    story.append(Spacer(1, 2))
     story.append(Paragraph(
-        "Carboo Racemap — tijdlijn voor stuurbuis of arm.",
-        S("INS", fontSize=8, textColor=GRIJS, alignment=TA_CENTER, leading=12)
+        f"✂ Knip uit — 4cm breed — voor stuurbuis of bovenbuis",
+        S("INS2", fontSize=6, textColor=GRIJS, alignment=TA_LEFT, leading=9)
     ))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
 
-    # Verticale tijdlijn per tijdsinterval
-
-    # Bouw de tijdlijn als één grote tabel
-    # Rijen = alle innamamomenten van alle uren, met tijdstip links en emoji rechts
+    # Verticale tijdlijn per tijdsinterval — smalle strip
     tl_rows = []
-
-    for uur_data in uren:
-        u_num   = uur_data["uur"]
-        u_start = uur_data["uur_start"]
-        items   = uur_data["items"]
-        geen_kh = uur_data["geen_kh"]
-        is_last = uur_data["is_last"]
-
-        # Uur-header rij (preview_uren al verwerkt in uren lijst)
-        tl_rows.append(("uur_header", u_num, u_start, items, geen_kh, is_last))
-
-    # Render als tabel: COL1=tijdstip, COL2=lijn, COL3=emoji
-    # Racemap — compacte tijdlijn
-    COL_TIJD  = 1.4*cm   # vaste breedte tijdstip
-    COL_LIJN  = 0.5*cm   # vaste breedte lijn/dot
-    COL_EMOJI = breed - COL_TIJD - COL_LIJN  # rest voor badges
 
     tl_data = []
     tl_stijlen = []
@@ -3180,9 +3274,11 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
                     f'<font color="{bd_hex}"><b>[{bd}]</b></font>  '
                     f'<font size="8">{_rm_pdf_lbl}{naam_kort}</font>{kh_txt}{water_txt}'
                 )
-            sym_cel = Paragraph("  ".join(badge_parts),
-                                S("SC", fontSize=8, fontName="Helvetica",
-                                  textColor=DONKER, leading=11))
+            # Vereenvoudigd voor strip: badge + naam, water op nieuwe lijn
+            badge_txt = "<br/>".join(badge_parts)
+            sym_cel = Paragraph(badge_txt,
+                                S("SC", fontSize=7, fontName="Helvetica",
+                                  textColor=DONKER, leading=10))
 
             tl_data.append([tijd_cel, dot_cel, sym_cel])
 
@@ -3223,30 +3319,27 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#f8fafc")),
             ("BACKGROUND", (1,0), (1,-1), colors.HexColor("#1e293b")),
         ]
-        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_EMOJI],
+        tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_BADGE],
                      repeatRows=0, hAlign="LEFT")
         tl_t.setStyle(TableStyle(tl_stijlen))
         story.append(tl_t)
 
 
     story.append(Spacer(1, 10))
-    story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
-    leg_items = [["[H2O]","Water / mondspoeling"],["[SD]","Sportdrank"],
-                 ["[GEL]","Energy gel"],["[VAST]","Vast voedsel"],["[CAF]","Gel + cafeïne"],["[SUP]","Supplement"]]
-    leg_row = [[Paragraph(f"{s}  {l}", S("LG", fontSize=8, textColor=DONKER, leading=12))
-               for s, l in leg_items]]
-    leg_t = Table(leg_row, colWidths=[breed/6]*6)
-    leg_t.setStyle(TableStyle([
-        ("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),
-        ("LEFTPADDING",(0,0),(-1,-1),4),
-        ("BOX",(0,0),(-1,-1),0.5,GRIJS),
-        ("INNERGRID",(0,0),(-1,-1),0.5,colors.HexColor("#e2e8f0")),
-        ("BACKGROUND",(0,0),(-1,-1),LGRIJS),
-    ]))
-    story.append(leg_t)
+    story.append(HRFlowable(width=STRIP_B, thickness=0.5, color=GRIJS, spaceAfter=3))
+    leg_items_strip = [
+        ("[SD]","Sportdrank"), ("[GEL]","Gel"),
+        ("[VAST]","Vast"), ("[CAF]","Cafeïne"),
+        ("[H2O]","Water"), ("[SUP]","Suppl."),
+    ]
+    for s, l in leg_items_strip:
+        story.append(Paragraph(
+            f'<font color="#64748b"><b>{s}</b></font>  <font size="6" color="#64748b">{l}</font>',
+            S("LGS", fontSize=6, fontName="Helvetica", leading=9)
+        ))
 
     story.append(Spacer(1, 12))
-    story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS))
+    story.append(HRFlowable(width=STRIP_B, thickness=0.5, color=GRIJS))
     story.append(Spacer(1, 4))
     story.append(Paragraph(
         "Gegenereerd door Carboo Race Nutrition. Dit plan is een richtlijn — gemaakt door sportdiëtisten.",
@@ -3432,6 +3525,15 @@ def _genereer_html(data: dict, gebruiker_naam: str) -> str:
     # Anders terugvallen op _bereken_raceplan
     uren_berekend, vocht_per_m = _bereken_raceplan(data)
     preview_uren = data.get("preview_uren", {})
+
+    # Logo voor HTML rapport
+    logo_b64_html  = data.get("logo_b64", "")
+    logo_mime_html = data.get("logo_mime", "image/png")
+    logo_html_tag  = (
+        f'<img src="data:{logo_mime_html};base64,{logo_b64_html}" ' +
+        'style="max-height:48px;max-width:120px;object-fit:contain;">' 
+        if logo_b64_html else ""
+    )
     # Supplementen HTML blok
     _supp = data.get("pool", {}).get("supplementen", {})
     _supp_lijst_html = _supp.get("supp_lijst", []) if _supp else []
@@ -3713,9 +3815,12 @@ body{{font-family:Helvetica,Arial,sans-serif;background:#0f172a;color:#f1f5f9;pa
 <div class="page">
 
 <div class="header">
-  <div>
-    <h1>CARBOO RACE NUTRITION PLAN</h1>
-    <p>{data.get("wedstrijd_naam","").upper()}</p>
+  <div style="display:flex;align-items:center;gap:14px;">
+    {logo_html_tag}
+    <div>
+      <h1>CARBOO RACE NUTRITION PLAN</h1>
+      <p>{data.get("wedstrijd_naam","").upper()}</p>
+    </div>
   </div>
   <div class="header-right">
     <b>{atleet}</b><br>
@@ -4045,7 +4150,10 @@ def _stap_samenvatting():
         with st.spinner("Rapport wordt gegenereerd..."):
             try:
                 gebruiker_naam = st.session_state.get("current_user", {}).get("name", "Atleet")
-                html_str     = _genereer_html(data, gebruiker_naam)
+                data_met_logo = dict(data)
+                data_met_logo["logo_b64"]  = st.session_state.get("coach_logo_b64", "")
+                data_met_logo["logo_mime"] = st.session_state.get("coach_logo_mime", "image/png")
+                html_str     = _genereer_html(data_met_logo, gebruiker_naam)
                 atleet       = data.get("atleet_naam", gebruiker_naam).replace(" ", "_")
                 wedstrijd    = data.get("wedstrijd_naam", "race").replace(" ", "_")
                 bestandsnaam = f"Carboo_RacePlan_{atleet}_{wedstrijd}.html"
