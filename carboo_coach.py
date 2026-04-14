@@ -2471,46 +2471,61 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             logo_img = None
 
     def maak_header(titel_tekst, subtitel_tekst=""):
-        """Professionele header — altijd 1 rij, geen SPAN, logo rechts."""
-        LOGO_B  = 2.2 * cm
-        LOGO_B2 = LOGO_B + 0.4 * cm
-        TEXT_B  = breed - LOGO_B2 if logo_img else breed
+        """Witte professionele header — logo altijd zichtbaar."""
+        WIT      = colors.HexColor("#ffffff")
+        DONKER_T = colors.HexColor("#0f172a")
+        GRIJS_T  = colors.HexColor("#64748b")
+        ORANJE_L = colors.HexColor("#f97316")
+        LOGO_B   = 2.5 * cm
+        TEXT_B   = breed - LOGO_B - 0.3*cm if logo_img else breed
 
-        # Combineer titel + subtitel in één Paragraph
-        if subtitel_tekst:
-            hdr_tekst = (f"{titel_tekst}<br/>"
-                         f"<font size='8' color='#64748b'>{subtitel_tekst}</font>")
-        else:
-            hdr_tekst = titel_tekst
-        tekst_p = Paragraph(hdr_tekst, s_titel)
+        # Oranje accentlijn + titel in donkere tekst
+        hdr_tekst = (
+            f'<font color="#0f172a"><b>{titel_tekst}</b></font>'
+            + (f'<br/><font size="8" color="#64748b">{subtitel_tekst}</font>'
+               if subtitel_tekst else "")
+        )
+        tekst_p = Paragraph(hdr_tekst, S("HDR_WIT", fontSize=13,
+                                          fontName="Helvetica-Bold",
+                                          textColor=DONKER_T, leading=16))
 
-        # Logo cel
         if logo_img:
             from reportlab.platypus import Image as RLImage
             try:
                 logo_p = RLImage(BytesIO(base64.b64decode(logo_b64)),
-                                 width=LOGO_B, height=1.3*cm, kind="proportional")
+                                 width=LOGO_B, height=1.4*cm, kind="proportional")
             except Exception:
-                logo_p = Paragraph("", s_body)
+                logo_p = Paragraph("", S("E", fontSize=8))
             hdr_data = [[tekst_p, logo_p]]
-            col_w    = [TEXT_B, LOGO_B2]
+            col_w    = [TEXT_B, LOGO_B]
         else:
             hdr_data = [[tekst_p]]
             col_w    = [breed]
 
-        hdr_t = Table(hdr_data, colWidths=col_w,
-                      rowHeights=[1.8*cm])
+        hdr_t = Table(hdr_data, colWidths=col_w, rowHeights=[1.8*cm])
         hdr_t.setStyle(TableStyle([
-            ("BACKGROUND",    (0,0), (-1,-1), DONKER),
+            ("BACKGROUND",    (0,0), (-1,-1), WIT),
             ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
             ("TOPPADDING",    (0,0), (-1,-1), 8),
             ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-            ("LEFTPADDING",   (0,0), (0,0),   10),
-            ("RIGHTPADDING",  (0,0), (0,0),   6),
+            ("LEFTPADDING",   (0,0), (0,0),   12),
+            ("RIGHTPADDING",  (0,0), (0,0),   8),
             ("LEFTPADDING",   (1,0), (1,0),   4),
-            ("RIGHTPADDING",  (1,0), (1,0),   6),
+            ("RIGHTPADDING",  (1,0), (1,0),   8),
         ]))
-        return [hdr_t, Spacer(1, 6)]
+
+        # Oranje accentlijn onderaan header
+        accent = Table([[""]],
+                       colWidths=[breed],
+                       rowHeights=[3])
+        accent.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,-1), ORANJE_L),
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+        ]))
+        return [hdr_t, accent, Spacer(1, 8)]
 
 
     atleet         = data.get("atleet_naam", gebruiker_naam)
