@@ -2462,53 +2462,42 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             logo_img = None
 
     def maak_header(titel_tekst, subtitel_tekst=""):
-        LOGO_B = 2.5 * cm
-        TEXT_B = breed - (LOGO_B + 0.3*cm if logo_img else 0)
-        titel_p = Paragraph(titel_tekst, s_titel)
+        LOGO_B  = 2.5 * cm
+        TEXT_B  = breed - LOGO_B - 0.3*cm if logo_img else breed
+
+        # Tekst cel
+        header_inhoud = [Paragraph(titel_tekst, s_titel)]
         if subtitel_tekst:
-            sub_p = Paragraph(subtitel_tekst, S("HDRSUB", fontSize=8,
-                              textColor=GRIJS, leading=11, fontName="Helvetica"))
-            tekst_cel = [titel_p, sub_p]
-        else:
-            tekst_cel = [titel_p]
+            header_inhoud.append(Paragraph(subtitel_tekst,
+                S("HDRSUB", fontSize=8, textColor=GRIJS,
+                  leading=11, fontName="Helvetica")))
 
         if logo_img:
             from reportlab.platypus import Image as RLImage
             try:
                 logo_draw = RLImage(BytesIO(base64.b64decode(logo_b64)),
-                                    width=LOGO_B, height=1.2*cm, kind="proportional")
+                                    width=LOGO_B, height=1.4*cm, kind="proportional")
             except Exception:
                 logo_draw = Paragraph("", s_body)
-            hdr_data = [[tekst_cel if len(tekst_cel)==1 else
-                         [titel_p, sub_p][0] if subtitel_tekst else titel_p,
-                         logo_draw]]
-            col_w = [TEXT_B, LOGO_B]
+            hdr_data  = [header_inhoud + [logo_draw]]
+            col_w     = [TEXT_B, LOGO_B]
         else:
-            hdr_data = [[titel_p]]
-            col_w = [breed]
+            hdr_data  = [header_inhoud]
+            col_w     = [breed]
 
-        hdr_t = Table(hdr_data if logo_img else [[titel_p]], colWidths=col_w)
+        hdr_t = Table(hdr_data, colWidths=col_w)
         hdr_t.setStyle(TableStyle([
-            ("BACKGROUND", (0,0),(-1,-1), DONKER),
-            ("VALIGN",     (0,0),(-1,-1), "MIDDLE"),
-            ("TOPPADDING", (0,0),(-1,-1), 12),
-            ("BOTTOMPADDING",(0,0),(-1,-1), 8),
-            ("LEFTPADDING",(0,0),(-1,-1), 10),
-            ("RIGHTPADDING",(0,0),(-1,-1), 10),
+            ("BACKGROUND",    (0,0), (-1,-1), DONKER),
+            ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+            ("TOPPADDING",    (0,0), (-1,-1), 12),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+            ("LEFTPADDING",   (0,0), (0,-1),  10),
+            ("RIGHTPADDING",  (-1,0),(-1,-1), 10),
+            ("SPAN",          (0,0), (0,-1)) if not logo_img else ("VALIGN",(1,0),(1,-1),"MIDDLE"),
         ]))
-        blokken = [hdr_t]
-        if subtitel_tekst:
-            sub_t = Table([[Paragraph(subtitel_tekst, s_sub)]], colWidths=[breed])
-            sub_t.setStyle(TableStyle([
-                ("BACKGROUND",(0,0),(-1,-1), MIDDEL),
-                ("TOPPADDING",(0,0),(-1,-1),5),
-                ("BOTTOMPADDING",(0,0),(-1,-1),7),
-            ]))
-            blokken.append(sub_t)
-        return blokken
+        return [hdr_t, Spacer(1, 6)]
 
-    # ── PAGINA 1 ──────────────────────────────────────────────────────────────
-    wedstrijd_naam = data.get("wedstrijd_naam", "")
+
     for blok in maak_header("RACE NUTRITION PLAN", wedstrijd_naam.upper()):
         story.append(blok)
     story.append(Spacer(1, 10))
@@ -3149,183 +3138,190 @@ def _genereer_pdf(data: dict, gebruiker_naam: str) -> bytes:
             ]))
             story.append(st_t)
 
-    # ── PAGINA 3 — SNELKAART (smalle strip 4cm breed) ─────────────────────────
+    # ── PAGINA 3 — RACEMAP ────────────────────────────────────────────────────
     story.append(PageBreak())
-    # Strip breedte = 4cm, links uitgelijnd op pagina
+
+    # Volledige breedte header — professioneel
+    for blok in maak_header("CARBOO RACEMAP",
+                             f"{sport}  ·  {duur_str}  ·  Start {start}  ·  {atleet}"):
+        story.append(blok)
+    story.append(Spacer(1, 6))
+    story.append(Paragraph(
+        "Tijdlijn voor stuurbuis of bovenbuis. Knip de strip uit op 4cm breed.",
+        S("INS", fontSize=8, textColor=GRIJS, leading=11)
+    ))
+    story.append(Spacer(1, 8))
+    story.append(HRFlowable(width=breed, thickness=0.5, color=ORANJE, spaceAfter=10))
+
+    # Strip constanten — enkel de tijdlijn is 4cm breed
     STRIP_B   = 4 * cm
     COL_TIJD  = 1.0 * cm
     COL_LIJN  = 0.4 * cm
     COL_BADGE = STRIP_B - COL_TIJD - COL_LIJN
 
-    # Strip header
-    hdr_strip = Table([[
-        Paragraph("CARBOO", S("SH1", fontSize=7, fontName="Helvetica-Bold",
-                               textColor=colors.HexColor("#f97316"), leading=9)),
-        Paragraph(f"{atleet}", S("SH2", fontSize=6, textColor=GRIJS,
-                                  leading=8, alignment=TA_RIGHT)),
-    ]], colWidths=[STRIP_B*0.5, STRIP_B*0.5])
-    hdr_strip.setStyle(TableStyle([
-        ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#0f172a")),
-        ("TOPPADDING", (0,0), (-1,-1), 3),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
-        ("LEFTPADDING", (0,0), (-1,-1), 3),
-        ("RIGHTPADDING", (0,0), (-1,-1), 3),
-    ]))
-    story.append(hdr_strip)
-    story.append(Spacer(1, 2))
+    # Kniplijn indicatie
     story.append(Paragraph(
-        f"✂ Knip uit — 4cm breed — voor stuurbuis of bovenbuis",
-        S("INS2", fontSize=6, textColor=GRIJS, alignment=TA_LEFT, leading=9)
+        "✂  ←  knip hier op 4cm  →  ✂",
+        S("KNI", fontSize=6, textColor=GRIJS, leading=9)
     ))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 3))
 
-    # Verticale tijdlijn per tijdsinterval — smalle strip
-    tl_rows = []
-
-    tl_data = []
+    # Tijdlijn opbouw
+    tl_data    = []
     tl_stijlen = []
+    rij        = 0
 
-    ORANJE_DOT = "●"
-    rij = 0
+    BADGE_MAP = {
+        "🥤": ("SD",   "#3b82f6"), "⚡": ("GEL",  "#f97316"),
+        "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
+        "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
+        "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
+        "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
+        "💊": ("SUP",  "#06b6d4"), "🍬": ("SUP",  "#06b6d4"),
+        "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
+    }
+
+    from datetime import datetime as DT2, timedelta as TD2
+    from collections import defaultdict as dd2
 
     for uur_data in uren:
         u_num   = uur_data["uur"]
         u_start = uur_data["uur_start"]
         items   = uur_data["items"]
-        geen_kh = uur_data["geen_kh"]
         is_last = uur_data["is_last"]
-        u_kh    = uur_data["uur_kh"]
+        _slok_ml_rm = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
 
-        # Groepeer items per tijdstip
-        from collections import defaultdict
-        items_per_min = defaultdict(list)
+        items_per_min = dd2(list)
         for item in items:
             items_per_min[item["min"]].append(item)
 
-        # Sorteervolgorde
-        min_volgorde = ["+20min", "+30min", "+40min", "+45min", "+60min"]
+        min_volgorde = ["+20min","+30min","+40min","+45min","+60min"]
         gesorteerd = [(m, items_per_min[m]) for m in min_volgorde if m in items_per_min]
         for m, its in items_per_min.items():
             if m not in min_volgorde:
                 gesorteerd.append((m, its))
 
         if not gesorteerd:
-            gesorteerd = [("+20min", [{"emoji": "💧", "naam": "Water", "kh": 0}])]
+            continue
 
-        # Start tijdstip berekenen
-        from datetime import datetime as DT, timedelta as TD
-        uur_dt = DT.strptime(u_start, "%H:%M")
+        uur_dt = DT2.strptime(u_start, "%H:%M")
 
-        for i, (min_label, min_items) in enumerate(gesorteerd):
-            # Bereken exacte tijd
-            minuten_offset = int(min_label.replace("+","").replace("min","")) if min_label != "+60min" else 60
-            exact_tijd = (uur_dt + TD(minutes=minuten_offset)).strftime("%H:%M")
+        for i2, (min_label, min_items) in enumerate(gesorteerd):
+            offset = int(min_label.replace("+","").replace("min","")) if min_label != "+60min" else 60
+            exact_tijd = (uur_dt + TD2(minutes=offset)).strftime("%H:%M")
 
-            # Tijdstip cel — enkel exact tijdstip, geen uur header
-            if i == 0:
-                tijd_cel = Paragraph(
-                    f"<b>{exact_tijd}</b>",
-                    S("TC", fontSize=9, fontName="Helvetica-Bold", textColor=ORANJE,
-                      leading=12, alignment=TA_RIGHT)
-                )
-            else:
-                tijd_cel = Paragraph(
-                    f"{exact_tijd}",
-                    S("TC2", fontSize=8, textColor=GRIJS, leading=11, alignment=TA_RIGHT)
-                )
+            # Tijdstip cel
+            t_stijl = "Helvetica-Bold" if i2 == 0 else "Helvetica"
+            t_kleur = ORANJE if i2 == 0 else GRIJS
+            tijd_cel = Paragraph(
+                f"<b>{exact_tijd}</b>" if i2 == 0 else exact_tijd,
+                S(f"TC{rij}", fontSize=8, fontName=t_stijl,
+                  textColor=t_kleur, leading=11, alignment=TA_RIGHT))
 
             # Dot cel
             dot_cel = Paragraph(
                 "●",
-                S("DC", fontSize=10, textColor=ORANJE if i == 0 else GRIJS,
-                  alignment=TA_CENTER, leading=14)
-            )
+                S(f"DC{rij}", fontSize=9,
+                  textColor=ORANJE if i2 == 0 else colors.HexColor("#334155"),
+                  alignment=TA_CENTER, leading=13))
 
-            # Badge + naam cel (emoji niet rendeerbaar in PDF)
-            BADGE_MAP = {
-                "🥤": ("SD",   "#3b82f6"), "⚡": ("GEL",  "#f97316"),
-                "🍌": ("VAST", "#22c55e"), "🍫": ("VAST", "#22c55e"),
-                "🍪": ("VAST", "#22c55e"), "🌾": ("VAST", "#22c55e"),
-                "🍎": ("VAST", "#22c55e"), "🌰": ("VAST", "#22c55e"),
-                "🍱": ("VAST", "#22c55e"), "☕": ("CAF",  "#8b5cf6"),
-                "💊": ("SUP",  "#06b6d4"),   "🍬": ("SUP",  "#06b6d4"),
-                "💧": ("H2O",  "#64748b"), "🧃": ("SD",   "#3b82f6"),
-            }
-            badge_parts = []
+            # Badge + product + water — apart op nieuwe lijn
+            badge_lines = []
             for item in min_items:
-                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("SUP", "#06b6d4"))
-                kh_txt = f" <font size='7' color='#94a3b8'>({item['kh']}g)</font>" if item["kh"] > 0 else ""
-                _wml_rm = item.get("water_ml", 0)
-                if item["emoji"] == "💧":
-                    naam_kort = f"{_wml_rm}ml" if _wml_rm > 0 else "Water"
-                else:
-                    naam_kort = item["naam"].split("(")[0].strip()[:20]
-                _rm_antal_pdf = item.get("antal", 1.0)
-                if _rm_antal_pdf == 0.5:     _rm_pdf_lbl = "½ "
-                elif _rm_antal_pdf != 1.0:   _rm_pdf_lbl = f"{str(_rm_antal_pdf).replace('.', ',')}x "
-                else:                        _rm_pdf_lbl = ""
-                water_ml = item.get("water_ml", 0)
-                _slok_ml_rm = 25 if sport in ["Lopen","Duatlon","Triatlon","Crosstriatlon"] else 40
+                bd, bd_hex = BADGE_MAP.get(item["emoji"], ("?","#888"))
+                naam_kort  = item["naam"].split("(")[0].strip()[:16]
+                kh_txt     = f" ({item['kh']}g)" if item["kh"] > 0 else ""
+                _antal     = item.get("antal", 1.0)
+                antal_lbl  = "½ " if _antal==0.5 else (f"{str(_antal).replace('.', ',')}x " if _antal!=1.0 else "")
+                water_ml   = item.get("water_ml", 0)
                 if water_ml > 0 and item["emoji"] in ["⚡","☕","🍌","🍫","🍪","🌾","🍎","🌰","🍱","💊","🍬"]:
-                    water_txt = f" <font size='7' color='#64748b'>+{water_ml}ml H2O</font>"
+                    water_lbl = f"+{water_ml}ml"
                 elif item["emoji"] == "🥤" and water_ml > 0:
-                    _slk_rm = max(1, int(water_ml / _slok_ml_rm + 0.5))
-                    water_txt = f" <font size='7' color='#64748b'>≈{_slk_rm} slokjes</font>"
+                    slk = max(1, int(water_ml / _slok_ml_rm + 0.5))
+                    water_lbl = f"≈{slk} slokjes"
                 else:
-                    water_txt = ""
-                badge_parts.append(
-                    f'<font color="{bd_hex}"><b>[{bd}]</b></font>  '
-                    f'<font size="8">{_rm_pdf_lbl}{naam_kort}</font>{kh_txt}{water_txt}'
-                )
-            # Vereenvoudigd voor strip: badge + naam, water op nieuwe lijn
-            badge_txt = "<br/>".join(badge_parts)
-            sym_cel = Paragraph(badge_txt,
-                                S("SC", fontSize=7, fontName="Helvetica",
+                    water_lbl = ""
+
+                lijn1 = (f'<font color="{bd_hex}"><b>[{bd}]</b></font>'
+                         f'  <font size="7">{antal_lbl}{naam_kort}{kh_txt}</font>')
+                badge_lines.append(lijn1)
+                if water_lbl:
+                    badge_lines.append(
+                        f'<font size="6" color="#64748b">     {water_lbl}</font>')
+
+            sym_cel = Paragraph("<br/>".join(badge_lines),
+                                S(f"SC{rij}", fontSize=7, fontName="Helvetica",
                                   textColor=DONKER, leading=10))
 
             tl_data.append([tijd_cel, dot_cel, sym_cel])
 
-            # Lijnstijl
-            if i == 0:
-                tl_stijlen.append(("BACKGROUND", (0, rij), (0, rij), colors.HexColor("#fff7ed")))
-                tl_stijlen.append(("TOPPADDING", (0, rij), (-1, rij), 4))
+            if i2 == 0:
+                tl_stijlen.append(("BACKGROUND", (0,rij), (0,rij), colors.HexColor("#fff7ed")))
+                tl_stijlen.append(("TOPPADDING", (0,rij), (-1,rij), 4))
             else:
-                tl_stijlen.append(("TOPPADDING", (0, rij), (-1, rij), 2))
+                tl_stijlen.append(("TOPPADDING", (0,rij), (-1,rij), 2))
 
-            tl_stijlen.append(("BOTTOMPADDING", (0, rij), (-1, rij), 2))
-            tl_stijlen.append(("LEFTPADDING",   (0, rij), (0, rij), 4))   # tijdstip
-            tl_stijlen.append(("RIGHTPADDING",  (0, rij), (0, rij), 3))
-            tl_stijlen.append(("LEFTPADDING",   (1, rij), (1, rij), 0))   # dot
-            tl_stijlen.append(("RIGHTPADDING",  (1, rij), (1, rij), 0))
-            tl_stijlen.append(("LEFTPADDING",   (2, rij), (2, rij), 4))   # badges
-            tl_stijlen.append(("RIGHTPADDING",  (2, rij), (2, rij), 4))
-            tl_stijlen.append(("VALIGN",        (0, rij), (-1, rij), "MIDDLE"))
+            tl_stijlen += [
+                ("BOTTOMPADDING", (0,rij), (-1,rij), 2),
+                ("LEFTPADDING",   (0,rij), (0,rij),  3),
+                ("RIGHTPADDING",  (0,rij), (0,rij),  2),
+                ("LEFTPADDING",   (1,rij), (1,rij),  0),
+                ("RIGHTPADDING",  (1,rij), (1,rij),  0),
+                ("LEFTPADDING",   (2,rij), (2,rij),  3),
+                ("RIGHTPADDING",  (2,rij), (2,rij),  2),
+                ("VALIGN",        (0,rij), (-1,rij),  "MIDDLE"),
+            ]
             rij += 1
 
         # Scheidingslijn na elk uur
         if not is_last:
             tl_data.append([
                 Paragraph("", s_body),
-                Paragraph("·", S("SEP", fontSize=6, textColor=GRIJS, alignment=TA_CENTER)),
+                Paragraph("·", S(f"SEP{rij}", fontSize=5, textColor=GRIJS,
+                                  alignment=TA_CENTER, leading=7)),
                 Paragraph("", s_body),
             ])
-            tl_stijlen.append(("TOPPADDING",    (0, rij), (-1, rij), 1))
-            tl_stijlen.append(("BOTTOMPADDING", (0, rij), (-1, rij), 1))
-            tl_stijlen.append(("LEFTPADDING",   (0, rij), (-1, rij), 0))
+            tl_stijlen += [
+                ("TOPPADDING",    (0,rij), (-1,rij), 1),
+                ("BOTTOMPADDING", (0,rij), (-1,rij), 1),
+            ]
             rij += 1
 
     if tl_data:
         tl_stijlen += [
             ("BOX",        (0,0), (-1,-1), 0.5, ORANJE),
-            ("LINEAFTER",  (0,0), (0,-1), 0.3, colors.HexColor("#334155")),
-            ("LINEAFTER",  (1,0), (1,-1), 0.3, colors.HexColor("#334155")),
+            ("LINEAFTER",  (0,0), (0,-1),  0.3, colors.HexColor("#334155")),
+            ("LINEAFTER",  (1,0), (1,-1),  0.3, colors.HexColor("#334155")),
             ("BACKGROUND", (0,0), (-1,-1), colors.HexColor("#f8fafc")),
-            ("BACKGROUND", (1,0), (1,-1), colors.HexColor("#1e293b")),
+            ("BACKGROUND", (1,0), (1,-1),  colors.HexColor("#1e293b")),
         ]
         tl_t = Table(tl_data, colWidths=[COL_TIJD, COL_LIJN, COL_BADGE],
                      repeatRows=0, hAlign="LEFT")
         tl_t.setStyle(TableStyle(tl_stijlen))
         story.append(tl_t)
+
+    # Legende — volledige breedte, professioneel
+    story.append(Spacer(1, 12))
+    story.append(HRFlowable(width=breed, thickness=0.5, color=GRIJS, spaceAfter=5))
+    leg_items_rm = [
+        ("[H2O]","Water / mondspoeling"), ("[SD]","Sportdrank"),
+        ("[GEL]","Energy gel"),           ("[VAST]","Vast voedsel"),
+        ("[CAF]","Gel + cafeïne"),        ("[SUP]","Supplement"),
+    ]
+    leg_row_rm = [[Paragraph(
+        f'<font color="#64748b"><b>{s}</b></font>  {l}',
+        S("LGR", fontSize=7.5, textColor=DONKER, leading=11))
+        for s, l in leg_items_rm]]
+    leg_t_rm = Table(leg_row_rm, colWidths=[breed/6]*6)
+    leg_t_rm.setStyle(TableStyle([
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 4),
+        ("BOX",           (0,0), (-1,-1), 0.5, GRIJS),
+        ("INNERGRID",     (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("BACKGROUND",    (0,0), (-1,-1), LGRIJS),
+    ]))
+    story.append(leg_t_rm)
 
 
     story.append(Spacer(1, 10))
