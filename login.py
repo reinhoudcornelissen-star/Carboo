@@ -417,7 +417,7 @@ def render_login_page():
     </div>
     """, unsafe_allow_html=True)
 
-    tab_login, tab_register = st.tabs(["  Registreren  ", "  Inloggen  "])
+    tab_registreren, tab_inloggen = st.tabs(["  Registreren  ", "  Inloggen  "])
 
     with tab_registreren:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -479,7 +479,8 @@ def render_login_page():
                     st.error(f"Fout bij registratie: {e}")
 
 
-# ─── Admin panel ──────────────────────────────────────────────────────────────with tab_inloggen:
+# ─── Admin panel ──────────────────────────────────────────────────────────────
+    with tab_inloggen:
         st.markdown("<br>", unsafe_allow_html=True)
         email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
         ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
