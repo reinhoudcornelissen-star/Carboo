@@ -417,7 +417,7 @@ def render_login_page():
     </div>
     """, unsafe_allow_html=True)
 
-    tab_login, tab_register = st.tabs(["  Inloggen  ", "  Registreren  "])
+    tab_login, tab_register = st.tabs(["  Registreren  ", "  Inloggen  "])
 
     with tab_login:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -461,7 +461,14 @@ def render_login_page():
 
     with tab_register:
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown('<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;">Maak een account aan. De beheerder voegt credits toe na verificatie.</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">
+                Maak een account aan</div>
+            <div style="font-size:0.82rem;color:#94a3b8;">
+                en begin meteen met je schema</div>
+        </div>
+        """, unsafe_allow_html=True)
 
         r_naam  = st.text_input("Naam", key="reg_naam", placeholder="Voornaam en naam")
         r_email = st.text_input("E-mailadres", key="reg_email", placeholder="jouw@email.com")
