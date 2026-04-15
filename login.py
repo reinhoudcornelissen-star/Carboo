@@ -419,47 +419,7 @@ def render_login_page():
 
     tab_login, tab_register = st.tabs(["  Registreren  ", "  Inloggen  "])
 
-    with tab_login:
-        st.markdown("<br>", unsafe_allow_html=True)
-        email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
-        ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
-
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        col_in, col_verg = st.columns([2, 1])
-        with col_in:
-            login_klik = st.button("Inloggen →", key="login_btn", use_container_width=True)
-        with col_verg:
-            verg_klik = st.button("Vergeten?", key="login_verg", use_container_width=True)
-        if verg_klik:
-            st.session_state["toon_reset"] = True
-        if st.session_state.get("toon_reset"):
-            verg_email = st.text_input("Vul je e-mailadres in voor reset", key="verg_email")
-            if st.button("📧 Stuur resetlink", key="stuur_reset", use_container_width=True):
-                stuur_reset_mail(verg_email)
-                st.success("Als dit e-mailadres bestaat, ontvang je een resetlink.")
-                st.session_state.pop("toon_reset", None)
-        if login_klik:
-            if not email or not ww:
-                st.error("Vul alle velden in.")
-            else:
-                user = _get_user(email)
-                if not user:
-                    st.error("Gebruiker niet gevonden.")
-                elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
-                    # Ondersteun ook ongehashte wachtwoorden (tijdelijk voor admin)
-                    st.error("Verkeerd wachtwoord.")
-                else:
-                    st.session_state.logged_in    = True
-                    st.session_state.current_user = {
-                        "id":     user["id"],
-                        "name":   user["naam"],
-                        "email":  user["email"],
-                        "role":   user["rol"],
-                        "credits": user["credits"],
-                    }
-                    st.rerun()
-
-    with tab_register:
+    with tab_registreren:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("""
         <div style="text-align:center;margin-bottom:16px;">
@@ -519,7 +479,47 @@ def render_login_page():
                     st.error(f"Fout bij registratie: {e}")
 
 
-# ─── Admin panel ──────────────────────────────────────────────────────────────
+# ─── Admin panel ──────────────────────────────────────────────────────────────with tab_inloggen:
+        st.markdown("<br>", unsafe_allow_html=True)
+        email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
+        ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        col_in, col_verg = st.columns([2, 1])
+        with col_in:
+            login_klik = st.button("Inloggen →", key="login_btn", use_container_width=True)
+        with col_verg:
+            verg_klik = st.button("Vergeten?", key="login_verg", use_container_width=True)
+        if verg_klik:
+            st.session_state["toon_reset"] = True
+        if st.session_state.get("toon_reset"):
+            verg_email = st.text_input("Vul je e-mailadres in voor reset", key="verg_email")
+            if st.button("📧 Stuur resetlink", key="stuur_reset", use_container_width=True):
+                stuur_reset_mail(verg_email)
+                st.success("Als dit e-mailadres bestaat, ontvang je een resetlink.")
+                st.session_state.pop("toon_reset", None)
+        if login_klik:
+            if not email or not ww:
+                st.error("Vul alle velden in.")
+            else:
+                user = _get_user(email)
+                if not user:
+                    st.error("Gebruiker niet gevonden.")
+                elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
+                    # Ondersteun ook ongehashte wachtwoorden (tijdelijk voor admin)
+                    st.error("Verkeerd wachtwoord.")
+                else:
+                    st.session_state.logged_in    = True
+                    st.session_state.current_user = {
+                        "id":     user["id"],
+                        "name":   user["naam"],
+                        "email":  user["email"],
+                        "role":   user["rol"],
+                        "credits": user["credits"],
+                    }
+                    st.rerun()
+
+    
 def render_admin_panel():
     st.markdown('<div style="font-size:1.2rem;font-weight:900;color:#f97316;margin-bottom:20px;">⚙️ ADMIN PANEL</div>', unsafe_allow_html=True)
 
