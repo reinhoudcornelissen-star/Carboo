@@ -917,28 +917,27 @@ def _stap_logboek():
     pct      = round((kh_tot / max(target_kh,1)) * 100)
 
     # Header
-    st.markdown(f"""
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;
-                padding:14px;margin-bottom:16px;">
-        <div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin-bottom:6px;">
-            WEEK {actieve_week} — {actieve_fase.upper()}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div>
-                <div style="font-weight:800;color:#f8fafc;font-size:1rem;">
-                    {huidig_prod['naam']}</div>
-                <div style="font-size:0.78rem;color:#64748b;">
-                    {huidig_porties}x {huidig_prod['kh']}g
-                    {f"+ {basis_prod['naam']} {basis_kh}g basis" if basis_prod else ""}
-                    = {kh_tot}g/uur totaal
-                </div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:1.4rem;font-weight:800;color:#f97316;">{kh_tot}g/uur</div>
-                <div style="font-size:10px;color:#64748b;">{pct}% van target</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    prod_naam_h  = huidig_prod["naam"]
+    prod_kh_h    = huidig_prod["kh"]
+    basis_naam_h = basis_prod["naam"] if basis_prod else ""
+    basis_extra  = f"+ {basis_naam_h} {basis_kh}g basis" if basis_prod else ""
+    st.markdown(
+        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
+        f'padding:14px;margin-bottom:16px;">'
+        f'<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin-bottom:6px;">'
+        f'WEEK {actieve_week} — {actieve_fase.upper()}</div>'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+        f'<div>'
+        f'<div style="font-weight:800;color:#f8fafc;font-size:1rem;">{prod_naam_h}</div>'
+        f'<div style="font-size:0.78rem;color:#64748b;">'
+        f'{huidig_porties}x {prod_kh_h}g {basis_extra} = {kh_tot}g/uur totaal</div>'
+        f'</div>'
+        f'<div style="text-align:right;">'
+        f'<div style="font-size:1.4rem;font-weight:800;color:#f97316;">{kh_tot}g/uur</div>'
+        f'<div style="font-size:10px;color:#64748b;">{pct}% van target</div>'
+        f'</div></div></div>',
+        unsafe_allow_html=True
+    )
 
     st.markdown('<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
                 'Vul in hoe de training verliep. De volgende portie wordt automatisch '
