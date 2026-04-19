@@ -617,8 +617,8 @@ def _stap_producten():
             # Basis enkel mogelijk als nog geen ander basisproduct gekozen
             huidig_rol  = p.get("rol","Test")
             andere_basis = any(
-                producten[j].get("rol","Test") == "Basis"
-                for j in range(len(producten)) if j != i
+                st.session_state.get(f"tg_prol_{j}", "Test") == "Basis"
+                for j in range(n) if j != i
             )
             rol_opties = ["Test","Basis"] if not andere_basis or huidig_rol=="Basis" else ["Test"]
             rol = st.selectbox(f"r{i}", rol_opties,
