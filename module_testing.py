@@ -712,47 +712,56 @@ def _stap_schema():
         else:
             start_uitleg = "Berekend op basis van ervaring en maagprofiel"
 
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#0f172a,#1e1a2e);
-                    border:2px solid #3b82f6;border-radius:14px;padding:20px;margin-bottom:20px;">
-            <div style="font-size:0.65rem;font-weight:700;color:#3b82f6;
-                        letter-spacing:2px;margin-bottom:14px;">🚀 JOUW STARTPUNT — WEEK 1</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
-                <div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">
-                    <div style="font-size:1.6rem;font-weight:800;color:#3b82f6;">{kh_tot1}g</div>
-                    <div style="font-size:11px;color:#64748b;">KH per uur totaal</div>
-                    <div style="font-size:10px;color:#475569;margin-top:4px;">{pct1}% van target</div>
-                </div>
-                <div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">
-                    <div style="font-size:1.6rem;font-weight:800;color:#f97316;">{porties1}x</div>
-                    <div style="font-size:11px;color:#64748b;">{prod1['naam']}</div>
-                    <div style="font-size:10px;color:#475569;margin-top:4px;">{kh_pp1}g KH/portie</div>
-                </div>
-                <div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">
-                    <div style="font-size:1.6rem;font-weight:800;color:#22c55e;">Z2</div>
-                    <div style="font-size:11px;color:#64748b;">Intensiteit</div>
-                    <div style="font-size:10px;color:#475569;margin-top:4px;">Duurtraining</div>
-                </div>
-            </div>
-            {f'<div style="background:#0f172a;border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:0.78rem;color:#64748b;">🔵 Basis: <b style="color:#3b82f6;">{basis_prod["naam"]} — {basis_kh}g/uur (vast)</b></div>' if basis_prod else ""}
-            <div style="background:#0f172a;border-radius:8px;padding:12px;margin-bottom:12px;">
-                <div style="font-size:10px;color:#64748b;margin-bottom:6px;">INNAMETIJDSTIPPEN TESTPRODUCT</div>
-                <div style="font-size:0.85rem;font-weight:700;color:#f8fafc;">📍 {tijden1}</div>
-                <div style="font-size:0.75rem;color:#64748b;margin-top:4px;">
-                    Elke {interval1} minuten — altijd met minstens 150ml water</div>
-            </div>
-            <div style="background:#0a1628;border-left:3px solid #3b82f6;
-                        border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">
-                <div style="font-size:0.78rem;color:#94a3b8;">
-                    💡 <b style="color:#f8fafc;">Waarom dit startpunt?</b> {start_uitleg}</div>
-            </div>
-            <div style="background:#0a1628;border-left:3px solid #f97316;
-                        border-radius:0 8px 8px 0;padding:10px 14px;">
-                <div style="font-size:0.78rem;color:#94a3b8;">
-                    🏅 <b style="color:#f8fafc;">Tip week 1:</b> {WEEK1_SPORT_TIPS.get(sport,"")}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        basis_blok = ""
+        if basis_prod:
+            bp_naam = basis_prod["naam"]
+            basis_blok = (
+                f'<div style="background:#0f172a;border-radius:8px;padding:10px 12px;'
+                f'margin-bottom:10px;font-size:0.78rem;color:#64748b;">'
+                f'🔵 Basis: <b style="color:#3b82f6;">{bp_naam} — {basis_kh}g/uur (vast)</b></div>'
+            )
+        week1_tip = WEEK1_SPORT_TIPS.get(sport, "")
+        prod1_naam = prod1["naam"]
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,#0f172a,#1e1a2e);'
+            f'border:2px solid #3b82f6;border-radius:14px;padding:20px;margin-bottom:20px;">'
+            f'<div style="font-size:0.65rem;font-weight:700;color:#3b82f6;'
+            f'letter-spacing:2px;margin-bottom:14px;">🚀 JOUW STARTPUNT — WEEK 1</div>'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">'
+            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
+            f'<div style="font-size:1.6rem;font-weight:800;color:#3b82f6;">{kh_tot1}g</div>'
+            f'<div style="font-size:11px;color:#64748b;">KH per uur totaal</div>'
+            f'<div style="font-size:10px;color:#475569;margin-top:4px;">{pct1}% van target</div>'
+            f'</div>'
+            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
+            f'<div style="font-size:1.6rem;font-weight:800;color:#f97316;">{porties1}x</div>'
+            f'<div style="font-size:11px;color:#64748b;">{prod1_naam}</div>'
+            f'<div style="font-size:10px;color:#475569;margin-top:4px;">{kh_pp1}g KH/portie</div>'
+            f'</div>'
+            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
+            f'<div style="font-size:1.6rem;font-weight:800;color:#22c55e;">Z2</div>'
+            f'<div style="font-size:11px;color:#64748b;">Intensiteit</div>'
+            f'<div style="font-size:10px;color:#475569;margin-top:4px;">Duurtraining</div>'
+            f'</div></div>'
+            f'{basis_blok}'
+            f'<div style="background:#0f172a;border-radius:8px;padding:12px;margin-bottom:12px;">'
+            f'<div style="font-size:10px;color:#64748b;margin-bottom:6px;">INNAMETIJDSTIPPEN TESTPRODUCT</div>'
+            f'<div style="font-size:0.85rem;font-weight:700;color:#f8fafc;">📍 {tijden1}</div>'
+            f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
+            f'Elke {interval1} minuten — altijd met minstens 150ml water</div>'
+            f'</div>'
+            f'<div style="background:#0a1628;border-left:3px solid #3b82f6;'
+            f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+            f'<div style="font-size:0.78rem;color:#94a3b8;">'
+            f'💡 <b style="color:#f8fafc;">Waarom dit startpunt?</b> {start_uitleg}</div>'
+            f'</div>'
+            f'<div style="background:#0a1628;border-left:3px solid #f97316;'
+            f'border-radius:0 8px 8px 0;padding:10px 14px;">'
+            f'<div style="font-size:0.78rem;color:#94a3b8;">'
+            f'🏅 <b style="color:#f8fafc;">Tip week 1:</b> {week1_tip}</div>'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
 
     # Persoonlijke tips
     tips = _genereer_tips(data)
