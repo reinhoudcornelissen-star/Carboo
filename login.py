@@ -86,9 +86,8 @@ def _get_user(email: str):
         sb = _get_supabase()
         r  = sb.table("carboo_users").select("*").eq("email", email.lower().strip()).execute()
         return r.data[0] if r.data else None
-    except Exception as e:
-        st.error(f"Database fout: {e}")
-        return None
+    except Exception:
+        return None  # Stil falen — check op hoger niveau
 
 def _get_user_by_id(user_id: str):
     try:
@@ -445,11 +444,19 @@ def render_login_page():
                 st.error("Wachtwoorden komen niet overeen.")
             elif len(r_ww) < 6:
                 st.error("Wachtwoord moet minstens 6 tekens zijn.")
-            elif _get_user(r_email):
-                st.error("Dit e-mailadres is al geregistreerd.")
             else:
                 try:
                     sb = _get_supabase()
+                    # Check of email al bestaat — met expliciete foutafhandeling
+                    try:
+                        bestaande = sb.table("carboo_users").select("id").eq(
+                            "email", r_email.lower().strip()).execute()
+                        if bestaande.data:
+                            st.error("Dit e-mailadres is al geregistreerd. Gebruik de Inloggen tab.")
+                            st.stop()
+                    except Exception:
+                        pass  # Bij twijfel doorgaan — insert zal uniek constraint triggeren
+
                     # Controleer promo code voor registratie
                     promo_data = None
                     if r_code and r_code.strip():
@@ -470,11 +477,18 @@ def render_login_page():
                         # Verwerk promo code
                         if promo_data:
                             gebruik_promo_code(promo_data["id"], new_user["id"], promo_data["credits"])
-                            st.success(f"🎉 Promotiecode geldig! Je ontvangt {promo_data['credits']} gratis rapport(en).")
                         # Stuur mail naar admin
-                        _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
-                        st.success("✅ Account aangemaakt! Je kan nu inloggen.")
-                        st.info("De beheerder wordt op de hoogte gebracht en voegt credits toe.")
+                        try:
+                            _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
+                        except Exception:
+                            pass
+                        # Meteen inloggen na registratie
+                        st.session_state.logged_in    = True
+                        st.session_state.current_user = new_user
+                        st.session_state.module       = "menu"
+                        if promo_data:
+                            st.session_state["_welkom_promo"] = promo_data["credits"]
+
                 except Exception as e:
                     st.error(f"Fout bij registratie: {e}")
 
