@@ -130,16 +130,18 @@ def _genereer_diagnose(klachten, moment, intensiteit, water):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def _get_claude_client():
-    """Maak Anthropic client aan via Streamlit secrets."""
-    try:
-        api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            import os
-            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        return anthropic.Anthropic(api_key=api_key)
-    except Exception as e:
-        st.error(f"API configuratie fout: {e}")
+    """Maak Anthropic client aan via environment variable (Render) of Streamlit secrets."""
+    import os
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        try:
+            api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        except Exception:
+            pass
+    if not api_key:
+        st.warning("⚠️ ANTHROPIC_API_KEY niet gevonden — fallback schema wordt gebruikt.")
         return None
+    return anthropic.Anthropic(api_key=api_key)
 
 
 def _genereer_week_via_claude(data: dict, logs: dict) -> dict | None:
