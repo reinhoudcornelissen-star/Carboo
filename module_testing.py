@@ -1,13 +1,14 @@
 """
 Train the Gut — Carboo module voor systematische maagtraining
-Portie-gebaseerde opbouw | Fase-systeem multisport | Productwaarschuwingen
+Claude API-gebaseerd schema | Fase-systeem multisport | Productwaarschuwingen
 """
 import streamlit as st
+import anthropic
+import json
 from datetime import date, timedelta
 
 SPORTEN       = ["Fietsen", "Lopen", "Triatlon", "Duatlon", "Crosstriatlon"]
 MULTISPORT    = ["Triatlon", "Duatlon", "Crosstriatlon"]
-ENKELVOUDIG   = ["Fietsen", "Lopen"]
 PRODUCT_TYPES = ["Gel", "Sportdrank", "Vast voedsel", "Cafeïnegel", "Supplement"]
 SYMPTOMEN     = [
     "Geen klachten", "Lichte maagkramp", "Misselijkheid",
@@ -19,7 +20,7 @@ INTENSITEITEN = [
     "Z4 — Drempeltraining", "Z5 — Wedstrijdintensiteit",
 ]
 
-# ── KH targets (zelfde als carboo_coach.py) ───────────────────────────────────
+# ── KH targets ────────────────────────────────────────────────────────────────
 KH_TARGETS = {
     "Fietsen":      {(0,75):(0,0),(75,120):(30,60),(120,180):(60,90),(180,9999):(85,110)},
     "Lopen":        {(0,60):(0,0),(60,90):(30,60),(90,180):(60,90),(180,9999):(75,90)},
@@ -36,116 +37,277 @@ def _get_richtlijn(sport, duur_min):
     return 0, 0
 
 # ── Fases per sport ───────────────────────────────────────────────────────────
-# Enkelvoudig: 1 fase
-# Multisport: meerdere fases met eigen naam en toegelaten producttypes
 SPORT_FASES = {
-    "Fietsen":      [{"naam":"Fietsen",    "icon":"🚴", "toegelaten":["Gel","Sportdrank","Vast voedsel","Cafeïnegel","Supplement"]}],
-    "Lopen":        [{"naam":"Lopen",      "icon":"🏃", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]}],
-    "Triatlon":     [
-        {"naam":"Fietsgedeelte", "icon":"🚴", "toegelaten":["Gel","Sportdrank","Vast voedsel","Cafeïnegel","Supplement"]},
-        {"naam":"Loopgedeelte",  "icon":"🏃", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-        {"naam":"Combinatie",    "icon":"🏊🚴🏃","toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-    ],
-    "Duatlon":      [
-        {"naam":"Fietsgedeelte", "icon":"🚴", "toegelaten":["Gel","Sportdrank","Vast voedsel","Cafeïnegel","Supplement"]},
-        {"naam":"Eerste loop",   "icon":"🏃", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-        {"naam":"Tweede loop",   "icon":"🏃", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-        {"naam":"Combinatie",    "icon":"🏃🚴","toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-    ],
-    "Crosstriatlon":[
-        {"naam":"Fietsgedeelte", "icon":"🚵", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-        {"naam":"Loopgedeelte",  "icon":"🏃", "toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-        {"naam":"Combinatie",    "icon":"🚵🏃","toegelaten":["Gel","Sportdrank","Cafeïnegel","Supplement"]},
-    ],
+    "Fietsen":      [{"naam":"Fietsen",      "icon":"🚴"}],
+    "Lopen":        [{"naam":"Lopen",        "icon":"🏃"}],
+    "Triatlon":     [{"naam":"Fietsgedeelte","icon":"🚴"},
+                     {"naam":"Loopgedeelte", "icon":"🏃"},
+                     {"naam":"Combinatie",   "icon":"🏊🚴🏃"}],
+    "Duatlon":      [{"naam":"Fietsgedeelte","icon":"🚴"},
+                     {"naam":"Eerste loop",  "icon":"🏃"},
+                     {"naam":"Tweede loop",  "icon":"🏃"},
+                     {"naam":"Combinatie",   "icon":"🏃🚴"}],
+    "Crosstriatlon":[{"naam":"Fietsgedeelte","icon":"🚵"},
+                     {"naam":"Loopgedeelte", "icon":"🏃"},
+                     {"naam":"Combinatie",   "icon":"🚵🏃"}],
 }
 
-# ── Productwaarschuwingen per sport ───────────────────────────────────────────
+# ── Productwaarschuwingen ──────────────────────────────────────────────────────
 SPORT_PRODUCT_WAARSCHUWINGEN = {
-    "Lopen": {
-        "Vast voedsel": ("⚠️", "#ef4444", "Vast voedsel wordt sterk afgeraden bij lopen — schokbelasting verhoogt maagklachten sterk."),
-    },
-    "Crosstriatlon": {
-        "Vast voedsel": ("⚠️", "#ef4444", "Offroad en trail verhogen de schokbelasting — vast voedsel is risicovol."),
-    },
-    "Triatlon": {
-        "Vast voedsel": ("💡", "#fbbf24", "Vast voedsel enkel testen tijdens het fietsgedeelte, nooit tijdens het lopen."),
-    },
-    "Duatlon": {
-        "Vast voedsel": ("💡", "#fbbf24", "Vast voedsel enkel tijdens de fiets — niet tijdens de eerste of tweede loop."),
-    },
+    "Lopen":        {"Vast voedsel": ("⚠️","#ef4444","Vast voedsel sterk afgeraden bij lopen.")},
+    "Crosstriatlon":{"Vast voedsel": ("⚠️","#ef4444","Offroad verhoogt schokbelasting — vast voedsel risicovol.")},
+    "Triatlon":     {"Vast voedsel": ("💡","#fbbf24","Vast voedsel enkel op de fiets, nooit op de loop.")},
+    "Duatlon":      {"Vast voedsel": ("💡","#fbbf24","Vast voedsel enkel op de fiets.")},
 }
 
 # ── Sport-specifieke producttips ──────────────────────────────────────────────
 SPORT_PRODUCT_TIPS = {
-    "Fietsen": {
-        "icon": "🚴",
-        "intro": "Op de fiets heb je de meeste vrijheid qua voeding — geen loopimpact op de maag.",
-        "tips": [
-            ("✅", "Vast voedsel werkt goed", "Rijstwafels, repen en bananen zijn ideaal op de fiets."),
-            ("✅", "Sportdrank als basis", "Vul je bidons met sportdrank voor constante KH-inname."),
-            ("✅", "Gels als aanvulling", "Gebruik gels bij hogere intensiteit of als vast voedsel moeilijk gaat."),
-            ("💡", "Grote variatie mogelijk", "Omdat je zit en niet loopt, verdraagt de maag meer verschillende producten."),
-        ]
-    },
-    "Lopen": {
-        "icon": "🏃",
-        "intro": "Bij lopen staat de maag onder druk door de schokbelasting — kies eenvoudig en bewezen.",
-        "tips": [
-            ("⚠️", "Vermijd vast voedsel", "De loopbeweging verhoogt de kans op maagklachten bij vast voedsel sterk."),
-            ("✅", "Gels + water is de gouden combinatie", "Neem elke gel altijd in met minstens 150ml water."),
-            ("💡", "Kleine frequente porties", "Liever 3x een kleine portie per uur dan 1x een grote."),
-        ]
-    },
-    "Triatlon": {
-        "icon": "🏊🚴🏃",
-        "intro": "Bij triatlon wissel je van discipline — stem je voeding af per segment.",
-        "tips": [
-            ("ℹ️", "Zwemmen: geen voeding mogelijk", "Start vroeg op de fiets met inname — je maag is nog fris."),
-            ("✅", "Fietsgedeelte: maximale inname", "Vast voedsel, sportdrank én gels zijn hier allemaal mogelijk."),
-            ("⚠️", "Loopgedeelte: enkel vloeibaar", "Geen vast voedsel meer na de wissel — enkel gels en sportdrank."),
-            ("💡", "Overgang fiets→lopen", "Laatste inname op fiets minstens 10 min voor T2."),
-        ]
-    },
-    "Duatlon": {
-        "icon": "🏃🚴",
-        "intro": "Bij duatlon begin en eindig je met lopen — plan je voeding per segment.",
-        "tips": [
-            ("⚠️", "Eerste loop: licht houden", "Enkel gels en sportdrank — de maag is nog koud."),
-            ("✅", "Fietsgedeelte: ideaal moment", "Dit is je beste kans voor hogere KH-inname — vast voedsel mag hier."),
-            ("⚠️", "Tweede loop: enkel vloeibaar", "De maag is al vermoeid — beperk je tot gels en kleine slokjes."),
-            ("💡", "Timing is alles", "Laatste vaste voeding minstens 15 min voor het einde van de fiets."),
-        ]
-    },
-    "Crosstriatlon": {
-        "icon": "🚵",
-        "intro": "Offroad en trail verhogen de schokbelasting — wees extra voorzichtig.",
-        "tips": [
-            ("⚠️", "Vermijd vast voedsel", "De oneven ondergrond maakt vast voedsel risicovol."),
-            ("✅", "Enkel vloeibaar en isotone gels", "Kies goed verteerbare, isotone producten."),
-            ("⚠️", "Geen nieuwe producten op offroad", "Test altijd eerst op de weg."),
-            ("💡", "Hydratatie is prioriteit", "Bij cross is regelmatig drinken moeilijker — train dit bewust in."),
-        ]
-    },
+    "Fietsen":{"icon":"🚴","intro":"Op de fiets de meeste vrijheid — geen loopimpact op de maag.","tips":[
+        ("✅","Vast voedsel werkt goed","Rijstwafels, repen en bananen zijn ideaal."),
+        ("✅","Sportdrank als basis","Vul bidons met sportdrank voor constante KH-inname."),
+        ("✅","Gels als aanvulling","Bij hogere intensiteit of als vast voedsel moeilijk gaat."),
+        ("💡","Grote variatie mogelijk","Zittend verdraagt de maag meer verschillende producten."),
+    ]},
+    "Lopen":{"icon":"🏃","intro":"Schokbelasting bij lopen — kies eenvoudig en bewezen.","tips":[
+        ("⚠️","Vermijd vast voedsel","Loopbeweging verhoogt kans op maagklachten sterk."),
+        ("✅","Gels + water is gouden combinatie","Elke gel met minstens 150ml water."),
+        ("💡","Kleine frequente porties","Liever 3x klein dan 1x groot per uur."),
+    ]},
+    "Triatlon":{"icon":"🏊🚴🏃","intro":"Stem voeding af per segment.","tips":[
+        ("ℹ️","Zwemmen: geen voeding","Start vroeg op de fiets — maag is nog fris."),
+        ("✅","Fiets: maximale inname","Vast voedsel, sportdrank én gels mogelijk."),
+        ("⚠️","Loop: enkel vloeibaar","Geen vast voedsel na T2."),
+        ("💡","Overgang fiets→loop","Laatste inname minstens 10 min voor T2."),
+    ]},
+    "Duatlon":{"icon":"🏃🚴","intro":"Begin en eindig met lopen — plan per segment.","tips":[
+        ("⚠️","Eerste loop: licht houden","Enkel gels/sportdrank — maag is nog koud."),
+        ("✅","Fiets: ideaal moment","Beste kans voor hogere KH-inname."),
+        ("⚠️","Tweede loop: enkel vloeibaar","Maag is al vermoeid."),
+        ("💡","Timing","Laatste vaste voeding 15 min voor einde fiets."),
+    ]},
+    "Crosstriatlon":{"icon":"🚵","intro":"Offroad verhoogt schokbelasting — extra voorzichtig.","tips":[
+        ("⚠️","Vermijd vast voedsel","Oneven ondergrond maakt vast voedsel risicovol."),
+        ("✅","Enkel vloeibaar en isotone gels","Goed verteerbare, isotone producten."),
+        ("⚠️","Geen nieuwe producten op offroad","Test eerst op de weg."),
+        ("💡","Hydratatie prioriteit","Regelmatig drinken moeilijker — train dit bewust."),
+    ]},
 }
 
-# ── Week 1 sport-specifieke tips ─────────────────────────────────────────────
-WEEK1_SPORT_TIPS = {
-    "Fietsen":      "Test tijdens een rustige Z2 rit van 90-120 min. Eerste portie na 20 min — niet wachten op honger.",
-    "Lopen":        "Test tijdens een Z2 loopduur van 60-90 min. Gels om de 20-30 min. Loop rustig genoeg om te kunnen eten.",
-    "Triatlon":     "Test enkel het fietsgedeelte in fase 1. Simuleer inname alsof je net uit het water komt — start vroeg.",
-    "Duatlon":      "Start met de fiets in fase 1. Eerste loopgedeelte bewust licht — geen voeding testen tijdens loop in fase 1.",
-    "Crosstriatlon":"Test op een vlakke weg, niet offroad. Bouw eerst basiscomfort op voor je naar crossomstandigheden gaat.",
-}
+# ── Diagnose tabel ─────────────────────────────────────────────────────────────
+DIAGNOSE_TABEL = [
+    ({"Misselijkheid"},              "Laat",  True,  True,  "Hypertone gel met te weinig water bij hoge intensiteit",  "Isotone gel of verdunnen met 200ml water"),
+    ({"Misselijkheid"},              "Laat",  True,  False, "Maag overbelast door hoge intensiteit laat in wedstrijd", "Minder zoete variant of neutrale gel"),
+    ({"Misselijkheid"},              "Begin", False, False, "Mogelijk te hoge glucose:fructose verhouding",            "Product met 2:1 glucose:fructose verhouding"),
+    ({"Krampen"},                    "Begin", False, True,  "Hypertoon product met te weinig water",                   "Altijd 150-200ml water per portie"),
+    ({"Krampen"},                    "Midden",True,  False, "Hoge osmolariteit bij hogere intensiteit",                "Hypotone sportdrank of isotone gel"),
+    ({"Opgeblazen gevoel"},          "Begin", False, False, "Mogelijk polyolen of teveel natrium",                     "Check ingrediënten op sorbitol/maltitol"),
+    ({"Opgeblazen gevoel"},          "Midden",False, False, "Mogelijke fructose-intolerantie bij hogere dosering",     "Product met enkel glucose"),
+    ({"Reflux / brandend maagzuur"}, "Laat",  True,  False, "Cafeïne of hoge zuurtegraad bij hoge intensiteit",       "Cafeïnevrije gel, vermijd citroensmaak"),
+    ({"Diarree"},                    "Begin", True,  False, "Hypertoon product bij hoge intensiteit",                  "Hypotone sportdrank"),
+    ({"Diarree"},                    "Midden",False, False, "Hoge fructosedosis",                                      "Max 60g glucose/uur of 2:1 verhouding"),
+    ({"Lichte maagkramp"},           "Begin", False, True,  "Te weinig water bij inname",                              "Minimaal 150ml water per portie"),
+]
 
-SPORT_START_PCT = {
-    "Fietsen": 0.40, "Lopen": 0.30, "Triatlon": 0.35,
-    "Duatlon": 0.35, "Crosstriatlon": 0.35,
-}
-FASE_INTENSITEIT = {
-    "opbouw": "Z2 — Duurtraining",
-    "midden": "Z3 — Tempo",
-    "finale": "Z4 — Drempeltraining",
-}
+def _genereer_diagnose(klachten, moment, intensiteit, water):
+    intensiteit_hoog = intensiteit in ["Z4 — Drempeltraining","Z5 — Wedstrijdintensiteit"]
+    water_weinig     = water == "< 100ml"
+    klachten_set     = set(klachten)
+    for r_kl, r_mom, r_int, r_wat, diag, alt in DIAGNOSE_TABEL:
+        if (r_kl & klachten_set and r_mom == moment and
+                r_int == intensiteit_hoog and r_wat == water_weinig):
+            return diag, alt
+    if "Misselijkheid" in klachten_set:
+        return "Mogelijke overbelasting maag", "Verlaag concentratie, spreid innamen"
+    if "Krampen" in klachten_set:
+        return "Osmotische kramp", "Meer water (min 150ml) per portie"
+    if "Diarree" in klachten_set:
+        return "Hoge osmolariteit of fructose", "Hypotone sportdrank als alternatief"
+    return "Onvoldoende data", "Overweeg alternatief product"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLAUDE API — SCHEMA GENERATIE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _get_claude_client():
+    """Maak Anthropic client aan via Streamlit secrets."""
+    try:
+        api_key = st.secrets.get("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            import os
+            api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+        return anthropic.Anthropic(api_key=api_key)
+    except Exception as e:
+        st.error(f"API configuratie fout: {e}")
+        return None
+
+
+def _genereer_week_via_claude(data: dict, logs: dict) -> dict | None:
+    """
+    Roept Claude API aan om het schema voor de volgende week te genereren.
+    Geeft een dict terug met weekschema of None bij fout.
+    """
+    client = _get_claude_client()
+    if not client:
+        return None
+
+    sport     = data.get("sport","Fietsen")
+    fases     = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
+    producten = [p for p in data.get("producten",[]) if p.get("naam")]
+    basis_prod= next((p for p in producten if p.get("rol")=="Basis"), None)
+    test_prods= [p for p in producten if p.get("rol")=="Test"]
+
+    # Bepaal actieve fase
+    actieve_fase = data.get("actieve_fase", fases[0]["naam"])
+    week_nr      = len([v for v in logs.values() if v.get("ingevuld")]) + 1
+
+    # Bouw prompt
+    basis_info = ""
+    if basis_prod:
+        bn = basis_prod["naam"]
+        bk = basis_prod["kh"]
+        basis_info = f"Basisproduct (vast per sessie): {bn} — {bk}g KH/uur"
+
+    test_info = "\n".join(
+        f"- {p['naam']} ({p['type']}) — {p['kh']}g KH/portie"
+        for p in test_prods
+    )
+
+    gekend_info = ""
+    voor_gekend = data.get("gekende_producten",[])
+    if voor_gekend:
+        gekend_info = "Productgeschiedenis:\n" + "\n".join(
+            f"- {p['naam']}: {p.get('verdraagbaarheid','?')}"
+            + (f" | Diagnose: {p['diagnose']}" if p.get("diagnose") else "")
+            + (f" | Alternatief: {p['alternatief']}" if p.get("alternatief") else "")
+            for p in voor_gekend
+        )
+
+    logs_info = ""
+    if logs:
+        logs_info = "Vorige weken:\n" + "\n".join(
+            f"- Week {k}: {v.get('fase','')} | {v.get('product','')} | "
+            f"{v.get('porties',0)}x {v.get('kh_pp',0)}g | "
+            f"Score {v.get('score',0)}/5 | {v.get('symptoom','?')}"
+            for k, v in sorted(logs.items(), key=lambda x: int(x[0]))
+            if v.get("ingevuld")
+        )
+
+    prompt = f"""Je bent een sportvoedingscoach die een Train the Gut schema opstelt.
+Geef ALLEEN een geldig JSON object terug, geen uitleg, geen markdown.
+
+PROFIEL:
+- Sport: {sport} | Fase: {actieve_fase} | Week: {week_nr}
+- Wedstrijdduur: {data.get('wedstrijd_duur',120)} min
+- KH-target racedag: {data.get('target_kh',60)}g/uur
+- Startpunt week 1: {data.get('start_kh',20)}g/uur
+- Maagprofiel: {data.get('maag_gevoelig','Af en toe')}
+- Ervaring: {data.get('ervaring','Nog nooit')}
+- Eetmomenten/uur: {data.get('eetmomenten',2)}
+- Temperatuur: {data.get('temp',16)}°C | Hoogte: {data.get('hoogte',0)}m
+
+PRODUCTEN:
+{basis_info}
+Testproducten:
+{test_info}
+
+{gekend_info}
+
+{logs_info}
+
+REGELS:
+- Opbouw in HELE PORTIES (1, 2, 3...) van het testproduct
+- Nooit meer dan 1 portie extra per week
+- Bij score <= 2 of klachten: portie verlagen of herhalen
+- Bij score >= 4 zonder klachten: portie verhogen
+- Bij score 3: herhalen
+- Rekening houden met sport (lopen = trager opbouw, fietsen = sneller)
+- Rekening houden met productgeschiedenis (diagnoses)
+- Intensiteit: week 1-2 Z2, week 3-4 Z3, daarna Z4
+
+Geef terug:
+{{"week":{week_nr},"fase":"{actieve_fase}","product":"<naam>","porties":<int>,"kh_basis":<int>,"kh_test":<int>,"kh_totaal":<int>,"interval_min":<int>,"intensiteit":"<zone>","progressie":"<omhoog/herhalen/omlaag>","reden":"<max 15 woorden>","tip":"<concrete tip max 15 woorden>"}}"""
+
+    try:
+        msg = client.messages.create(
+            model="claude-opus-4-5",
+            max_tokens=400,
+            messages=[{"role":"user","content": prompt}]
+        )
+        tekst = msg.content[0].text.strip()
+        # Strip mogelijke markdown code blocks
+        if "```" in tekst:
+            lines = tekst.split("\n")
+            tekst = "\n".join(l for l in lines if not l.startswith("```"))
+        return json.loads(tekst.strip())
+    except json.JSONDecodeError as e:
+        st.warning(f"Schema kon niet worden verwerkt: {e}")
+        return None
+    except Exception as e:
+        st.warning(f"API fout: {e}")
+        return None
+
+
+def _fallback_week(data: dict, logs: dict) -> dict:
+    """
+    Fallback schema als Claude API niet bereikbaar is.
+    Gebruikt eenvoudige portie-logica.
+    """
+    sport      = data.get("sport","Fietsen")
+    fases      = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
+    producten  = [p for p in data.get("producten",[]) if p.get("naam")]
+    basis_prod = next((p for p in producten if p.get("rol")=="Basis"), None)
+    test_prods = [p for p in producten if p.get("rol")=="Test"]
+    basis_kh   = basis_prod["kh"] if basis_prod else 0
+    target_kh  = int(data.get("target_kh",60))
+    start_kh   = int(data.get("start_kh",20))
+    eetmom     = int(data.get("eetmomenten",2))
+    actieve_fase = data.get("actieve_fase", fases[0]["naam"])
+    week_nr    = len([v for v in logs.values() if v.get("ingevuld")]) + 1
+
+    # Kies testproduct
+    fase_logs  = {k:v for k,v in logs.items() if v.get("fase")==actieve_fase and v.get("ingevuld")}
+    prod_idx   = len(fase_logs) % len(test_prods) if test_prods else 0
+    prod       = test_prods[prod_idx] if test_prods else {"naam":"—","kh":22}
+    kh_pp      = prod["kh"]
+
+    # Bepaal porties
+    if not fase_logs:
+        netto   = max(0, start_kh - basis_kh)
+        porties = max(1, round(netto / max(kh_pp,1)))
+        prog    = "start"
+    else:
+        prev = sorted(fase_logs.items(), key=lambda x:int(x[0]))[-1][1]
+        prev_p = prev.get("porties",1)
+        score  = prev.get("score",3)
+        klacht = prev.get("symptoom","Geen klachten") != "Geen klachten"
+        max_p  = max(1, round(target_kh / max(kh_pp,1)))
+        if score >= 4 and not klacht:
+            porties = min(prev_p + 1, max_p)
+            prog    = "omhoog"
+        elif score <= 2 or (score == 3 and klacht):
+            porties = max(1, prev_p - 1)
+            prog    = "omlaag"
+        else:
+            porties = prev_p
+            prog    = "herhalen"
+
+    kh_test  = porties * kh_pp
+    kh_tot   = basis_kh + kh_test
+    interval = max(10, round(60 / max(eetmom, porties) / 5) * 5)
+    zones    = ["Z2 — Duurtraining","Z2 — Duurtraining","Z3 — Tempo",
+                "Z3 — Tempo","Z4 — Drempeltraining"]
+    zone     = zones[min(week_nr-1, len(zones)-1)]
+
+    return {
+        "week": week_nr, "fase": actieve_fase,
+        "product": prod["naam"], "porties": porties,
+        "kh_basis": basis_kh, "kh_test": kh_test, "kh_totaal": kh_tot,
+        "interval_min": interval, "intensiteit": zone,
+        "progressie": prog,
+        "reden": "Berekend op basis van vorige scores",
+        "tip": f"Neem elke portie met minstens 150ml water",
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -173,181 +335,57 @@ def _score_label(score):
             4:"Goed ✅",5:"Uitstekend 🌟"}.get(score,"—")
 
 
-def _week_tip(fase_naam, porties, kh_doel, sport):
-    """Geeft een contextgevoelige tip op basis van fase en porties."""
-    if porties == 1:
-        return f"Start met 1 portie — observeer goed hoe je maag reageert tijdens {fase_naam.lower()}."
-    elif porties == 2:
-        return f"Spreid de 2 porties gelijkmatig over het uur — niet te dicht op elkaar."
-    else:
-        return f"Bij {porties} porties per uur is timing cruciaal — elke portie met minstens 150ml water."
+def _is_fase_stabiel(logs: dict, fase_naam: str) -> bool:
+    fase_logs = {k:v for k,v in logs.items()
+                 if v.get("fase")==fase_naam and v.get("ingevuld")}
+    if len(fase_logs) < 2:
+        return False
+    laatste2 = [v for _,v in sorted(fase_logs.items(), key=lambda x:int(x[0]))[-2:]]
+    return all(l.get("score",0) >= 4 and
+               l.get("symptoom","") in ["","Geen klachten"] for l in laatste2)
 
 
 def _bereken_startpunt(data: dict) -> int:
-    """
-    Bereken startpunt KH/uur voor week 1.
-    'Nooit last' + ervaring → vertrek van huidige inname bij 5+ wedstrijden.
-    """
-    maag     = data.get("maag_gevoelig", "Af en toe")
-    ervaring = data.get("ervaring", "Nog nooit")
-    sport    = data.get("sport", "Fietsen")
-    inname   = int(data.get("huidige_inname", 0))
-    target   = int(data.get("target_kh", 60))
-    temp     = data.get("temp", 16)
-    hoogte   = data.get("hoogte", 0)
+    maag     = data.get("maag_gevoelig","Af en toe")
+    ervaring = data.get("ervaring","Nog nooit")
+    sport    = data.get("sport","Fietsen")
+    inname   = int(data.get("huidige_inname",0))
+    target   = int(data.get("target_kh",60))
+    temp     = data.get("temp",16)
+    hoogte   = data.get("hoogte",0)
 
     if maag == "Altijd met sportvoeding":
         start = 10
     elif maag == "Nooit":
-        if ervaring == "Nog nooit":
-            start = round(target * 0.40)
-        elif ervaring == "2-4 wedstrijden":
-            start = round(target * 0.55)
-        elif ervaring == "5-10 wedstrijden":
-            start = min(inname, round(target * 0.80))
-        else:
-            start = min(inname, round(target * 0.90))
-    else:  # Af en toe
-        if ervaring == "Nog nooit":
-            start = round(target * 0.30)
-        elif ervaring == "2-4 wedstrijden":
-            start = round(target * 0.45)
-        elif ervaring == "5-10 wedstrijden":
-            start = min(round(inname * 0.60), round(target * 0.70))
-        else:
-            start = min(round(inname * 0.70), round(target * 0.80))
+        if ervaring == "Nog nooit":          start = round(target*0.40)
+        elif ervaring == "2-4 wedstrijden":  start = round(target*0.55)
+        elif ervaring == "5-10 wedstrijden": start = min(inname, round(target*0.80))
+        else:                                start = min(inname, round(target*0.90))
+    else:
+        if ervaring == "Nog nooit":          start = round(target*0.30)
+        elif ervaring == "2-4 wedstrijden":  start = round(target*0.45)
+        elif ervaring == "5-10 wedstrijden": start = min(round(inname*0.60), round(target*0.70))
+        else:                                start = min(round(inname*0.70), round(target*0.80))
 
-    if sport in ["Lopen", "Crosstriatlon"]:
-        start = max(10, start - 5)
-    if temp > 28:
-        start = max(10, start - 5)
-    if hoogte > 2000:
-        start = max(10, start - 5)
-
-    return round(start / 5) * 5
-
-
-def _bereken_start_porties(start_kh: int, basis_kh: int, test_kh: int) -> int:
-    """
-    Bereken startaantal porties testproduct.
-    Trekt eerst de basis-KH af, rest wordt gedeeld door kh per testportie.
-    Minimum 1 portie.
-    """
-    netto = max(0, start_kh - basis_kh)
-    if test_kh <= 0:
-        return 1
-    return max(1, round(netto / test_kh))
-
-
-def _bereken_volgende_porties(prev_porties: int, score: int,
-                               heeft_klachten: bool, max_porties: int) -> int:
-    """
-    Portie-gebaseerde progressie op basis van score.
-    Opbouw in echte porties — geen grammen meer.
-    """
-    if score == 5 and not heeft_klachten:
-        delta = 1        # snel vooruit
-    elif score == 4 and not heeft_klachten:
-        delta = 1        # normaal vooruit
-    elif score == 3 and not heeft_klachten:
-        delta = 0        # herhalen
-    elif score == 3 and heeft_klachten:
-        delta = 0        # herhalen
-    elif score == 2:
-        delta = -1       # terugschakelen
-    else:                # score 1
-        delta = -1       # terugschakelen
-
-    nieuw = prev_porties + delta
-    return max(1, min(nieuw, max_porties))
-
-
-def _is_fase_stabiel(logs: dict, fase_sleutel: str) -> bool:
-    """
-    Een fase is stabiel (= afgerond) als de laatste 2 ingevulde weken
-    van die fase allebei score >= 4 hadden én geen klachten.
-    """
-    fase_logs = {k: v for k, v in logs.items()
-                 if v.get("fase") == fase_sleutel and v.get("ingevuld")}
-    if len(fase_logs) < 2:
-        return False
-    gesorteerd = sorted(fase_logs.items(), key=lambda x: int(x[0]))
-    laatste2   = [v for _, v in gesorteerd[-2:]]
-    return all(
-        l.get("score", 0) >= 4 and l.get("symptoom","") in ["","Geen klachten"]
-        for l in laatste2
-    )
-
-
-def _actieve_fase_idx(sport: str, logs: dict) -> int:
-    """Geeft de index van de huidige actieve fase terug."""
-    fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
-    for i, fase in enumerate(fases):
-        sleutel = fase["naam"]
-        if not _is_fase_stabiel(logs, sleutel):
-            return i
-    return len(fases) - 1  # alles afgerond, blijf op laatste
+    if sport in ["Lopen","Crosstriatlon"]: start = max(10, start-5)
+    if temp > 28:    start = max(10, start-5)
+    if hoogte > 2000: start = max(10, start-5)
+    return round(start/5)*5
 
 
 def _volgende_week_nr(logs: dict) -> int:
-    """Geeft het volgende weeknummer (hoogste ingevulde + 1, min 1)."""
     if not logs:
         return 1
-    ingevulde = [int(k) for k, v in logs.items() if v.get("ingevuld")]
-    return max(ingevulde) + 1 if ingevulde else 1
+    ingevulde = [int(k) for k,v in logs.items() if v.get("ingevuld")]
+    return max(ingevulde)+1 if ingevulde else 1
 
 
-def _genereer_tips(data: dict) -> list:
-    """Genereer persoonlijke tips op basis van profiel."""
-    tips = []
-    klachten    = data.get("klachten_lijst",[])
-    klachten_p  = data.get("klachten_producten","").lower()
-    maaltijd    = data.get("laatste_maaltijd","").lower()
-    uren        = data.get("uren_voor_start",3)
-    vocht       = data.get("vocht_voor_start",500)
-    temp        = data.get("temp",16)
-    hoogte      = data.get("hoogte",0)
-    vochtigheid = data.get("vochtigheid",60)
-    eetmom      = data.get("eetmomenten",2)
-    drinkmom    = data.get("drinkmomenten",2)
-
-    if "Misselijkheid" in klachten:
-        tips.append("⚠️ Bij misselijkheid: verlaag de concentratie van je sportdrank en spreid innamen meer.")
-    if "Krampen" in klachten:
-        tips.append("⚠️ Bij krampen: neem producten altijd in met voldoende water (min. 150ml per gel).")
-    if "Opgeblazen gevoel" in klachten:
-        tips.append("⚠️ Bij opgeblazen gevoel: vermijd koolzuurhoudende dranken en controleer het fructosegehalte.")
-    if "Diarree" in klachten:
-        tips.append("⚠️ Bij diarree: vermijd hoge fructose en te geconcentreerde oplossingen.")
-    if any(w in klachten_p for w in ["gel","geconcentreerd"]):
-        tips.append("💡 Overweeg isotone gels of verdun geconcentreerde gels met extra water.")
-    if "fructose" in klachten_p:
-        tips.append("💡 Kies producten met enkel glucose of een lage fructose-glucoseverhouding.")
-    if any(w in maaltijd for w in ["vet","kaas","vlees","ei","room","boter","noten"]):
-        tips.append("🍽️ Je laatste maaltijd bevat mogelijk te veel vet. Kies voor koolhydraatrijke, vetarme voeding.")
-    if any(w in maaltijd for w in ["groente","salade","broccoli","vezels","fruit"]):
-        tips.append("🍽️ Beperk vezels en rauwe groenten in je laatste maaltijd.")
-    if uren < 3:
-        tips.append(f"⏰ Je eet de laatste maaltijd {uren}u voor de start — probeer dit naar 2.5–3u te vervroegen.")
-    if vocht < 400:
-        tips.append("💧 Je drinkt te weinig voor de wedstrijd. Streef naar 500ml water 2u voor de start.")
-    if vocht > 1000:
-        tips.append("💧 Meer dan 1000ml voor de start verhoogt het risico op hyponatriëmie.")
-    if temp > 28:
-        tips.append("🌡️ Bij temperaturen boven 28°C: prioriteit gaat naar vocht. Voeg ORS toe.")
-    if hoogte > 2000:
-        tips.append("🏔️ Boven 2000m daalt de eetlust. Start met vloeibare KH en bouw extra traag op.")
-    if vochtigheid > 80:
-        tips.append("💦 Hoge luchtvochtigheid: voeg extra natrium toe en verhoog je vochtinname per uur.")
-    if eetmom == 1:
-        tips.append("🍌 Je eet 1x per uur — dit zijn grote porties. Verdeel over 2-3 momenten.")
-    if drinkmom == 1:
-        tips.append("🥤 Je drinkt 1x per uur — grote slokken verhogen maagklachten.")
-    if eetmom == 3:
-        tips.append("✅ 3 eetmomenten per uur is optimaal voor maagontlediging.")
-    if drinkmom == 3:
-        tips.append("✅ 3 drinkmomenten per uur bevordert optimale hydratatie.")
-    return tips
+def _actieve_fase(sport: str, logs: dict) -> str:
+    fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
+    for fase in fases:
+        if not _is_fase_stabiel(logs, fase["naam"]):
+            return fase["naam"]
+    return fases[-1]["naam"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -362,23 +400,21 @@ def _stap_intro():
             Waarom maagtraining?</div>
         <div style="font-size:0.85rem;color:#94a3b8;line-height:1.8;">
             Tijdens intensieve inspanning vermindert de bloedtoevoer naar je maag.
-            Dit maakt het moeilijker om voeding te verteren. Door systematisch te trainen
-            went je maag aan grotere hoeveelheden koolhydraten.
+            Door systematisch te trainen went je maag aan grotere hoeveelheden koolhydraten.
             <br><br>
-            Onderzoek toont aan dat atleten die hun maag trainen
-            <b style="color:#f97316;">significant minder maagklachten</b>
-            rapporteren op racedag.
+            Carboo gebruikt <b style="color:#f97316;">AI</b> om jouw persoonlijk schema
+            week per week aan te passen op basis van jouw scores en symptomen.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     _sectie("HOE WERKT HET?")
     for nr, naam, uitleg in [
-        ("1","Profiel","Sport, duur en KH-target instellen"),
-        ("2","Producten","Gels, sportdranken of vast voedsel — met rol (basis/test)"),
-        ("3","Schema","Fase per fase testschema — dynamisch op basis van jouw scores"),
-        ("4","Dagboek","Na elke training score en symptomen invullen"),
-        ("5","Rapport","Welke producten werken voor jou op racedag"),
+        ("1","Profiel","Sport, duur, ervaring en productgeschiedenis"),
+        ("2","Producten","Producten bevestigen of aanvullen"),
+        ("3","Schema","AI genereert jouw persoonlijk weekplan"),
+        ("4","Dagboek","Score en symptomen invullen na training"),
+        ("5","Rapport","Welke producten werken op racedag"),
     ]:
         st.markdown(
             f'<div style="display:flex;align-items:center;gap:12px;padding:8px 0;'
@@ -395,45 +431,41 @@ def _stap_profiel():
     _sectie("JOUW TRAININGSPROFIEL")
     data       = st.session_state.get("tg_data", {})
     ERV_OPTIES = ["Nog nooit","2-4 wedstrijden","5-10 wedstrijden","Meer dan 10 wedstrijden"]
+    KLACHT_OPTIES = ["Misselijkheid","Krampen","Opgeblazen gevoel",
+                     "Reflux / brandend maagzuur","Diarree","Lichte maagkramp"]
 
     c1, c2 = st.columns(2)
     with c1:
         sport = st.selectbox("Sport", SPORTEN,
                               index=SPORTEN.index(data.get("sport","Fietsen")),
                               key="tg_sport")
-
-        test_discipline = data.get("test_discipline", "Beide")
+        test_discipline = data.get("test_discipline","Beide")
         if sport in MULTISPORT:
             test_discipline = st.radio(
                 "Wil je je voeding testen voor:",
-                ["Lopen", "Fietsen", "Beide"],
-                index=["Lopen", "Fietsen", "Beide"].index(
-                    data.get("test_discipline", "Beide")),
-                key="tg_test_discipline", horizontal=True,
-                help="Bij multisport kan je per discipline je voedingsstrategie testen.")
+                ["Lopen","Fietsen","Beide"],
+                index=["Lopen","Fietsen","Beide"].index(
+                    data.get("test_discipline","Beide")),
+                key="tg_test_discipline", horizontal=True)
 
         wedstrijd_datum = st.date_input("Wedstrijddatum",
                                          value=date.fromisoformat(data.get("wedstrijd_datum",
-                                             str(date.today() + timedelta(weeks=8)))),
+                                             str(date.today()+timedelta(weeks=8)))),
                                          key="tg_wedstrijddatum")
         import re as _re
-        wd_raw = st.text_input("Geschatte wedstrijdduur (bv. 3u15 of 2u30)",
+        wd_raw = st.text_input("Geschatte wedstrijdduur (bv. 3u15)",
                                 value=data.get("wedstrijd_duur_str",""),
                                 placeholder="bijv. 3u15", key="tg_wd_raw")
         _m = _re.match(r"(\d+)u(\d+)?", wd_raw.strip().lower())
-        wedstrijd_duur = int(_m.group(1))*60 + int(_m.group(2) or 0) if _m \
+        wedstrijd_duur = int(_m.group(1))*60+int(_m.group(2) or 0) if _m \
                          else int(data.get("wedstrijd_duur",180))
 
-        if wd_raw.strip() and wedstrijd_duur > 0 and wedstrijd_duur < 90:
+        if wd_raw.strip() and 0 < wedstrijd_duur < 90:
             st.markdown("""
             <div style="background:#1e1a0f;border:1px solid #fbbf24;border-radius:8px;
-                        padding:10px 14px;margin-top:6px;font-size:0.82rem;color:#fbbf24;
-                        line-height:1.6;">
-                ⚠️ <b>Train the Gut is niet noodzakelijk voor inspanningen korter dan 90 minuten.</b><br>
-                <span style="color:#94a3b8;">Bij kortere wedstrijden volstaat het maag-darmstelsel
-                zonder specifieke training.</span>
-            </div>
-            """, unsafe_allow_html=True)
+                        padding:10px 14px;font-size:0.82rem;color:#fbbf24;">
+                ⚠️ <b>Train the Gut niet noodzakelijk onder 90 minuten.</b>
+            </div>""", unsafe_allow_html=True)
 
         ervaring  = st.selectbox("Ervaring met wedstrijdvoeding", ERV_OPTIES,
                                   index=ERV_OPTIES.index(data.get("ervaring","Nog nooit")),
@@ -444,81 +476,187 @@ def _stap_profiel():
         niveau = st.selectbox("Niveau", ["Recreatief","Competitief","Elite"],
                                index=["Recreatief","Competitief","Elite"].index(
                                    data.get("niveau","Recreatief")), key="tg_niveau")
-        maag_gevoelig = st.selectbox("Gevoelige maag?",
-                                      ["Nooit","Af en toe","Altijd met sportvoeding"],
-                                      index=["Nooit","Af en toe","Altijd met sportvoeding"].index(
-                                          data.get("maag_gevoelig","Nooit")), key="tg_maag")
-        huidige_inname = 0
-        if heeft_erv:
-            huidige_inname = st.number_input(
-                "Geschatte inname KH tijdens vorige wedstrijden (g/uur)",
-                0, 150, int(data.get("huidige_inname",40)), 5, key="tg_huidige_inname")
 
-    eetmomenten   = int(data.get("eetmomenten",2))
-    drinkmomenten = int(data.get("drinkmomenten",2))
-    if heeft_erv:
-        _sectie("INNAME PATROON BIJ VORIGE WEDSTRIJDEN")
+    # ── Maag — enkel bij geen ervaring ───────────────────────────────────────
+    maag_intern    = data.get("maag_gevoelig","Af en toe")
+    maag_label     = data.get("maag_gevoelig_label","")
+    huidige_inname = 0
+    nieuwe_gekende = []
+    eetmomenten    = int(data.get("eetmomenten",2))
+    drinkmomenten  = int(data.get("drinkmomenten",2))
+
+    if not heeft_erv:
+        _sectie("MAAGPROFIEL")
+        MAAG_OPTIES = [
+            "Geen problemen — ik eet en drink zonder nadenken tijdens sport",
+            "Soms lastig — bij hoge intensiteit af en toe last",
+            "Regelmatig lastig — maag is een aandachtspunt",
+        ]
+        maag_idx = 0
+        if data.get("maag_gevoelig_label") in MAAG_OPTIES:
+            maag_idx = MAAG_OPTIES.index(data.get("maag_gevoelig_label"))
+        maag_keuze = st.radio(
+            "Hoe reageert jouw maag op voeding tijdens inspanning?",
+            MAAG_OPTIES, index=maag_idx, key="tg_maag_nooit")
+        maag_label = maag_keuze
+        if "Geen problemen" in maag_keuze:   maag_intern = "Nooit"
+        elif "Soms lastig" in maag_keuze:    maag_intern = "Af en toe"
+        else:                                maag_intern = "Altijd met sportvoeding"
+
+    else:
+        # ── Productenwizard ───────────────────────────────────────────────────
+        _sectie("GEKENDE PRODUCTEN")
+        st.markdown(
+            '<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;">'
+            'Welke producten gebruik je momenteel? Carboo gebruikt dit voor een slim schema.</div>',
+            unsafe_allow_html=True)
+
+        gekende_producten = data.get("gekende_producten",[])
+        n_prod = st.session_state.get("tg_n_gekend", max(len(gekende_producten),1))
+
+        hc1,hc2,hc3,hc4,hc5 = st.columns([3,2,1,2,1])
+        for col, lbl in [(hc1,"Product"),(hc2,"Type"),(hc3,"KH/portie"),
+                         (hc4,"Verdraagbaarheid"),(hc5,"")]:
+            col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>',
+                         unsafe_allow_html=True)
+
+        for i in range(n_prod):
+            gp = gekende_producten[i] if i < len(gekende_producten) else {
+                "naam":"","type":"Gel","kh":22,"verdraagbaarheid":"Goed"}
+            gc1,gc2,gc3,gc4,gc5 = st.columns([3,2,1,2,1])
+            with gc1:
+                gp_naam = st.text_input(f"gn{i}", value=gp.get("naam",""),
+                                         placeholder="bijv. Maurten Gel 100",
+                                         key=f"tg_gnaam_{i}", label_visibility="collapsed")
+            with gc2:
+                idx_t = PRODUCT_TYPES.index(gp.get("type","Gel")) \
+                        if gp.get("type") in PRODUCT_TYPES else 0
+                gp_type = st.selectbox(f"gt{i}", PRODUCT_TYPES, index=idx_t,
+                                        key=f"tg_gtype_{i}", label_visibility="collapsed")
+            with gc3:
+                gp_kh = st.number_input(f"gk{i}", 0, 120, int(gp.get("kh",22)),
+                                         key=f"tg_gkh_{i}", label_visibility="collapsed")
+            with gc4:
+                VERD = ["Goed","Soms klachten","Vaak klachten"]
+                gp_verd = st.selectbox(f"gv{i}", VERD,
+                                        index=VERD.index(gp.get("verdraagbaarheid","Goed"))
+                                        if gp.get("verdraagbaarheid") in VERD else 0,
+                                        key=f"tg_gverd_{i}", label_visibility="collapsed")
+            with gc5:
+                if n_prod > 1 and st.button("✕", key=f"tg_gdel_{i}"):
+                    st.session_state["tg_n_gekend"] = n_prod-1
+                    st.rerun()
+
+            prod_entry = {"naam":gp_naam,"type":gp_type,"kh":gp_kh,"verdraagbaarheid":gp_verd}
+
+            # Mini-analyse wizard
+            if gp_verd in ["Soms klachten","Vaak klachten"] and gp_naam:
+                kl_w = "#fbbf24" if gp_verd=="Soms klachten" else "#ef4444"
+                ic_w = "⚠️" if gp_verd=="Soms klachten" else "🚨"
+                advies = ("Carboo raadt aan een alternatief te testen."
+                          if gp_verd=="Soms klachten"
+                          else "Sterk aangeraden alternatief te testen.")
+                st.markdown(
+                    f'<div style="background:#1a1500;border-left:3px solid {kl_w};'
+                    f'border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0 6px 0;'
+                    f'font-size:0.8rem;color:{kl_w};">'
+                    f'{ic_w} <b>{gp_verd} met {gp_naam}</b> — {advies}</div>',
+                    unsafe_allow_html=True)
+
+                with st.expander(f"🔍 Analyse voor {gp_naam}", expanded=True):
+                    wa1, wa2 = st.columns(2)
+                    with wa1:
+                        MOM = ["Begin wedstrijd","Midden wedstrijd","Laat in wedstrijd"]
+                        moment = st.selectbox("Wanneer treden klachten op?", MOM,
+                                              index=MOM.index(gp.get("moment","Begin wedstrijd"))
+                                              if gp.get("moment") in MOM else 0,
+                                              key=f"tg_moment_{i}")
+                        WTR = ["< 100ml","100-150ml","> 150ml"]
+                        water = st.selectbox("Hoeveel water bij inname?", WTR,
+                                             index=WTR.index(gp.get("water","100-150ml"))
+                                             if gp.get("water") in WTR else 1,
+                                             key=f"tg_water_{i}")
+                    with wa2:
+                        klachten_w = st.multiselect("Welke klachten?", KLACHT_OPTIES,
+                                                     default=[k for k in gp.get("klachten_analyse",[])
+                                                              if k in KLACHT_OPTIES],
+                                                     key=f"tg_klw_{i}")
+                        INT_OPT = ["Z2 — Duurtraining","Z3 — Tempo",
+                                   "Z4 — Drempeltraining","Z5 — Wedstrijdintensiteit"]
+                        int_w = st.selectbox("Op welke intensiteit?", INT_OPT,
+                                             index=INT_OPT.index(gp.get("intensiteit_analyse","Z3 — Tempo"))
+                                             if gp.get("intensiteit_analyse") in INT_OPT else 1,
+                                             key=f"tg_intw_{i}")
+
+                    prod_entry["moment"]              = moment
+                    prod_entry["water"]               = water
+                    prod_entry["klachten_analyse"]    = klachten_w
+                    prod_entry["intensiteit_analyse"] = int_w
+
+                    if klachten_w:
+                        diag, alt = _genereer_diagnose(
+                            klachten_w, moment.split(" ")[0], int_w, water)
+                        prod_entry["diagnose"]    = diag
+                        prod_entry["alternatief"] = alt
+                        st.markdown(
+                            f'<div style="background:#0f172a;border:1px solid #3b82f6;'
+                            f'border-radius:8px;padding:10px;margin-top:6px;">'
+                            f'<div style="font-size:10px;color:#3b82f6;font-weight:700;'
+                            f'margin-bottom:4px;">🔬 CARBOO DIAGNOSE</div>'
+                            f'<div style="font-size:0.8rem;color:#f1f5f9;">'
+                            f'<b>Oorzaak:</b> {diag}</div>'
+                            f'<div style="font-size:0.8rem;color:#22c55e;margin-top:2px;">'
+                            f'✅ <b>Alternatief:</b> {alt}</div>'
+                            f'</div>', unsafe_allow_html=True)
+
+            nieuwe_gekende.append(prod_entry)
+
+        if st.button("＋ Product toevoegen", key="tg_gadd"):
+            st.session_state["tg_n_gekend"] = n_prod+1
+            st.rerun()
+
+        _sectie("INNAME PATROON")
         c3, c4 = st.columns(2)
         with c3:
-            eetmomenten = st.radio("Hoeveel eetmomenten per uur?", [1,2,3],
+            eetmomenten = st.radio("Eetmomenten per uur?", [1,2,3],
                                     index=[1,2,3].index(eetmomenten),
                                     key="tg_eetmomenten", horizontal=True)
         with c4:
-            drinkmomenten = st.radio("Hoeveel drinkmomenten per uur?", [1,2,3],
+            drinkmomenten = st.radio("Drinkmomenten per uur?", [1,2,3],
                                       index=[1,2,3].index(drinkmomenten),
                                       key="tg_drinkmomenten", horizontal=True)
 
+        # Bereken inname en maagprofiel uit producten
+        gevulde = [p for p in nieuwe_gekende if p.get("naam")]
+        if gevulde:
+            huidige_inname = min(sum(p["kh"] for p in gevulde)*eetmomenten, 120)
+            verdraagtypes  = [p.get("verdraagbaarheid","Goed") for p in gevulde]
+            if any(v=="Vaak klachten" for v in verdraagtypes):
+                maag_intern = "Altijd met sportvoeding"
+            elif any(v=="Soms klachten" for v in verdraagtypes):
+                maag_intern = "Af en toe"
+            else:
+                maag_intern = "Nooit"
+
+    # ── KH Target ─────────────────────────────────────────────────────────────
     _sectie("KH TARGET RACEDAG")
     kh_min_r, kh_max_r = _get_richtlijn(sport, wedstrijd_duur)
     target_kh = st.slider("KH-target op racedag (g/uur)", 0, 120,
                            int(data.get("target_kh", max(kh_min_r,30))), 5, key="tg_target")
     if kh_max_r > 0:
-        st.markdown(f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
-                    f'Richtlijn literatuur: <b style="color:#f8fafc;">{kh_min_r}–{kh_max_r}g/uur</b></div>',
-                    unsafe_allow_html=True)
-    else:
-        st.markdown('<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
-                    'Richtlijn literatuur: <b style="color:#f8fafc;">geen extra KH nodig</b></div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
+            f'Richtlijn: <b style="color:#f8fafc;">{kh_min_r}–{kh_max_r}g/uur</b></div>',
+            unsafe_allow_html=True)
 
-    klachten_producten = data.get("klachten_producten","")
-    klachten_lijst     = data.get("klachten_lijst",[])
-    laatste_maaltijd   = data.get("laatste_maaltijd","")
-    uren_voor_start    = data.get("uren_voor_start",3)
-    vocht_voor_start   = data.get("vocht_voor_start",500)
-
-    if maag_gevoelig in ["Altijd met sportvoeding","Af en toe"]:
-        kleur_s = "#ef4444" if maag_gevoelig=="Altijd met sportvoeding" else "#fbbf24"
-        _sectie("MAAGKLACHTEN BIJ VORIGE WEDSTRIJDEN", kleur_s)
-        st.markdown('<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:10px;">'
-                    'De vragen hieronder gaan over ervaringen uit vorige wedstrijden.</div>',
-                    unsafe_allow_html=True)
-        klachten_producten = st.text_area("Welke producten gebruik(te) je?",
-                                           value=klachten_producten, key="tg_kl_prod", height=68,
-                                           placeholder="bijv. Maurten gels, SIS sportdrank...")
-        KLACHTEN_OPTIES = ["Misselijkheid","Krampen","Opgeblazen gevoel","Diarree"]
-        klachten_lijst = st.multiselect("Welke klachten had je?", KLACHTEN_OPTIES,
-                                         default=[k for k in data.get("klachten_lijst",[])
-                                                  if k in KLACHTEN_OPTIES], key="tg_kl_lijst")
-        c5, c6 = st.columns(2)
-        with c5:
-            laatste_maaltijd = st.text_area("Samenstelling laatste maaltijd voor de wedstrijd",
-                                             value=laatste_maaltijd, key="tg_lm", height=68,
-                                             placeholder="bijv. pasta, rijst, brood...")
-            uren_voor_start = st.number_input("Hoeveel uur voor de start at je?",
-                                               1, 6, int(uren_voor_start), 1, key="tg_uren_start")
-        with c6:
-            vocht_voor_start = st.number_input("Hoeveel ml dronk je voor de wedstrijd?",
-                                                0, 2000, int(vocht_voor_start), 100,
-                                                key="tg_vocht_start")
-
+    # ── Wedstrijdomstandigheden ───────────────────────────────────────────────
     _sectie("WEDSTRIJDOMSTANDIGHEDEN")
     c7, c8 = st.columns(2)
     with c7:
-        wedstrijd_plaats = st.text_input("Plaats van wedstrijd",
+        wedstrijd_plaats = st.text_input("Plaats",
                                           value=data.get("wedstrijd_plaats",""),
-                                          placeholder="bijv. Gent, Mallorca", key="tg_plaats")
-        temp = st.number_input("Verwachte temperatuur (°C)", -10, 50,
+                                          placeholder="bijv. Gent", key="tg_plaats")
+        temp = st.number_input("Temperatuur (°C)", -10, 50,
                                 int(data.get("temp",16)), 1, key="tg_temp")
     with c8:
         hoogte = st.number_input("Hoogte (m)", 0, 5000,
@@ -527,25 +665,41 @@ def _stap_profiel():
                                        int(data.get("vochtigheid",60)), 5, key="tg_vochtigheid")
 
     if st.button("Volgende →", key="tg_prof_next", use_container_width=True):
-        profiel_data = {
-            "sport": sport, "maag_gevoelig": maag_gevoelig, "ervaring": ervaring,
-            "huidige_inname": huidige_inname, "target_kh": target_kh,
-            "temp": temp, "hoogte": hoogte,
-        }
-        start_kh = _bereken_startpunt(profiel_data)
+        start_kh = _bereken_startpunt({
+            "sport":sport,"maag_gevoelig":maag_intern,"ervaring":ervaring,
+            "huidige_inname":huidige_inname,"target_kh":target_kh,
+            "temp":temp,"hoogte":hoogte,
+        })
+        fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
+
+        # Bouw productenlijst voor stap 2
+        vooringevuld = []
+        for p in nieuwe_gekende:
+            if p.get("naam"):
+                vooringevuld.append({
+                    "naam":p["naam"],"type":p["type"],"kh":p["kh"],
+                    "rol":"Test",
+                    "status": ("soms_klachten" if p.get("verdraagbaarheid")=="Soms klachten"
+                               else "vaak_klachten" if p.get("verdraagbaarheid")=="Vaak klachten"
+                               else "gekend_goed"),
+                    "diagnose":   p.get("diagnose",""),
+                    "alternatief":p.get("alternatief",""),
+                })
+
         st.session_state.tg_data = {
-            "sport": sport, "target_kh": target_kh,
-            "niveau": niveau, "ervaring": ervaring,
-            "test_discipline": test_discipline,
-            "wedstrijd_datum": str(wedstrijd_datum),
-            "wedstrijd_duur": wedstrijd_duur, "wedstrijd_duur_str": wd_raw,
-            "maag_gevoelig": maag_gevoelig, "huidige_inname": huidige_inname,
-            "eetmomenten": eetmomenten, "drinkmomenten": drinkmomenten,
-            "klachten_producten": klachten_producten, "klachten_lijst": klachten_lijst,
-            "laatste_maaltijd": laatste_maaltijd, "uren_voor_start": uren_voor_start,
-            "vocht_voor_start": vocht_voor_start, "wedstrijd_plaats": wedstrijd_plaats,
-            "temp": temp, "hoogte": hoogte, "vochtigheid": vochtigheid,
-            "start_kh": start_kh,
+            "sport":sport,"target_kh":target_kh,"niveau":niveau,"ervaring":ervaring,
+            "test_discipline":test_discipline,
+            "wedstrijd_datum":str(wedstrijd_datum),
+            "wedstrijd_duur":wedstrijd_duur,"wedstrijd_duur_str":wd_raw,
+            "maag_gevoelig":maag_intern,"maag_gevoelig_label":maag_label,
+            "huidige_inname":huidige_inname,
+            "eetmomenten":eetmomenten,"drinkmomenten":drinkmomenten,
+            "gekende_producten":nieuwe_gekende,
+            "producten":vooringevuld,
+            "wedstrijd_plaats":wedstrijd_plaats,
+            "temp":temp,"hoogte":hoogte,"vochtigheid":vochtigheid,
+            "start_kh":start_kh,
+            "actieve_fase":fases[0]["naam"],
         }
         st.session_state.tg_stap = 3
         st.rerun()
@@ -553,51 +707,67 @@ def _stap_profiel():
 
 def _stap_producten():
     _sectie("TE TESTEN PRODUCTEN")
-    data  = st.session_state.get("tg_data", {})
-    sport = data.get("sport", "Fietsen")
-    opgeslagen = data.get("producten", [{"naam":"","type":"Gel","kh":22,"rol":"Test"}])
+    data  = st.session_state.get("tg_data",{})
+    sport = data.get("sport","Fietsen")
+    opgeslagen = data.get("producten",[{"naam":"","type":"Gel","kh":22,"rol":"Test"}])
     n = st.session_state.get("tg_n_prod", len(opgeslagen))
 
-    # Sport-specifieke producttips
+    # Sport tips
     sport_tips = SPORT_PRODUCT_TIPS.get(sport)
     if sport_tips:
-        st.markdown(f"""
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;
-                    padding:16px;margin-bottom:16px;">
-            <div style="font-size:0.72rem;font-weight:700;color:#f97316;letter-spacing:2px;
-                        margin-bottom:10px;">{sport_tips['icon']} PRODUCTTIPS VOOR {sport.upper()}</div>
-            <div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;font-style:italic;">
-                {sport_tips['intro']}</div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;'
+            f'padding:16px;margin-bottom:16px;">'
+            f'<div style="font-size:0.72rem;font-weight:700;color:#f97316;letter-spacing:2px;'
+            f'margin-bottom:10px;">{sport_tips["icon"]} PRODUCTTIPS VOOR {sport.upper()}</div>'
+            f'<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;font-style:italic;">'
+            f'{sport_tips["intro"]}</div>',
+            unsafe_allow_html=True)
         for icoon, titel, uitleg in sport_tips["tips"]:
             kleur_map = {"✅":"#22c55e","⚠️":"#fbbf24","💡":"#3b82f6","ℹ️":"#64748b"}
-            kleur = kleur_map.get(icoon, "#94a3b8")
-            st.markdown(f"""
-            <div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #1e293b;">
-                <div style="font-size:1rem;flex-shrink:0;">{icoon}</div>
-                <div><span style="font-weight:700;color:{kleur};font-size:0.82rem;">{titel}</span>
-                <span style="color:#64748b;font-size:0.8rem;"> — {uitleg}</span></div>
-            </div>""", unsafe_allow_html=True)
+            kleur = kleur_map.get(icoon,"#94a3b8")
+            st.markdown(
+                f'<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #1e293b;">'
+                f'<div style="font-size:1rem;flex-shrink:0;">{icoon}</div>'
+                f'<div><span style="font-weight:700;color:{kleur};font-size:0.82rem;">{titel}</span>'
+                f'<span style="color:#64748b;font-size:0.8rem;"> — {uitleg}</span></div>'
+                f'</div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # Uitleg rolverdeling
-    st.markdown("""
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;
-                padding:12px 16px;margin-bottom:14px;font-size:0.82rem;color:#94a3b8;">
-        <b style="color:#f8fafc;">Rol per product:</b><br>
-        🔵 <b style="color:#3b82f6;">Basis</b> — vaste inname per sessie (bijv. sportdrank in bidon) — KH telt mee maar bouwt niet op.<br>
-        🟠 <b style="color:#f97316;">Test</b> — bouwt op in porties week per week — dit is het product dat je traint.
-    </div>
-    """, unsafe_allow_html=True)
+    # Diagnoses uit profiel
+    gekende = data.get("gekende_producten",[])
+    if any(p.get("diagnose") for p in gekende):
+        _sectie("DIAGNOSE UIT PROFIEL","#3b82f6")
+        for p in gekende:
+            if p.get("diagnose"):
+                verd  = p.get("verdraagbaarheid","")
+                kl    = "#fbbf24" if verd=="Soms klachten" else "#ef4444"
+                pn    = p["naam"]
+                pd    = p["diagnose"]
+                pa    = p["alternatief"]
+                st.markdown(
+                    f'<div style="background:#0f172a;border:1px solid {kl};'
+                    f'border-radius:8px;padding:10px;margin-bottom:6px;">'
+                    f'<div style="font-size:0.82rem;font-weight:700;color:{kl};">{pn}</div>'
+                    f'<div style="font-size:0.78rem;color:#94a3b8;">Oorzaak: {pd}</div>'
+                    f'<div style="font-size:0.78rem;color:#22c55e;">✅ Alternatief: {pa}</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
+        'padding:12px 16px;margin-bottom:14px;font-size:0.82rem;color:#94a3b8;">'
+        '<b style="color:#f8fafc;">Rol:</b> '
+        '🔵 <b style="color:#3b82f6;">Basis</b> = vast per sessie | '
+        '🟠 <b style="color:#f97316;">Test</b> = bouwt op in porties</div>',
+        unsafe_allow_html=True)
 
     h1,h2,h3,h4,h5 = st.columns([3,2,1,1,1])
-    for col, lbl in [(h1,"Product naam"),(h2,"Type"),(h3,"KH/portie"),(h4,"Rol"),(h5,"")]:
+    for col, lbl in [(h1,"Product"),(h2,"Type"),(h3,"KH/portie"),(h4,"Rol"),(h5,"")]:
         col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>',
                      unsafe_allow_html=True)
 
     producten      = []
-    heeft_basis    = any(p.get("rol","Test")=="Basis" for p in opgeslagen[:n])
-    waarschuwingen = SPORT_PRODUCT_WAARSCHUWINGEN.get(sport, {})
+    waarschuwingen = SPORT_PRODUCT_WAARSCHUWINGEN.get(sport,{})
 
     for i in range(n):
         p = opgeslagen[i] if i < len(opgeslagen) else {"naam":"","type":"Gel","kh":22,"rol":"Test"}
@@ -607,57 +777,65 @@ def _stap_producten():
                                   placeholder="Productnaam",
                                   key=f"tg_pnaam_{i}", label_visibility="collapsed")
         with c2:
-            idx_t = PRODUCT_TYPES.index(p.get("type","Gel")) if p.get("type") in PRODUCT_TYPES else 0
+            idx_t = PRODUCT_TYPES.index(p.get("type","Gel")) \
+                    if p.get("type") in PRODUCT_TYPES else 0
             ptype = st.selectbox(f"t{i}", PRODUCT_TYPES, index=idx_t,
                                   key=f"tg_ptype_{i}", label_visibility="collapsed")
         with c3:
             kh = st.number_input(f"k{i}", 0, 120, int(p.get("kh",22)),
                                    key=f"tg_pkh_{i}", label_visibility="collapsed")
         with c4:
-            # Basis enkel mogelijk als nog geen ander basisproduct gekozen
-            huidig_rol  = p.get("rol","Test")
+            huidig_rol   = p.get("rol","Test")
             andere_basis = any(
-                st.session_state.get(f"tg_prol_{j}", "Test") == "Basis"
-                for j in range(n) if j != i
-            )
-            rol_opties = ["Test","Basis"] if not andere_basis or huidig_rol=="Basis" else ["Test"]
+                st.session_state.get(f"tg_prol_{j}","Test")=="Basis"
+                for j in range(n) if j!=i)
+            rol_opties   = ["Test","Basis"] if not andere_basis or huidig_rol=="Basis" else ["Test"]
             rol = st.selectbox(f"r{i}", rol_opties,
                                 index=rol_opties.index(huidig_rol) if huidig_rol in rol_opties else 0,
                                 key=f"tg_prol_{i}", label_visibility="collapsed")
         with c5:
             if n > 1 and st.button("✕", key=f"tg_pdel_{i}"):
-                st.session_state["tg_n_prod"] = n - 1
+                st.session_state["tg_n_prod"] = n-1
                 st.rerun()
-        producten.append({"naam":naam,"type":ptype,"kh":kh,"rol":rol})
+        producten.append({"naam":naam,"type":ptype,"kh":kh,"rol":rol,
+                           "status":p.get("status","")})
 
-        # Productwaarschuwing direct onder de rij
+        status = p.get("status","")
+        if status == "soms_klachten":
+            st.markdown(
+                '<div style="font-size:0.75rem;color:#fbbf24;margin:-2px 0 6px 0;">'
+                '⚠️ Soms klachten — overweeg alternatief toe te voegen</div>',
+                unsafe_allow_html=True)
+        elif status == "vaak_klachten":
+            st.markdown(
+                '<div style="font-size:0.75rem;color:#ef4444;margin:-2px 0 6px 0;">'
+                '🚨 Vaak klachten — sterk aangeraden alternatief</div>',
+                unsafe_allow_html=True)
+
         if ptype in waarschuwingen:
-            icoon, kleur, tekst = waarschuwingen[ptype]
-            st.markdown(f"""
-            <div style="background:#0f172a;border-left:3px solid {kleur};
-                        border-radius:0 6px 6px 0;padding:6px 12px;
-                        margin:-4px 0 8px 0;font-size:0.78rem;color:{kleur};">
-                {icoon} {tekst}
-            </div>""", unsafe_allow_html=True)
+            ic, kl, tx = waarschuwingen[ptype]
+            st.markdown(
+                f'<div style="background:#0f172a;border-left:3px solid {kl};'
+                f'border-radius:0 6px 6px 0;padding:6px 12px;'
+                f'margin:-4px 0 8px 0;font-size:0.78rem;color:{kl};">'
+                f'{ic} {tx}</div>', unsafe_allow_html=True)
 
     if st.button("＋ Product toevoegen", key="tg_padd"):
-        st.session_state["tg_n_prod"] = n + 1
+        st.session_state["tg_n_prod"] = n+1
         st.rerun()
 
-    # Samenvatting KH-verdeling
     gevulde = [p for p in producten if p["naam"]]
     if gevulde:
-        basis_kh = sum(p["kh"] for p in gevulde if p["rol"]=="Basis")
+        basis_kh  = sum(p["kh"] for p in gevulde if p["rol"]=="Basis")
         test_prod = [p for p in gevulde if p["rol"]=="Test"]
         if basis_kh > 0:
-            st.markdown(f"""
-            <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
-                        padding:10px 14px;margin-top:8px;font-size:0.8rem;color:#94a3b8;">
-                🔵 Basis KH (vast per sessie): <b style="color:#3b82f6;">{basis_kh}g/uur</b><br>
-                🟠 Test KH (bouwt op): <b style="color:#f97316;">
-                {" + ".join(f"{p['naam']} ({p['kh']}g/portie)" for p in test_prod) or "—"}
-                </b>
-            </div>""", unsafe_allow_html=True)
+            test_str = " + ".join(f"{p['naam']} ({p['kh']}g)" for p in test_prod) or "—"
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;'
+                f'padding:10px 14px;margin-top:8px;font-size:0.8rem;color:#94a3b8;">'
+                f'🔵 Basis: <b style="color:#3b82f6;">{basis_kh}g/uur</b> | '
+                f'🟠 Test: <b style="color:#f97316;">{test_str}</b></div>',
+                unsafe_allow_html=True)
 
     c_terug, c_next = st.columns(2)
     with c_terug:
@@ -678,190 +856,200 @@ def _stap_producten():
 
 
 def _stap_schema():
-    """Fase-gebaseerd schema — geen vaste weekslimiet."""
+    """Schema — Claude API genereert het weekplan."""
     _sectie("TESTSCHEMA")
-    data  = st.session_state.get("tg_data", {})
-    logs  = st.session_state.get("tg_logs", {})
-    sport = data.get("sport", "Fietsen")
+    data  = st.session_state.get("tg_data",{})
+    logs  = st.session_state.get("tg_logs",{})
+    sport = data.get("sport","Fietsen")
     fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
 
     producten  = [p for p in data.get("producten",[]) if p.get("naam")]
     basis_prod = next((p for p in producten if p.get("rol")=="Basis"), None)
     test_prods = [p for p in producten if p.get("rol")=="Test"]
     basis_kh   = basis_prod["kh"] if basis_prod else 0
-    target_kh  = int(data.get("target_kh", 60))
-    start_kh   = int(data.get("start_kh", 20))
-    eetmom     = int(data.get("eetmomenten", 2))
+    target_kh  = int(data.get("target_kh",60))
 
-    # Week 1 preview
-    if test_prods:
-        prod1    = test_prods[0]
-        kh_pp1   = prod1["kh"]
-        porties1 = _bereken_start_porties(start_kh, basis_kh, kh_pp1)
-        kh_tot1  = basis_kh + porties1 * kh_pp1
-        interval1 = max(10, round(60 / max(eetmom, porties1) / 5) * 5)
-        tijden1   = " → ".join([f"+{interval1*i}min" for i in range(1,porties1+1)]) \
-                    if porties1 > 1 else f"+{interval1}min na start"
-        pct1      = round((kh_tot1 / max(target_kh,1)) * 100)
-        maag      = data.get("maag_gevoelig","Af en toe")
-        ervaring  = data.get("ervaring","Nog nooit")
-        if maag=="Nooit" and ervaring in ["5-10 wedstrijden","Meer dan 10 wedstrijden"]:
-            start_uitleg = f"Gebaseerd op jouw huidige inname van {data.get('huidige_inname',0)}g/uur"
-        elif maag=="Altijd met sportvoeding":
-            start_uitleg = "Voorzichtig gestart — maag is gevoelig"
+    # Bepaal actieve fase
+    actieve_fase_naam = _actieve_fase(sport, logs)
+    data["actieve_fase"] = actieve_fase_naam
+    st.session_state.tg_data = data
+
+    # ── Fase voortgang ────────────────────────────────────────────────────────
+    _sectie("VOORTGANG PER FASE")
+    fase_kleuren = ["#3b82f6","#f97316","#8b5cf6","#22c55e"]
+    for fi, fase in enumerate(fases):
+        fn     = fase["naam"]
+        fi_ic  = fase["icon"]
+        fkl    = fase_kleuren[fi % len(fase_kleuren)]
+        stab   = _is_fase_stabiel(logs, fn)
+        actief = fn == actieve_fase_naam
+        gelockt= not stab and not actief and fi > 0
+        # Controleer of vorige fase stabiel is
+        if fi > 0:
+            prev_stab = _is_fase_stabiel(logs, fases[fi-1]["naam"])
+            gelockt   = not prev_stab and not actief
+
+        status = "✅ Afgerond" if stab else ("📝 Actief" if actief else "🔒 Wacht")
+        sk     = "#22c55e" if stab else (fkl if actief else "#334155")
+
+        n_weken = len([v for v in logs.values()
+                       if v.get("fase")==fn and v.get("ingevuld")])
+        st.markdown(
+            f'<div style="background:#0f172a;border:2px solid {sk};border-radius:10px;'
+            f'padding:12px 14px;margin-bottom:8px;{"opacity:0.4;" if gelockt else ""}">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<div style="display:flex;align-items:center;gap:8px;">'
+            f'<span>{fi_ic}</span>'
+            f'<span style="font-weight:800;color:#f8fafc;">{fn}</span>'
+            f'{"<span style=\\'font-size:11px;color:#64748b;\\'>" + str(n_weken) + " weken gelogd</span>" if n_weken > 0 else ""}'
+            f'</div>'
+            f'<span style="font-size:0.75rem;font-weight:700;color:{sk};">{status}</span>'
+            f'</div></div>',
+            unsafe_allow_html=True)
+
+    # ── Weken van actieve fase ────────────────────────────────────────────────
+    _sectie(f"SCHEMA — {actieve_fase_naam.upper()}", "#3b82f6")
+
+    fase_logs = {k:v for k,v in logs.items()
+                 if v.get("fase")==actieve_fase_naam and v.get("ingevuld")}
+
+    for wn in sorted(fase_logs.keys(), key=int):
+        lw      = logs[wn]
+        porties = lw.get("porties",1)
+        pnaam   = lw.get("product","—")
+        kh_pp   = lw.get("kh_pp",0)
+        kh_tot  = basis_kh + porties*kh_pp
+        pct     = round((kh_tot/max(target_kh,1))*100)
+        s       = lw.get("score",0)
+        sym     = lw.get("symptoom","")
+        prog    = lw.get("progressie","")
+        prog_kl = "#22c55e" if prog=="omhoog" else ("#ef4444" if prog=="omlaag" else "#fbbf24")
+
+        score_html = f"<div>Score: <b style='color:{_score_kleur(s)};'>{s}/5</b></div>" if s else ""
+        sym_html   = (f"<div>{sym if sym and sym!='Geen klachten' else '✅ Geen klachten'}</div>"
+                      if s else "")
+        prog_html  = (f'<div style="color:{prog_kl};font-size:10px;">▶ {prog}</div>'
+                      if prog else "")
+
+        st.markdown(
+            f'<div style="background:#0a0f1e;border:1px solid #22c55e;'
+            f'border-radius:8px;padding:12px;margin-bottom:6px;">'
+            f'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+            f'<span style="font-weight:700;color:#f8fafc;">Week {wn}</span>'
+            f'<span style="font-weight:800;color:#22c55e;">{kh_tot}g/uur</span>'
+            f'</div>'
+            f'<div style="background:#1e293b;border-radius:3px;height:4px;overflow:hidden;margin-bottom:8px;">'
+            f'<div style="width:{min(pct,100)}%;height:100%;background:#22c55e;border-radius:3px;"></div>'
+            f'</div>'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:0.75rem;color:#94a3b8;">'
+            f'<div>🧪 <b style="color:#f8fafc;">{pnaam}</b> — {porties}x {kh_pp}g</div>'
+            f'{prog_html}'
+            f'{score_html}{sym_html}'
+            f'</div></div>',
+            unsafe_allow_html=True)
+
+    # ── Volgende week genereren ───────────────────────────────────────────────
+    volgende_wn = _volgende_week_nr(logs)
+    stabiel     = _is_fase_stabiel(logs, actieve_fase_naam)
+
+    if stabiel:
+        st.markdown(
+            f'<div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;'
+            f'padding:12px;margin-bottom:12px;font-size:0.82rem;color:#22c55e;">'
+            f'✅ <b>{actieve_fase_naam} afgerond!</b> 2 weken stabiel met score ≥ 4.</div>',
+            unsafe_allow_html=True)
+        # Controleer of er nog fases zijn
+        fase_namen = [f["naam"] for f in fases]
+        huidige_idx = fase_namen.index(actieve_fase_naam) if actieve_fase_naam in fase_namen else 0
+        if huidige_idx < len(fases)-1:
+            volgende_fase = fases[huidige_idx+1]["naam"]
+            if st.button(f"▶ Start {volgende_fase}", key="tg_start_fase",
+                          use_container_width=True):
+                st.session_state.tg_data["actieve_fase"] = volgende_fase
+                st.rerun()
         else:
-            start_uitleg = "Berekend op basis van ervaring en maagprofiel"
+            st.success("🏁 Alle fases afgerond! Bekijk je rapport.")
+    else:
+        # Genereer of toon gepland schema voor volgende week
+        cache_key = f"tg_schema_week_{volgende_wn}"
+        if cache_key not in st.session_state:
+            with st.spinner("🤖 Carboo AI genereert jouw weekplan..."):
+                schema = _genereer_week_via_claude(data, logs)
+                if schema is None:
+                    schema = _fallback_week(data, logs)
+                st.session_state[cache_key] = schema
+        else:
+            schema = st.session_state[cache_key]
 
-        basis_blok = ""
+        # Toon gepland schema
+        pnaam    = schema.get("product","—")
+        porties  = schema.get("porties",1)
+        kh_test  = schema.get("kh_test",0)
+        kh_basis = schema.get("kh_basis",0)
+        kh_tot   = schema.get("kh_totaal", kh_basis+kh_test)
+        interval = schema.get("interval_min",30)
+        zone     = schema.get("intensiteit","Z2 — Duurtraining")
+        reden    = schema.get("reden","")
+        tip      = schema.get("tip","")
+        pct      = round((kh_tot/max(target_kh,1))*100)
+        prog     = schema.get("progressie","")
+        prog_kl  = "#22c55e" if prog=="omhoog" else ("#ef4444" if prog=="omlaag" else "#fbbf24")
+
+        tijden = " → ".join([f"+{interval*i}min" for i in range(1,porties+1)]) \
+                 if porties > 1 else f"+{interval}min na start"
+
+        basis_html = ""
         if basis_prod:
-            bp_naam = basis_prod["naam"]
-            basis_blok = (
-                f'<div style="background:#0f172a;border-radius:8px;padding:10px 12px;'
-                f'margin-bottom:10px;font-size:0.78rem;color:#64748b;">'
-                f'🔵 Basis: <b style="color:#3b82f6;">{bp_naam} — {basis_kh}g/uur (vast)</b></div>'
-            )
-        week1_tip = WEEK1_SPORT_TIPS.get(sport, "")
-        prod1_naam = prod1["naam"]
+            bp = basis_prod["naam"]
+            basis_html = (f'<div style="font-size:0.75rem;color:#3b82f6;margin-bottom:6px;">'
+                          f'🔵 Basis: {bp} — {kh_basis}g/uur (vast)</div>')
+
         st.markdown(
             f'<div style="background:linear-gradient(135deg,#0f172a,#1e1a2e);'
-            f'border:2px solid #3b82f6;border-radius:14px;padding:20px;margin-bottom:20px;">'
-            f'<div style="font-size:0.65rem;font-weight:700;color:#3b82f6;'
-            f'letter-spacing:2px;margin-bottom:14px;">🚀 JOUW STARTPUNT — WEEK 1</div>'
-            f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">'
-            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
-            f'<div style="font-size:1.6rem;font-weight:800;color:#3b82f6;">{kh_tot1}g</div>'
-            f'<div style="font-size:11px;color:#64748b;">KH per uur totaal</div>'
-            f'<div style="font-size:10px;color:#475569;margin-top:4px;">{pct1}% van target</div>'
+            f'border:2px solid #8b5cf6;border-radius:14px;padding:20px;margin-bottom:16px;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+            f'<div style="font-size:0.65rem;font-weight:700;color:#8b5cf6;letter-spacing:2px;">'
+            f'🤖 AI WEEKPLAN — WEEK {volgende_wn}</div>'
+            f'<div style="font-size:0.72rem;font-weight:700;color:{prog_kl};">▶ {prog}</div>'
             f'</div>'
-            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
-            f'<div style="font-size:1.6rem;font-weight:800;color:#f97316;">{porties1}x</div>'
-            f'<div style="font-size:11px;color:#64748b;">{prod1_naam}</div>'
-            f'<div style="font-size:10px;color:#475569;margin-top:4px;">{kh_pp1}g KH/portie</div>'
-            f'</div>'
-            f'<div style="background:#0f172a;border-radius:8px;padding:12px;text-align:center;">'
-            f'<div style="font-size:1.6rem;font-weight:800;color:#22c55e;">Z2</div>'
-            f'<div style="font-size:11px;color:#64748b;">Intensiteit</div>'
-            f'<div style="font-size:10px;color:#475569;margin-top:4px;">Duurtraining</div>'
+            f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">'
+            f'<div style="background:#0f172a;border-radius:8px;padding:10px;text-align:center;">'
+            f'<div style="font-size:1.5rem;font-weight:800;color:#8b5cf6;">{kh_tot}g</div>'
+            f'<div style="font-size:11px;color:#64748b;">KH/uur totaal</div>'
+            f'<div style="font-size:10px;color:#475569;">{pct}% van target</div></div>'
+            f'<div style="background:#0f172a;border-radius:8px;padding:10px;text-align:center;">'
+            f'<div style="font-size:1.5rem;font-weight:800;color:#f97316;">{porties}x</div>'
+            f'<div style="font-size:11px;color:#64748b;">{pnaam}</div>'
+            f'<div style="font-size:10px;color:#475569;">{kh_test}g KH test</div></div>'
+            f'<div style="background:#0f172a;border-radius:8px;padding:10px;text-align:center;">'
+            f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{zone.split(" — ")[0]}</div>'
+            f'<div style="font-size:11px;color:#64748b;">{zone.split(" — ")[1] if " — " in zone else zone}</div>'
             f'</div></div>'
-            f'{basis_blok}'
-            f'<div style="background:#0f172a;border-radius:8px;padding:12px;margin-bottom:12px;">'
-            f'<div style="font-size:10px;color:#64748b;margin-bottom:6px;">INNAMETIJDSTIPPEN TESTPRODUCT</div>'
-            f'<div style="font-size:0.85rem;font-weight:700;color:#f8fafc;">📍 {tijden1}</div>'
-            f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
-            f'Elke {interval1} minuten — altijd met minstens 150ml water</div>'
+            f'{basis_html}'
+            f'<div style="background:#0f172a;border-radius:8px;padding:10px;margin-bottom:10px;">'
+            f'<div style="font-size:10px;color:#64748b;margin-bottom:4px;">INNAMETIJDSTIPPEN</div>'
+            f'<div style="font-size:0.85rem;font-weight:700;color:#f8fafc;">📍 {tijden}</div>'
+            f'<div style="font-size:0.72rem;color:#64748b;margin-top:2px;">Elke {interval} min — met 150ml water</div>'
             f'</div>'
-            f'<div style="background:#0a1628;border-left:3px solid #3b82f6;'
-            f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
-            f'<div style="font-size:0.78rem;color:#94a3b8;">'
-            f'💡 <b style="color:#f8fafc;">Waarom dit startpunt?</b> {start_uitleg}</div>'
-            f'</div>'
-            f'<div style="background:#0a1628;border-left:3px solid #f97316;'
-            f'border-radius:0 8px 8px 0;padding:10px 14px;">'
-            f'<div style="font-size:0.78rem;color:#94a3b8;">'
-            f'🏅 <b style="color:#f8fafc;">Tip week 1:</b> {week1_tip}</div>'
-            f'</div></div>',
-            unsafe_allow_html=True
-        )
+            f'{"<div style=\\'background:#0a1628;border-left:3px solid #8b5cf6;border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Waarom:</b> " + reden + "</div>" if reden else ""}'
+            f'{"<div style=\\'background:#0a1628;border-left:3px solid #f97316;border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Tip:</b> " + tip + "</div>" if tip else ""}'
+            f'</div>',
+            unsafe_allow_html=True)
 
-    # Persoonlijke tips
-    tips = _genereer_tips(data)
-    if tips:
-        _sectie("PERSOONLIJKE TIPS", "#fbbf24")
-        for tip in tips:
-            st.markdown(
-                f'<div style="background:#0f172a;border:1px solid #fbbf24;border-radius:8px;'
-                f'padding:10px 14px;font-size:0.82rem;color:#f1f5f9;margin-bottom:6px;">{tip}</div>',
-                unsafe_allow_html=True)
-
-    # Fase-overzicht
-    _sectie("SCHEMA PER FASE")
-    actieve_fase_idx = _actieve_fase_idx(sport, logs)
-
-    fase_kleuren = ["#3b82f6","#f97316","#8b5cf6","#22c55e"]
-
-    for fi, fase in enumerate(fases):
-        fase_naam   = fase["naam"]
-        fase_icon   = fase["icon"]
-        fase_kleur  = fase_kleuren[fi % len(fase_kleuren)]
-        stabiel     = _is_fase_stabiel(logs, fase_naam)
-        actief      = fi == actieve_fase_idx
-        gelockt     = fi > actieve_fase_idx
-
-        # Fase header
-        status = "✅ Afgerond" if stabiel else ("📝 Actief" if actief else "🔒 Nog niet gestart")
-        status_kleur = "#22c55e" if stabiel else (fase_kleur if actief else "#334155")
-
-        st.markdown(f"""
-        <div style="background:#0f172a;border:2px solid {status_kleur};border-radius:12px;
-                    padding:14px;margin-bottom:{'4' if actief else '12'}px;
-                    {'opacity:0.5;' if gelockt else ''}">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:1.2rem;">{fase_icon}</span>
-                    <span style="font-weight:800;color:#f8fafc;font-size:0.95rem;">{fase_naam}</span>
-                </div>
-                <span style="font-size:0.75rem;font-weight:700;color:{status_kleur};">{status}</span>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if not gelockt:
-            # Toon weken van deze fase
-            fase_logs = {k: v for k, v in logs.items() if v.get("fase") == fase_naam}
-            week_nrs  = sorted([int(k) for k in fase_logs.keys()])
-
-            for wn in week_nrs:
-                log_w    = logs.get(str(wn), {})
-                ingevuld = log_w.get("ingevuld", False)
-                porties  = log_w.get("porties", 1)
-                prod_naam= log_w.get("product", "—")
-                kh_pp    = log_w.get("kh_pp", 0)
-                kh_tot   = basis_kh + porties * kh_pp
-                pct      = round((kh_tot / max(target_kh,1)) * 100)
-                interval = max(10, round(60 / max(eetmom, porties) / 5) * 5)
-                innamen  = " → ".join([f"+{interval*i}min" for i in range(1,porties+1)]) \
-                           if porties > 1 else f"+{interval}min"
-                s        = log_w.get("score",0)
-                sym      = log_w.get("symptoom","")
-
-                st.markdown(f"""
-                <div style="background:#0a0f1e;border:1px solid {'#22c55e' if ingevuld else fase_kleur};
-                            border-radius:8px;padding:12px;margin-bottom:6px;margin-left:16px;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-                        <span style="font-weight:700;color:#f8fafc;">Week {wn}</span>
-                        <span style="font-weight:800;color:{fase_kleur};">{kh_tot}g/uur</span>
-                    </div>
-                    <div style="background:#1e293b;border-radius:3px;height:4px;overflow:hidden;margin-bottom:8px;">
-                        <div style="width:{min(pct,100)}%;height:100%;background:{fase_kleur};border-radius:3px;"></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:0.75rem;color:#94a3b8;">
-                        <div>🧪 <b style="color:#f8fafc;">{prod_naam}</b> — {porties}x {kh_pp}g</div>
-                        <div>📍 {innamen}</div>
-                        {"<div>Score: <b style='color:" + _score_kleur(s) + ";'>" + str(s) + "/5</b></div>" if ingevuld else ""}
-                        {"<div>" + (sym if sym and sym!='Geen klachten' else '✅ Geen klachten') + "</div>" if ingevuld else ""}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-            # Knop voor volgende week in deze fase
-            if actief and not stabiel:
-                volgende_wn = _volgende_week_nr(logs)
-                if st.button(f"📝 Week {volgende_wn} invullen — {fase_naam}",
-                             key=f"goto_log_{fi}", use_container_width=True):
-                    st.session_state["tg_actieve_week"] = volgende_wn
-                    st.session_state["tg_actieve_fase"] = fase_naam
-                    st.session_state.tg_stap = 5
-                    st.rerun()
-
-            if stabiel:
-                st.markdown(f"""
-                <div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;
-                            padding:10px 14px;margin-bottom:8px;margin-left:16px;
-                            font-size:0.8rem;color:#22c55e;">
-                    ✅ <b>{fase_naam} afgerond</b> — 2 weken stabiel met score ≥ 4.
-                    {"Fase " + fases[fi+1]["naam"] + " is nu beschikbaar." if fi+1 < len(fases) else "Alle fases afgerond — bekijk het rapport!"}
-                </div>
-                """, unsafe_allow_html=True)
+        col_refresh, col_log = st.columns(2)
+        with col_refresh:
+            if st.button("🔄 Herbereken", key="tg_herbereken"):
+                if cache_key in st.session_state:
+                    del st.session_state[cache_key]
+                st.rerun()
+        with col_log:
+            if st.button(f"📝 Week {volgende_wn} invullen →",
+                          key="goto_logboek", use_container_width=True):
+                st.session_state["tg_actieve_week"] = volgende_wn
+                st.session_state["tg_actieve_fase"] = actieve_fase_naam
+                st.session_state["tg_huidig_schema"] = schema
+                st.session_state.tg_stap = 5
+                st.rerun()
 
     c_terug, c_rapport = st.columns(2)
     with c_terug:
@@ -875,78 +1063,66 @@ def _stap_schema():
 
 
 def _stap_logboek():
-    """Dagboek — portie-gebaseerd, fase-bewust."""
+    """Dagboek — toont het AI-gegenereerde schema en vraagt om score."""
     _sectie("DAGBOEK")
-    data  = st.session_state.get("tg_data", {})
-    logs  = st.session_state.get("tg_logs", {})
-    sport = data.get("sport", "Fietsen")
-    fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
+    data  = st.session_state.get("tg_data",{})
+    logs  = st.session_state.get("tg_logs",{})
+
+    actieve_week  = st.session_state.get("tg_actieve_week", _volgende_week_nr(logs))
+    actieve_fase  = st.session_state.get("tg_actieve_fase","")
+    schema        = st.session_state.get("tg_huidig_schema",{})
+    log           = logs.get(str(actieve_week),{})
 
     producten  = [p for p in data.get("producten",[]) if p.get("naam")]
     basis_prod = next((p for p in producten if p.get("rol")=="Basis"), None)
-    test_prods = [p for p in producten if p.get("rol")=="Test"]
     basis_kh   = basis_prod["kh"] if basis_prod else 0
-    target_kh  = int(data.get("target_kh", 60))
-    eetmom     = int(data.get("eetmomenten", 2))
+    target_kh  = int(data.get("target_kh",60))
 
-    actieve_week = st.session_state.get("tg_actieve_week", _volgende_week_nr(logs))
-    actieve_fase = st.session_state.get("tg_actieve_fase",
-                   fases[_actieve_fase_idx(sport, logs)]["naam"])
-    log          = logs.get(str(actieve_week), {})
+    pnaam   = schema.get("product","—")
+    porties = schema.get("porties",1)
+    kh_pp   = next((p["kh"] for p in producten if p["naam"]==pnaam), 0)
+    kh_tot  = schema.get("kh_totaal", basis_kh + porties*kh_pp)
+    interval= schema.get("interval_min",30)
+    zone    = schema.get("intensiteit","Z2 — Duurtraining")
+    pct     = round((kh_tot/max(target_kh,1))*100)
 
-    # Bepaal testproduct voor deze week (wisselend per fase-week)
-    fase_logs   = {k:v for k,v in logs.items() if v.get("fase")==actieve_fase and v.get("ingevuld")}
-    prod_idx    = len(fase_logs) % len(test_prods) if test_prods else 0
-    huidig_prod = test_prods[prod_idx] if test_prods else {"naam":"—","kh":22}
-
-    # Bepaal porties op basis van vorige week in deze fase
-    prev_fase_logs = sorted([(int(k),v) for k,v in fase_logs.items()], key=lambda x:x[0])
-    if prev_fase_logs:
-        prev_log     = prev_fase_logs[-1][1]
-        prev_porties = prev_log.get("porties", 1)
-        prev_score   = prev_log.get("score", 3)
-        prev_klacht  = prev_log.get("symptoom","Geen klachten") != "Geen klachten"
-        max_porties  = max(1, round(target_kh / max(huidig_prod["kh"],1)))
-        huidig_porties = _bereken_volgende_porties(prev_porties, prev_score, prev_klacht, max_porties)
-    else:
-        start_kh       = int(data.get("start_kh", 20))
-        huidig_porties = _bereken_start_porties(start_kh, basis_kh, huidig_prod["kh"])
-
-    kh_tot   = basis_kh + huidig_porties * huidig_prod["kh"]
-    interval = max(10, round(60 / max(eetmom, huidig_porties) / 5) * 5)
-    pct      = round((kh_tot / max(target_kh,1)) * 100)
-
-    # Header
-    prod_naam_h  = huidig_prod["naam"]
-    prod_kh_h    = huidig_prod["kh"]
     basis_naam_h = basis_prod["naam"] if basis_prod else ""
     basis_extra  = f"+ {basis_naam_h} {basis_kh}g basis" if basis_prod else ""
+
     st.markdown(
-        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
+        f'<div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:10px;'
         f'padding:14px;margin-bottom:16px;">'
-        f'<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin-bottom:6px;">'
-        f'WEEK {actieve_week} — {actieve_fase.upper()}</div>'
+        f'<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;margin-bottom:6px;">'
+        f'🤖 AI SCHEMA — WEEK {actieve_week} — {actieve_fase.upper()}</div>'
         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
         f'<div>'
-        f'<div style="font-weight:800;color:#f8fafc;font-size:1rem;">{prod_naam_h}</div>'
+        f'<div style="font-weight:800;color:#f8fafc;font-size:1rem;">{pnaam}</div>'
         f'<div style="font-size:0.78rem;color:#64748b;">'
-        f'{huidig_porties}x {prod_kh_h}g {basis_extra} = {kh_tot}g/uur totaal</div>'
+        f'{porties}x {kh_pp}g {basis_extra} = {kh_tot}g/uur | {zone}</div>'
         f'</div>'
         f'<div style="text-align:right;">'
         f'<div style="font-size:1.4rem;font-weight:800;color:#f97316;">{kh_tot}g/uur</div>'
         f'<div style="font-size:10px;color:#64748b;">{pct}% van target</div>'
         f'</div></div></div>',
-        unsafe_allow_html=True
-    )
+        unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
-                'Vul in hoe de training verliep. De volgende portie wordt automatisch '
-                'aangepast op basis van je score.</div>', unsafe_allow_html=True)
+    if schema.get("tip"):
+        st.markdown(
+            f'<div style="background:#0a1628;border-left:3px solid #f97316;'
+            f'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:14px;'
+            f'font-size:0.8rem;color:#94a3b8;">'
+            f'💡 <b style="color:#f8fafc;">Tip:</b> {schema["tip"]}</div>',
+            unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
+        'Hoe verliep de training? AI past het volgende weekplan aan op basis van jouw score.</div>',
+        unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
     with c1:
         score = st.slider("Verdraagbaarheid (1=slecht — 5=uitstekend)",
-                           1, 5, int(log.get("score", 3)), key=f"tg_score_{actieve_week}")
+                           1, 5, int(log.get("score",3)), key=f"tg_score_{actieve_week}")
         st.markdown(
             f'<div style="font-size:0.8rem;color:{_score_kleur(score)};font-weight:700;">'
             f'{_score_label(score)}</div>', unsafe_allow_html=True)
@@ -962,8 +1138,8 @@ def _stap_logboek():
 
     c3, c4 = st.columns(2)
     with c3:
-        temp_log = st.number_input("Temperatuur tijdens training (°C)", -5, 45,
-                                    int(log.get("temp", 18)), 1, key=f"tg_temp_{actieve_week}")
+        temp_log = st.number_input("Temperatuur (°C)", -5, 45,
+                                    int(log.get("temp",18)), 1, key=f"tg_temp_{actieve_week}")
     with c4:
         timing_ok = st.radio("Innamen op geplande tijdstip?",
                               ["Ja","Gedeeltelijk","Neen"],
@@ -972,62 +1148,28 @@ def _stap_logboek():
 
     notitie = st.text_area("Notities", value=log.get("notitie",""),
                             key=f"tg_notitie_{actieve_week}", height=80,
-                            placeholder="Hoe smaakte het? Maagklachten op welk moment?")
-
-    actie = st.selectbox("Actie voor volgende week", [
-        "Doorgaan met dit product",
-        "Hoeveelheid verlagen en opnieuw testen",
-        "Ander product testen",
-        "Product schrappen"],
-        index=["Doorgaan met dit product","Hoeveelheid verlagen en opnieuw testen",
-               "Ander product testen","Product schrappen"].index(
-            log.get("actie","Doorgaan met dit product")),
-        key=f"tg_actie_{actieve_week}")
-
-    # Preview volgende portie
-    heeft_klachten = symptoom != "Geen klachten"
-    max_porties    = max(1, round(target_kh / max(huidig_prod["kh"],1)))
-    volgende_p     = _bereken_volgende_porties(huidig_porties, score, heeft_klachten, max_porties)
-    volgende_kh    = basis_kh + volgende_p * huidig_prod["kh"]
-    delta_p        = volgende_p - huidig_porties
-    delta_kleur    = "#22c55e" if delta_p > 0 else ("#ef4444" if delta_p < 0 else "#fbbf24")
-    delta_txt      = f"+{delta_p} portie(s)" if delta_p > 0 else \
-                     (f"{delta_p} portie(s)" if delta_p < 0 else "zelfde aantal")
-
-    stabiel_na_opslaan = False
-    if score >= 4 and not heeft_klachten:
-        prev2 = [v for _,v in sorted(
-            [(int(k),v) for k,v in fase_logs.items()], key=lambda x:x[0]
-        )]
-        if prev2 and prev2[-1].get("score",0) >= 4 and \
-           prev2[-1].get("symptoom","Geen klachten") == "Geen klachten":
-            stabiel_na_opslaan = True
-
-    st.markdown(f"""
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;
-                padding:10px 14px;margin-top:12px;font-size:0.82rem;">
-        📋 Volgende week: <b style="color:{delta_kleur};">{volgende_p} portie(s) = {volgende_kh}g/uur ({delta_txt})</b>
-        {('<br><span style="color:#22c55e;font-size:0.78rem;">✅ Na opslaan is fase <b>' + actieve_fase + '</b> stabiel — volgende fase wordt ontgrendeld!</span>') if stabiel_na_opslaan else ""}
-    </div>
-    """, unsafe_allow_html=True)
+                            placeholder="Hoe smaakte het? Klachten op welk moment?")
 
     if st.button(f"✅ Opslaan week {actieve_week}", key=f"tg_save_{actieve_week}",
                   use_container_width=True):
         if "tg_logs" not in st.session_state:
             st.session_state.tg_logs = {}
         st.session_state.tg_logs[str(actieve_week)] = {
-            "score": score, "symptoom": symptoom, "int_uitg": int_uitg,
-            "temp": temp_log, "timing_ok": timing_ok,
-            "notitie": notitie, "actie": actie,
-            "fase": actieve_fase,
-            "product": huidig_prod["naam"],
-            "kh_pp": huidig_prod["kh"],
-            "porties": huidig_porties,
-            "kh_doel": kh_tot,
-            "ingevuld": True,
+            "score":score,"symptoom":symptoom,"int_uitg":int_uitg,
+            "temp":temp_log,"timing_ok":timing_ok,"notitie":notitie,
+            "fase":actieve_fase,
+            "product":pnaam,"kh_pp":kh_pp,"porties":porties,"kh_doel":kh_tot,
+            "progressie":schema.get("progressie",""),
+            "ingevuld":True,
         }
-        st.success(f"✅ Week {actieve_week} opgeslagen!")
-        st.session_state["tg_actieve_week"] = actieve_week + 1
+        # Wis cache voor volgende week zodat AI opnieuw berekent
+        volgende_wn = actieve_week+1
+        cache_key = f"tg_schema_week_{volgende_wn}"
+        if cache_key in st.session_state:
+            del st.session_state[cache_key]
+
+        st.success(f"✅ Week {actieve_week} opgeslagen! AI berekent week {volgende_wn}...")
+        st.session_state["tg_actieve_week"] = volgende_wn
         st.session_state.tg_stap = 4
         st.rerun()
 
@@ -1044,9 +1186,9 @@ def _stap_logboek():
 
 def _stap_rapport():
     _sectie("TESTRAPPORT — TRAIN THE GUT")
-    data  = st.session_state.get("tg_data", {})
-    logs  = st.session_state.get("tg_logs", {})
-    sport = data.get("sport", "Fietsen")
+    data  = st.session_state.get("tg_data",{})
+    logs  = st.session_state.get("tg_logs",{})
+    sport = data.get("sport","Fietsen")
     fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
 
     ingevuld = [v for v in logs.values() if v.get("ingevuld")]
@@ -1057,47 +1199,39 @@ def _stap_rapport():
             st.rerun()
         return
 
-    gem_score = sum(v["score"] for v in ingevuld) / len(ingevuld)
+    gem_score = sum(v["score"] for v in ingevuld)/len(ingevuld)
     max_kh    = max(v.get("kh_doel",0) for v in ingevuld)
-    n_klacht  = sum(1 for v in ingevuld if v.get("symptoom","Geen klachten") != "Geen klachten")
+    n_klacht  = sum(1 for v in ingevuld if v.get("symptoom","Geen klachten")!="Geen klachten")
 
-    st.markdown(f"""
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;
-                padding:18px;margin-bottom:18px;">
-        <div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin-bottom:12px;">
-            SAMENVATTING — {sport.upper()}</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-            <div style="text-align:center;">
-                <div style="font-size:1.6rem;font-weight:800;color:#f97316;">{len(ingevuld)}</div>
-                <div style="font-size:11px;color:#64748b;">trainingen gelogd</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.6rem;font-weight:800;color:{_score_kleur(gem_score)};">
-                    {gem_score:.1f}/5</div>
-                <div style="font-size:11px;color:#64748b;">gemiddelde score</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.6rem;font-weight:800;color:#22c55e;">{max_kh}g</div>
-                <div style="font-size:11px;color:#64748b;">max KH/uur getest</div>
-            </div>
-            <div style="text-align:center;">
-                <div style="font-size:1.6rem;font-weight:800;
-                            color:{'#22c55e' if n_klacht==0 else '#fbbf24'}">{n_klacht}</div>
-                <div style="font-size:11px;color:#64748b;">weken met klachten</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;'
+        f'padding:18px;margin-bottom:18px;">'
+        f'<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;margin-bottom:12px;">'
+        f'SAMENVATTING — {sport.upper()}</div>'
+        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">'
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:1.6rem;font-weight:800;color:#f97316;">{len(ingevuld)}</div>'
+        f'<div style="font-size:11px;color:#64748b;">trainingen</div></div>'
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:1.6rem;font-weight:800;color:{_score_kleur(gem_score)};">'
+        f'{gem_score:.1f}/5</div>'
+        f'<div style="font-size:11px;color:#64748b;">gem. score</div></div>'
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:1.6rem;font-weight:800;color:#22c55e;">{max_kh}g</div>'
+        f'<div style="font-size:11px;color:#64748b;">max KH/uur</div></div>'
+        f'<div style="text-align:center;">'
+        f'<div style="font-size:1.6rem;font-weight:800;'
+        f'color:{"#22c55e" if n_klacht==0 else "#fbbf24"}">{n_klacht}</div>'
+        f'<div style="font-size:11px;color:#64748b;">weken klachten</div></div>'
+        f'</div></div>',
+        unsafe_allow_html=True)
 
-    # Per fase resultaten
     for fase in fases:
-        fase_naam = fase["naam"]
-        fase_logs = [v for v in ingevuld if v.get("fase")==fase_naam]
-        if not fase_logs:
-            continue
-        stabiel = _is_fase_stabiel(logs, fase_naam)
-        _sectie(f"{fase['icon']} {fase_naam.upper()}",
-                "#22c55e" if stabiel else "#f97316")
+        fn        = fase["naam"]
+        fase_logs = [v for v in ingevuld if v.get("fase")==fn]
+        if not fase_logs: continue
+        stabiel   = _is_fase_stabiel(logs, fn)
+        _sectie(f"{fase['icon']} {fn.upper()}", "#22c55e" if stabiel else "#f97316")
 
         prod_data = {}
         for v in fase_logs:
@@ -1106,75 +1240,63 @@ def _stap_rapport():
                 prod_data[prod] = {"scores":[],"symptomen":[],"kh_max":0,"porties_max":0}
             prod_data[prod]["scores"].append(v["score"])
             prod_data[prod]["symptomen"].append(v.get("symptoom","Geen klachten"))
-            prod_data[prod]["kh_max"]     = max(prod_data[prod]["kh_max"], v.get("kh_doel",0))
-            prod_data[prod]["porties_max"]= max(prod_data[prod]["porties_max"], v.get("porties",0))
+            prod_data[prod]["kh_max"]      = max(prod_data[prod]["kh_max"],v.get("kh_doel",0))
+            prod_data[prod]["porties_max"] = max(prod_data[prod]["porties_max"],v.get("porties",0))
 
         aanbevolen = []
-        vermijden  = []
         for prod, pd in prod_data.items():
-            gem  = sum(pd["scores"]) / len(pd["scores"])
+            gem  = sum(pd["scores"])/len(pd["scores"])
             ok   = gem >= 4.0
-            kleur= _score_kleur(gem)
-            symp = max(set(pd["symptomen"]), key=pd["symptomen"].count)
+            kl   = _score_kleur(gem)
+            symp = max(set(pd["symptomen"]),key=pd["symptomen"].count)
             if ok: aanbevolen.append(prod)
-            else:  vermijden.append(prod)
 
-            st.markdown(f"""
-            <div style="background:#0f172a;border:2px solid {'#22c55e' if ok else '#ef4444'};
-                        border-radius:10px;padding:12px;margin-bottom:8px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div style="font-weight:800;color:#f8fafc;">{prod}</div>
-                        <div style="font-size:11px;color:#64748b;">
-                            max {pd['porties_max']} portie(s) · {pd['kh_max']}g KH/uur</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:1.2rem;font-weight:800;color:{kleur};">{gem:.1f}/5</div>
-                        <div style="font-size:10px;color:{'#22c55e' if ok else '#ef4444'};">
-                            {'✅ Aanbevolen' if ok else '❌ Vermijden'}</div>
-                    </div>
-                </div>
-                <div style="font-size:0.75rem;color:#64748b;margin-top:6px;">
-                    Meest voorkomend symptoom: <b style="color:#f8fafc;">{symp}</b></div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="background:#0f172a;border:2px solid {"#22c55e" if ok else "#ef4444"};'
+                f'border-radius:10px;padding:12px;margin-bottom:8px;">'
+                f'<div style="display:flex;justify-content:space-between;">'
+                f'<div><div style="font-weight:800;color:#f8fafc;">{prod}</div>'
+                f'<div style="font-size:11px;color:#64748b;">'
+                f'max {pd["porties_max"]}x · {pd["kh_max"]}g/uur</div></div>'
+                f'<div style="text-align:right;">'
+                f'<div style="font-size:1.2rem;font-weight:800;color:{kl};">{gem:.1f}/5</div>'
+                f'<div style="font-size:10px;color:{"#22c55e" if ok else "#ef4444"};">'
+                f'{"✅ Aanbevolen" if ok else "❌ Vermijden"}</div></div></div>'
+                f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
+                f'Symptoom: {symp}</div></div>',
+                unsafe_allow_html=True)
 
-        if stabiel:
-            st.markdown(f"""
-            <div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;
-                        padding:10px 14px;margin-bottom:12px;font-size:0.8rem;color:#22c55e;">
-                ✅ <b>{fase_naam} stabiel</b> — aanbevolen producten: <b>{', '.join(aanbevolen) or '—'}</b>
-            </div>""", unsafe_allow_html=True)
+        if stabiel and aanbevolen:
+            st.markdown(
+                f'<div style="background:#0a1a0a;border:1px solid #22c55e;border-radius:8px;'
+                f'padding:10px;margin-bottom:8px;font-size:0.8rem;color:#22c55e;">'
+                f'✅ <b>{fn} stabiel</b> — aanbevolen: <b>{", ".join(aanbevolen)}</b></div>',
+                unsafe_allow_html=True)
 
-    # Eindadvies
-    _sectie("AANBEVELING VOOR RACEDAG", "#22c55e")
-    alle_aanbevolen = list({v.get("product") for v in ingevuld
-                           if (sum(x["score"] for x in ingevuld
-                                   if x.get("product")==v.get("product")) /
-                               max(sum(1 for x in ingevuld
-                                       if x.get("product")==v.get("product")),1)) >= 4.0})
-    if alle_aanbevolen:
-        st.success(f"✅ Goedgekeurde producten: **{', '.join(alle_aanbevolen)}**")
-        st.markdown(f"""
-        <div style="background:#0f172a;border:1px solid #22c55e;border-radius:8px;
-                    padding:14px;font-size:0.82rem;color:#94a3b8;line-height:1.7;margin-top:8px;">
-            Je hebt aangetoond dat je maag <b style="color:#22c55e;">{max_kh}g KH/uur</b>
-            verdraagt met geteste producten.<br>
-            Gebruik <b style="color:#f8fafc;">enkel deze producten</b> op racedag.<br><br>
-            🏁 Klaar om dit te integreren in je
-            <b style="color:#f97316;">Race Nutrition Coach</b> raceplan.
-        </div>""", unsafe_allow_html=True)
+    _sectie("AANBEVELING VOOR RACEDAG","#22c55e")
+    alle_ok = list({v.get("product") for v in ingevuld
+                    if (sum(x["score"] for x in ingevuld if x.get("product")==v.get("product"))/
+                        max(sum(1 for x in ingevuld if x.get("product")==v.get("product")),1))>=4.0})
+    if alle_ok:
+        st.success(f"✅ Goedgekeurde producten: **{', '.join(alle_ok)}**")
+        st.markdown(
+            f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:8px;'
+            f'padding:14px;font-size:0.82rem;color:#94a3b8;line-height:1.7;margin-top:8px;">'
+            f'Maag verdraagt <b style="color:#22c55e;">{max_kh}g KH/uur</b>.<br>'
+            f'Gebruik <b style="color:#f8fafc;">enkel geteste producten</b> op racedag.<br><br>'
+            f'🏁 Integreer in <b style="color:#f97316;">Race Nutrition Coach</b>.</div>',
+            unsafe_allow_html=True)
     else:
         st.warning("Nog geen producten met score ≥ 4. Ga verder met testen.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("← Terug naar schema", key="tg_rep_back"):
+        if st.button("← Terug", key="tg_rep_back"):
             st.session_state.tg_stap = 4
             st.rerun()
     with c2:
-        if st.button("🔄 Nieuw testschema", key="tg_nieuw", use_container_width=True):
+        if st.button("🔄 Nieuw schema", key="tg_nieuw", use_container_width=True):
             for k in list(st.session_state.keys()):
                 if k.startswith("tg_"):
                     del st.session_state[k]
@@ -1186,25 +1308,24 @@ def _stap_rapport():
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def render_testing(user: dict):
-    st.markdown("""
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-        <div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
-            CAR<span style="color:#f97316;">BOO</span></div>
-        <div style="font-size:0.85rem;font-weight:700;color:#8b5cf6;letter-spacing:2px;
-                     border:1px solid #8b5cf6;border-radius:6px;padding:3px 10px;">
-            TRAIN THE GUT</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">'
+        '<div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">'
+        'CAR<span style="color:#f97316;">BOO</span></div>'
+        '<div style="font-size:0.85rem;font-weight:700;color:#8b5cf6;letter-spacing:2px;'
+        'border:1px solid #8b5cf6;border-radius:6px;padding:3px 10px;">TRAIN THE GUT</div>'
+        '</div>',
+        unsafe_allow_html=True)
 
     if st.button("← Terug naar modules", key="tg_terug_top"):
         st.session_state.module = "menu"
         st.rerun()
 
-    stap  = st.session_state.get("tg_stap", 1)
-    namen = ["Intro","Profiel","Producten","Schema","Logboek","Rapport"]
+    stap  = st.session_state.get("tg_stap",1)
+    namen = ["Intro","Profiel","Producten","Schema","Dagboek","Rapport"]
     cols  = st.columns(len(namen))
     for i, (col, naam) in enumerate(zip(cols, namen)):
-        actief = (i+1) == stap
+        actief = (i+1)==stap
         gedaan = i+1 < stap
         kleur  = "#f97316" if actief else ("#22c55e" if gedaan else "#334155")
         col.markdown(
@@ -1215,11 +1336,11 @@ def render_testing(user: dict):
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    if   stap == 1: _stap_intro(); st.markdown("<br>",unsafe_allow_html=True); \
+    if   stap==1: _stap_intro(); st.markdown("<br>",unsafe_allow_html=True); \
         st.button("Start Train the Gut →",key="tg_start",use_container_width=True) and \
         (st.session_state.update({"tg_stap":2}) or st.rerun())
-    elif stap == 2: _stap_profiel()
-    elif stap == 3: _stap_producten()
-    elif stap == 4: _stap_schema()
-    elif stap == 5: _stap_logboek()
-    elif stap == 6: _stap_rapport()
+    elif stap==2: _stap_profiel()
+    elif stap==3: _stap_producten()
+    elif stap==4: _stap_schema()
+    elif stap==5: _stap_logboek()
+    elif stap==6: _stap_rapport()
