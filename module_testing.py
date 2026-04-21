@@ -70,7 +70,9 @@ SPORT_PRODUCT_TIPS = {
     ]},
     "Lopen":{"icon":"🏃","intro":"Schokbelasting bij lopen — kies eenvoudig en bewezen.","tips":[
         ("⚠️","Vermijd vast voedsel","Loopbeweging verhoogt kans op maagklachten sterk."),
-        ("✅","Gels + water is gouden combinatie","Elke gel met minstens 150ml water."),
+        ("✅","Gels + water is gouden combinatie","Elke gel altijd met minstens 150ml water — nooit met sportdrank."),
+        ("⚠️","Gel en sportdrank niet combineren","Neem óf een gel met water, óf sportdrank — nooit gel wegspoelen met sportdrank. Dit geeft een te hoge suikerconcentratie in de darm."),
+        ("💡","Wissel af per moment","1 moment gel + water, volgend moment sportdrank — maar nooit tegelijk."),
         ("💡","Kleine frequente porties","Liever 3x klein dan 1x groot per uur."),
     ]},
     "Triatlon":{"icon":"🏊🚴🏃","intro":"Stem voeding af per segment.","tips":[
@@ -510,23 +512,9 @@ def _stap_profiel():
     drinkmomenten  = int(data.get("drinkmomenten",2))
 
     if not heeft_erv:
-        # ── Maagprofiel bij geen ervaring ─────────────────────────────────────
-        st.markdown("<br>", unsafe_allow_html=True)
-        MAAG_OPTIES = [
-            "Geen problemen — ik eet en drink zonder nadenken tijdens sport",
-            "Soms lastig — bij hoge intensiteit af en toe last",
-            "Regelmatig lastig — maag is een aandachtspunt",
-        ]
-        maag_idx = 0
-        if data.get("maag_gevoelig_label") in MAAG_OPTIES:
-            maag_idx = MAAG_OPTIES.index(data.get("maag_gevoelig_label"))
-        maag_keuze = st.radio(
-            "Hoe reageert jouw maag op voeding tijdens inspanning?",
-            MAAG_OPTIES, index=maag_idx, key="tg_maag_nooit")
-        maag_label = maag_keuze
-        if "Geen problemen" in maag_keuze:   maag_intern = "Nooit"
-        elif "Soms lastig" in maag_keuze:    maag_intern = "Af en toe"
-        else:                                maag_intern = "Altijd met sportvoeding"
+        # Geen ervaring → starten we voorzichtig, maagprofiel niet gevraagd
+        maag_intern = "Af en toe"
+        maag_label  = "Geen ervaring"
 
     else:
         # ── Gekende producten bij ervaring ────────────────────────────────────
@@ -561,9 +549,9 @@ def _stap_profiel():
                 gp_kh = st.number_input(f"gk{i}", 0, 120, int(gp.get("kh",22)),
                                          key=f"tg_gkh_{i}", label_visibility="collapsed")
             with gc4:
-                VERD = ["Goed","Soms klachten","Vaak klachten"]
+                VERD = ["Geen klachten","Klachten"]
                 gp_verd = st.selectbox(f"gv{i}", VERD,
-                                        index=VERD.index(gp.get("verdraagbaarheid","Goed"))
+                                        index=VERD.index(gp.get("verdraagbaarheid","Geen klachten"))
                                         if gp.get("verdraagbaarheid") in VERD else 0,
                                         key=f"tg_gverd_{i}", label_visibility="collapsed")
             with gc5:
@@ -574,12 +562,10 @@ def _stap_profiel():
             prod_entry = {"naam":gp_naam,"type":gp_type,"kh":gp_kh,"verdraagbaarheid":gp_verd}
 
             # Mini-analyse wizard bij klachten
-            if gp_verd in ["Soms klachten","Vaak klachten"] and gp_naam:
-                kl_w = "#fbbf24" if gp_verd=="Soms klachten" else "#ef4444"
-                ic_w = "⚠️" if gp_verd=="Soms klachten" else "🚨"
-                advies = ("Carboo raadt aan een alternatief te testen."
-                          if gp_verd=="Soms klachten"
-                          else "Sterk aangeraden alternatief te testen.")
+            if gp_verd == "Klachten" and gp_naam:
+                kl_w = "#fbbf24"
+                ic_w = "⚠️"
+                advies = "Carboo stelt een analyse voor om een gericht alternatief te vinden." 
                 st.markdown(
                     f'<div style="background:#1a1500;border-left:3px solid {kl_w};'+
                     f'border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0 6px 0;'+
@@ -655,10 +641,8 @@ def _stap_profiel():
         gevulde = [p for p in nieuwe_gekende if p.get("naam")]
         if gevulde:
             huidige_inname = min(sum(p["kh"] for p in gevulde) * eetmomenten, 120)
-            verdraagtypes  = [p.get("verdraagbaarheid","Goed") for p in gevulde]
-            if any(v=="Vaak klachten" for v in verdraagtypes):
-                maag_intern = "Altijd met sportvoeding"
-            elif any(v=="Soms klachten" for v in verdraagtypes):
+            verdraagtypes  = [p.get("verdraagbaarheid","Geen klachten") for p in gevulde]
+            if any(v=="Klachten" for v in verdraagtypes):
                 maag_intern = "Af en toe"
             else:
                 maag_intern = "Nooit"
@@ -674,8 +658,9 @@ def _stap_profiel():
          else 'is geen extra KH nodig bij deze duur.') +
         f'</div>',
         unsafe_allow_html=True)
+    kh_default = int(data.get("target_kh", round((kh_min_r + kh_max_r) / 2 / 5) * 5 if kh_max_r > 0 else 30))
     target_kh = st.slider("Jouw KH-target op racedag (g/uur)", 0, 120,
-                           int(data.get("target_kh", max(kh_min_r,30))), 5, key="tg_target")
+                           kh_default, 5, key="tg_target")
 
     # ── Opslaan ───────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
@@ -694,8 +679,7 @@ def _stap_profiel():
                 vooringevuld.append({
                     "naam":p["naam"],"type":p["type"],"kh":p["kh"],
                     "rol":"Test",
-                    "status": ("soms_klachten" if p.get("verdraagbaarheid")=="Soms klachten"
-                               else "vaak_klachten" if p.get("verdraagbaarheid")=="Vaak klachten"
+                    "status": ("klachten" if p.get("verdraagbaarheid")=="Klachten"
                                else "gekend_goed"),
                     "diagnose":   p.get("diagnose",""),
                     "alternatief":p.get("alternatief",""),
@@ -727,27 +711,29 @@ def _stap_producten():
     opgeslagen = data.get("producten",[{"naam":"","type":"Gel","kh":22,"rol":"Test"}])
     n = st.session_state.get("tg_n_prod", len(opgeslagen))
 
-    # Sport tips
+    # Sport tips in 1 venster
     sport_tips = SPORT_PRODUCT_TIPS.get(sport)
     if sport_tips:
-        st.markdown(
+        tips_html = (
             f'<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;'
-            f'padding:16px;margin-bottom:16px;">'
+            f'padding:16px;margin-bottom:20px;">'
             f'<div style="font-size:0.72rem;font-weight:700;color:#f97316;letter-spacing:2px;'
-            f'margin-bottom:10px;">{sport_tips["icon"]} PRODUCTTIPS VOOR {sport.upper()}</div>'
+            f'margin-bottom:8px;">{sport_tips["icon"]} PRODUCTTIPS VOOR {sport.upper()}</div>'
             f'<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;font-style:italic;">'
-            f'{sport_tips["intro"]}</div>',
-            unsafe_allow_html=True)
+            f'{sport_tips["intro"]}</div>'
+        )
+        kleur_map = {"✅":"#22c55e","⚠️":"#fbbf24","💡":"#3b82f6","ℹ️":"#64748b"}
         for icoon, titel, uitleg in sport_tips["tips"]:
-            kleur_map = {"✅":"#22c55e","⚠️":"#fbbf24","💡":"#3b82f6","ℹ️":"#64748b"}
             kleur = kleur_map.get(icoon,"#94a3b8")
-            st.markdown(
-                f'<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #1e293b;">'
+            tips_html += (
+                f'<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #1e293b;">'
                 f'<div style="font-size:1rem;flex-shrink:0;">{icoon}</div>'
                 f'<div><span style="font-weight:700;color:{kleur};font-size:0.82rem;">{titel}</span>'
                 f'<span style="color:#64748b;font-size:0.8rem;"> — {uitleg}</span></div>'
-                f'</div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+                f'</div>'
+            )
+        tips_html += '</div>'
+        st.markdown(tips_html, unsafe_allow_html=True)
 
     # Diagnoses uit profiel
     gekende = data.get("gekende_producten",[])
@@ -768,16 +754,10 @@ def _stap_producten():
                     f'<div style="font-size:0.78rem;color:#22c55e;">✅ Alternatief: {pa}</div>'
                     f'</div>', unsafe_allow_html=True)
 
-    st.markdown(
-        '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;'
-        'padding:12px 16px;margin-bottom:14px;font-size:0.82rem;color:#94a3b8;">'
-        '<b style="color:#f8fafc;">Rol:</b> '
-        '🔵 <b style="color:#3b82f6;">Basis</b> = vast per sessie | '
-        '🟠 <b style="color:#f97316;">Test</b> = bouwt op in porties</div>',
-        unsafe_allow_html=True)
 
-    h1,h2,h3,h4,h5 = st.columns([3,2,1,1,1])
-    for col, lbl in [(h1,"Product"),(h2,"Type"),(h3,"KH/portie"),(h4,"Rol"),(h5,"")]:
+
+    h1,h2,h3,h4 = st.columns([3,2,1,1])
+    for col, lbl in [(h1,"Product"),(h2,"Type"),(h3,"KH/portie"),(h4,"")]:
         col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>',
                      unsafe_allow_html=True)
 
@@ -786,7 +766,7 @@ def _stap_producten():
 
     for i in range(n):
         p = opgeslagen[i] if i < len(opgeslagen) else {"naam":"","type":"Gel","kh":22,"rol":"Test"}
-        c1,c2,c3,c4,c5 = st.columns([3,2,1,1,1])
+        c1,c2,c3,c4 = st.columns([3,2,1,1])
         with c1:
             naam = st.text_input(f"n{i}", value=p.get("naam",""),
                                   placeholder="Productnaam",
@@ -800,32 +780,31 @@ def _stap_producten():
             kh = st.number_input(f"k{i}", 0, 120, int(p.get("kh",22)),
                                    key=f"tg_pkh_{i}", label_visibility="collapsed")
         with c4:
-            huidig_rol   = p.get("rol","Test")
-            andere_basis = any(
-                st.session_state.get(f"tg_prol_{j}","Test")=="Basis"
-                for j in range(n) if j!=i)
-            rol_opties   = ["Test","Basis"] if not andere_basis or huidig_rol=="Basis" else ["Test"]
-            rol = st.selectbox(f"r{i}", rol_opties,
-                                index=rol_opties.index(huidig_rol) if huidig_rol in rol_opties else 0,
-                                key=f"tg_prol_{i}", label_visibility="collapsed")
-        with c5:
             if n > 1 and st.button("✕", key=f"tg_pdel_{i}"):
                 st.session_state["tg_n_prod"] = n-1
                 st.rerun()
-        producten.append({"naam":naam,"type":ptype,"kh":kh,"rol":rol,
+        producten.append({"naam":naam,"type":ptype,"kh":kh,"rol":"Test",
                            "status":p.get("status","")})
 
-        status = p.get("status","")
-        if status == "soms_klachten":
-            st.markdown(
-                '<div style="font-size:0.75rem;color:#fbbf24;margin:-2px 0 6px 0;">'
-                '⚠️ Soms klachten — overweeg alternatief toe te voegen</div>',
-                unsafe_allow_html=True)
-        elif status == "vaak_klachten":
-            st.markdown(
-                '<div style="font-size:0.75rem;color:#ef4444;margin:-2px 0 6px 0;">'
-                '🚨 Vaak klachten — sterk aangeraden alternatief</div>',
-                unsafe_allow_html=True)
+        # Waarschuwing als product overeenkomt met een gekend klachtenproduct uit profiel
+        if naam:
+            gekende_klachten = [
+                g for g in data.get("gekende_producten",[])
+                if g.get("verdraagbaarheid") == "Klachten"
+                and g.get("naam","").strip().lower() == naam.strip().lower()
+            ]
+            if gekende_klachten:
+                gk = gekende_klachten[0]
+                diag_txt = f" | Oorzaak: {gk['diagnose']}" if gk.get("diagnose") else ""
+                alt_txt  = f" | Alternatief: {gk['alternatief']}" if gk.get("alternatief") else ""
+                st.markdown(
+                    f'<div style="background:#1a0a0a;border-left:3px solid #ef4444;'
+                    f'border-radius:0 8px 8px 0;padding:8px 14px;margin:2px 0 8px 0;'
+                    f'font-size:0.8rem;color:#ef4444;">'
+                    f'⚠️ <b>Je had al klachten met {naam}</b>{diag_txt}'
+                    f'{"<br><span style=\'color:#22c55e;\'>✅ " + gk["alternatief"] + "</span>" if gk.get("alternatief") else ""}'
+                    f'</div>',
+                    unsafe_allow_html=True)
 
         if ptype in waarschuwingen:
             ic, kl, tx = waarschuwingen[ptype]
@@ -835,35 +814,107 @@ def _stap_producten():
                 f'margin:-4px 0 8px 0;font-size:0.78rem;color:{kl};">'
                 f'{ic} {tx}</div>', unsafe_allow_html=True)
 
-    if st.button("＋ Product toevoegen", key="tg_padd"):
-        st.session_state["tg_n_prod"] = n+1
-        st.rerun()
+    col_add, _ = st.columns([2,3])
+    with col_add:
+        if st.button("＋ Product toevoegen", key="tg_padd", use_container_width=True):
+            st.session_state["tg_n_prod"] = n+1
+            st.rerun()
 
     gevulde = [p for p in producten if p["naam"]]
-    if gevulde:
-        basis_kh  = sum(p["kh"] for p in gevulde if p["rol"]=="Basis")
-        test_prod = [p for p in gevulde if p["rol"]=="Test"]
-        if basis_kh > 0:
-            test_str = " + ".join(f"{p['naam']} ({p['kh']}g)" for p in test_prod) or "—"
-            st.markdown(
-                f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;'
-                f'padding:10px 14px;margin-top:8px;font-size:0.8rem;color:#94a3b8;">'
-                f'🔵 Basis: <b style="color:#3b82f6;">{basis_kh}g/uur</b> | '
-                f'🟠 Test: <b style="color:#f97316;">{test_str}</b></div>',
-                unsafe_allow_html=True)
 
-    c_terug, c_next = st.columns(2)
+    # ── Carboo Coach chatbot ─────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("💬 Stel een vraag aan Carboo Coach", expanded=False):
+        st.markdown(
+            '<div style="font-size:0.78rem;color:#64748b;margin-bottom:10px;">'+
+            'Carboo Coach geeft neutrale, wetenschappelijk onderbouwde informatie. '+
+            'Geen merkaanbevelingen — enkel feiten en richtlijnen.</div>',
+            unsafe_allow_html=True)
+
+        if "tg_chat_history" not in st.session_state:
+            st.session_state.tg_chat_history = []
+
+        for msg in st.session_state.tg_chat_history:
+            rol_kleur = "#f97316" if msg["rol"] == "coach" else "#3b82f6"
+            rol_naam  = "Carboo Coach" if msg["rol"] == "coach" else "Jij"
+            st.markdown(
+                f'<div style="background:#0f172a;border-left:3px solid {rol_kleur};'+
+                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'+
+                f'<div style="font-size:10px;color:{rol_kleur};font-weight:700;'+
+                f'margin-bottom:4px;">{rol_naam}</div>'+
+                f'<div style="font-size:0.82rem;color:#f1f5f9;">{msg["tekst"]}</div>'+
+                f'</div>', unsafe_allow_html=True)
+
+        vraag = st.text_input("Jouw vraag...",
+                               placeholder="bijv. Wat is osmolariteit bij sportgels?",
+                               key="tg_chat_input")
+
+        col_send, col_clear = st.columns([3,1])
+        with col_send:
+            stuur = st.button("Stuur →", key="tg_chat_stuur", use_container_width=True)
+        with col_clear:
+            if st.button("Wis", key="tg_chat_wis", use_container_width=True):
+                st.session_state.tg_chat_history = []
+                st.rerun()
+
+        if stuur and vraag.strip():
+            client = _get_claude_client()
+            if client:
+                sport_ctx  = data.get("sport","Fietsen")
+                erv_ctx    = data.get("ervaring","Nog nooit")
+                duur_ctx   = data.get("wedstrijd_duur",120)
+                prod_ctx   = ", ".join(p["naam"] for p in data.get("producten",[]) if p.get("naam")) or "nog niet ingevuld"
+                gekend_ctx = ", ".join(
+                    p["naam"] + (" (klachten)" if p.get("verdraagbaarheid")=="Klachten" else " (OK)")
+                    for p in data.get("gekende_producten",[]) if p.get("naam")
+                ) or "geen"
+
+                systeem = (
+                    "Je bent Carboo Coach, een neutrale sportvoedingsadviseur. "
+                    "Je geeft wetenschappelijk onderbouwde informatie over sportvoeding tijdens inspanning. "
+                    "REGELS: geen merkaanbevelingen of commerciele uitspraken, geen specifieke producten aanraden op naam, "
+                    "wel uitleg over producttypen, ingredienten, osmolariteit, verhoudingen, timing, wetenschappelijke richtlijnen. "
+                    "Antwoord altijd in het Nederlands. Beknopt: max 4-5 zinnen tenzij uitgebreide uitleg nodig is. "
+                    f"CONTEXT ATLEET: Sport: {sport_ctx} | Duur: {duur_ctx} min | Ervaring: {erv_ctx} | "
+                    f"Te testen producten: {prod_ctx} | Gekende producten: {gekend_ctx}"
+                )
+
+                berichten = []
+                for m in st.session_state.tg_chat_history[-6:]:
+                    rol = "assistant" if m["rol"] == "coach" else "user"
+                    berichten.append({"role": rol, "content": m["tekst"]})
+                berichten.append({"role": "user", "content": vraag.strip()})
+
+                with st.spinner("Carboo Coach denkt na..."):
+                    try:
+                        antwoord_msg = client.messages.create(
+                            model="claude-opus-4-5",
+                            max_tokens=400,
+                            system=systeem,
+                            messages=berichten,
+                        )
+                        antwoord = antwoord_msg.content[0].text.strip()
+                    except Exception as e:
+                        antwoord = f"Even geen verbinding. Probeer opnieuw. ({e})"
+
+                st.session_state.tg_chat_history.append({"rol":"user",  "tekst": vraag.strip()})
+                st.session_state.tg_chat_history.append({"rol":"coach", "tekst": antwoord})
+                st.rerun()
+            else:
+                st.warning("Coach niet beschikbaar — API key ontbreekt.")
+
+    # ── Navigatie ─────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    c_terug, c_next = st.columns([1,2])
     with c_terug:
-        if st.button("← Terug", key="tg_prod_back"):
+        if st.button("← Terug", key="tg_prod_back", use_container_width=True):
             st.session_state.tg_stap = 2
             st.rerun()
     with c_next:
-        if st.button("Genereer schema →", key="tg_prod_next", use_container_width=True):
+        if st.button("🚀 Start met testen →", key="tg_prod_next", use_container_width=True):
             gevulde = [p for p in producten if p["naam"]]
             if not gevulde:
                 st.error("Voeg minstens 1 product toe.")
-            elif not any(p["rol"]=="Test" for p in gevulde):
-                st.error("Voeg minstens 1 testproduct toe.")
             else:
                 st.session_state.tg_data["producten"] = gevulde
                 st.session_state.tg_stap = 4
