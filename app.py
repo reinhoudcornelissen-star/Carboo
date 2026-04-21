@@ -8,6 +8,10 @@ try:
 except ImportError:
     def render_testing(user): st.info("Module nog niet beschikbaar.")
 try:
+    from fuelc import render_fuelc
+except ImportError:
+    def render_fuelc(user): st.info("Module niet beschikbaar.")
+try:
     from carbomax import render_carbomax
 except ImportError:
     def render_carbomax(): st.info("Module niet beschikbaar.")
@@ -136,7 +140,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
-# Toon credits + admin knop in navigatiebalk
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
 with nav_cols[-3] if is_admin else nav_cols[-2]:
@@ -174,7 +177,7 @@ if module == "menu":
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Race Nutrition Plan — groot ───────────────────────────────────────────
+    # ── Race Nutrition Plan ───────────────────────────────────────────────────
     st.markdown("""
     <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
                 border:2px solid #f97316;border-radius:16px;padding:24px;
@@ -204,6 +207,8 @@ if module == "menu":
             '<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;'
             'font-weight:700;margin-bottom:10px;">EXTRA MODULES — ENKEL ADMIN</div>',
             unsafe_allow_html=True)
+
+        # Train the Gut
         st.markdown("""
         <div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:12px;
                     padding:18px;margin-bottom:6px;">
@@ -222,6 +227,29 @@ if module == "menu":
                      use_container_width=True):
             st.session_state.module = "testing"
             st.rerun()
+
+        st.markdown("<br style='margin-bottom:6px;'>", unsafe_allow_html=True)
+
+        # FuelC
+        st.markdown("""
+        <div style="background:#0f172a;border:1px solid #22c55e;border-radius:12px;
+                    padding:18px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="font-size:1.8rem;">⚡</div>
+                <div>
+                    <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
+                        FuelC — Energie Coach</div>
+                    <div style="font-size:0.78rem;color:#64748b;">
+                        TDEE · Trainingszone · Voedselbibliotheek · Dagschema · Dashboard</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("⚡  Open FuelC", key="open_fuelc",
+                     use_container_width=True):
+            st.session_state.module = "fuelc"
+            st.rerun()
+
         st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Binnenkort beschikbaar ────────────────────────────────────────────────
@@ -231,7 +259,7 @@ if module == "menu":
         unsafe_allow_html=True)
     st.markdown("""
     <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;
-                padding:18px;filter:blur(0px);opacity:0.6;">
+                padding:18px;opacity:0.6;">
         <div style="display:flex;align-items:center;gap:14px;">
             <div style="font-size:1.8rem;">🔄</div>
             <div>
@@ -261,6 +289,15 @@ elif module == "optimeal":
 elif module == "admin":
     render_admin_panel()
 
+elif module == "fuelc":
+    render_fuelc(user)
+
+elif module == "testing":
+    render_testing(user)
+    if st.button("← Terug naar modules", key="testing_terug"):
+        st.session_state.module = "menu"
+        st.rerun()
+
 elif module == "rapport":
     html = st.session_state.get("rapport_html", "")
     if not html:
@@ -275,7 +312,6 @@ elif module == "rapport":
         from login import get_credits, gebruik_credit
         _uid = st.session_state.get("current_user", {}).get("id", "")
 
-        # ── Bevestig nieuw plan — EERSTE CHECK, stopt de rest ────────────────
         if st.session_state.get("bevestig_nieuw_plan"):
             st.warning("⚠️ Ben je zeker? Je huidige rapport verdwijnt en je hebt een nieuwe credit nodig.")
             c1, c2 = st.columns(2)
@@ -297,10 +333,8 @@ elif module == "rapport":
                     st.rerun()
             st.stop()
 
-        # ── Credit check ──────────────────────────────────────────────────────
-        # Als rapport al ontgrendeld was → blijf in normaal modus
         if st.session_state.get("rapport_ontgrendeld"):
-            credits_nu = 1  # forceer normaal modus
+            credits_nu = 1
         elif "rapport_credits_gecheckt" not in st.session_state:
             credits_nu = get_credits(_uid) if _uid else 0
             st.session_state["rapport_credits_gecheckt"] = credits_nu
@@ -308,7 +342,6 @@ elif module == "rapport":
             credits_nu = st.session_state["rapport_credits_gecheckt"]
 
         if credits_nu <= 0:
-            # ── BLUR MODUS ────────────────────────────────────────────────────
             st.markdown("""
             <div style="background:linear-gradient(135deg,rgba(249,115,22,0.15),rgba(30,58,138,0.15));
                         border:2px solid #f97316;border-radius:12px;padding:20px;text-align:center;
@@ -354,12 +387,11 @@ elif module == "rapport":
             st.components.v1.html(blurred_html, height=2000, scrolling=False)
 
         else:
-            # ── NORMAAL MODUS — trek credit af (eenmalig) ────────────────────
             if not st.session_state.get("rapport_credit_afgetrokken"):
                 gebruik_credit(_uid, "Race Nutrition Rapport gegenereerd")
                 st.session_state.current_user["credits"] = get_credits(_uid)
                 st.session_state["rapport_credit_afgetrokken"] = True
-                st.session_state["rapport_ontgrendeld"] = True  # blijf ontgrendeld na rerun
+                st.session_state["rapport_ontgrendeld"] = True
 
             col_terug, col_pdf = st.columns([1, 1])
             with col_terug:
@@ -393,13 +425,6 @@ elif module == "rapport":
 
             st.markdown("<br>", unsafe_allow_html=True)
             st.components.v1.html(html, height=3000, scrolling=True)
-
-
-elif module == "testing":
-    render_testing(user)
-    if st.button("← Terug naar modules", key="testing_terug"):
-        st.session_state.module = "menu"
-        st.rerun()
 
 elif module == "credits":
     _uid   = st.session_state.get("current_user", {}).get("id", "")
