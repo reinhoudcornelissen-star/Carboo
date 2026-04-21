@@ -153,11 +153,11 @@ with nav_cols[-3] if is_admin else nav_cols[-2]:
     )
 with nav_cols[-2] if is_admin else nav_cols[-1]:
     if is_admin:
-        if st.button("⚙️", key="nav_admin", help="Admin panel", use_container_width=True):
+        if st.button("⚙️", key="nav_admin_top", help="Admin panel", use_container_width=True):
             st.session_state.module = "admin"
             st.rerun()
 with nav_cols[-1] if is_admin else nav_cols[-1]:
-    if st.button("↩️", key="nav_logout", help="Uitloggen", use_container_width=True):
+    if st.button("↩️", key="nav_logout_top", help="Uitloggen", use_container_width=True):
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
