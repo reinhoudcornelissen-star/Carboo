@@ -436,59 +436,82 @@ def _stap_profiel():
     KLACHT_OPTIES = ["Misselijkheid","Krampen","Opgeblazen gevoel",
                      "Reflux / brandend maagzuur","Diarree","Lichte maagkramp"]
 
-    c1, c2 = st.columns(2)
+    # ── BLOK 1: Wie ben je? ───────────────────────────────────────────────────
+    _sectie("SPORT & NIVEAU")
+    c1, c2, c3 = st.columns(3)
     with c1:
         sport = st.selectbox("Sport", SPORTEN,
                               index=SPORTEN.index(data.get("sport","Fietsen")),
                               key="tg_sport")
-        test_discipline = data.get("test_discipline","Beide")
-        if sport in MULTISPORT:
-            test_discipline = st.radio(
-                "Wil je je voeding testen voor:",
-                ["Lopen","Fietsen","Beide"],
-                index=["Lopen","Fietsen","Beide"].index(
-                    data.get("test_discipline","Beide")),
-                key="tg_test_discipline", horizontal=True)
-
-        wedstrijd_datum = st.date_input("Wedstrijddatum",
-                                         value=date.fromisoformat(data.get("wedstrijd_datum",
-                                             str(date.today()+timedelta(weeks=8)))),
-                                         key="tg_wedstrijddatum")
-        import re as _re
-        wd_raw = st.text_input("Geschatte wedstrijdduur (bv. 3u15)",
-                                value=data.get("wedstrijd_duur_str",""),
-                                placeholder="bijv. 3u15", key="tg_wd_raw")
-        _m = _re.match(r"(\d+)u(\d+)?", wd_raw.strip().lower())
-        wedstrijd_duur = int(_m.group(1))*60+int(_m.group(2) or 0) if _m \
-                         else int(data.get("wedstrijd_duur",180))
-
-        if wd_raw.strip() and 0 < wedstrijd_duur < 90:
-            st.markdown("""
-            <div style="background:#1e1a0f;border:1px solid #fbbf24;border-radius:8px;
-                        padding:10px 14px;font-size:0.82rem;color:#fbbf24;">
-                ⚠️ <b>Train the Gut niet noodzakelijk onder 90 minuten.</b>
-            </div>""", unsafe_allow_html=True)
-
-        ervaring  = st.selectbox("Ervaring met wedstrijdvoeding", ERV_OPTIES,
-                                  index=ERV_OPTIES.index(data.get("ervaring","Nog nooit")),
-                                  key="tg_ervaring")
-        heeft_erv = ervaring != "Nog nooit"
-
     with c2:
         niveau = st.selectbox("Niveau", ["Recreatief","Competitief","Elite"],
                                index=["Recreatief","Competitief","Elite"].index(
                                    data.get("niveau","Recreatief")), key="tg_niveau")
+    with c3:
+        test_discipline = data.get("test_discipline","Beide")
+        if sport in MULTISPORT:
+            test_discipline = st.radio(
+                "Testen voor:",
+                ["Lopen","Fietsen","Beide"],
+                index=["Lopen","Fietsen","Beide"].index(
+                    data.get("test_discipline","Beide")),
+                key="tg_test_discipline", horizontal=True,
+                help="Bij multisport kan je per discipline je voedingsstrategie testen.")
+        else:
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
-    # ── Maag — enkel bij geen ervaring ───────────────────────────────────────
+    # ── BLOK 2: Wedstrijd ─────────────────────────────────────────────────────
+    _sectie("WEDSTRIJD")
+    import re as _re
+    c4, c5 = st.columns(2)
+    with c4:
+        wd_raw = st.text_input("Geschatte wedstrijdduur (bv. 3u15)",
+                                value=data.get("wedstrijd_duur_str",""),
+                                placeholder="bijv. 2u30", key="tg_wd_raw")
+        _m = _re.match(r"(\d+)u(\d+)?", wd_raw.strip().lower())
+        wedstrijd_duur = int(_m.group(1))*60+int(_m.group(2) or 0) if _m                          else int(data.get("wedstrijd_duur",180))
+
+        if wd_raw.strip() and 0 < wedstrijd_duur < 90:
+            st.markdown(
+                '<div style="background:#1e1a0f;border:1px solid #fbbf24;border-radius:8px;'+
+                'padding:8px 12px;font-size:0.8rem;color:#fbbf24;margin-top:4px;">'+
+                '⚠️ Train the Gut niet noodzakelijk onder 90 minuten.</div>',
+                unsafe_allow_html=True)
+
+        wedstrijd_datum = st.date_input("Wedstrijddatum (optioneel)",
+                                         value=date.fromisoformat(data.get("wedstrijd_datum",
+                                             str(date.today()+timedelta(weeks=8)))),
+                                         key="tg_wedstrijddatum")
+        wedstrijd_plaats = st.text_input("Plaats wedstrijd (optioneel)",
+                                          value=data.get("wedstrijd_plaats",""),
+                                          placeholder="bijv. Gent", key="tg_plaats")
+    with c5:
+        temp = st.number_input("Verwachte temperatuur (°C)", -10, 50,
+                                int(data.get("temp",16)), 1, key="tg_temp")
+        hoogte = st.number_input("Hoogte (m)", 0, 5000,
+                                  int(data.get("hoogte",0)), 50, key="tg_hoogte")
+        vochtigheid = st.number_input("Luchtvochtigheid (%)", 0, 100,
+                                       int(data.get("vochtigheid",60)), 5, key="tg_vochtigheid")
+
+    # ── BLOK 3: Ervaring ──────────────────────────────────────────────────────
+    _sectie("ERVARING MET WEDSTRIJDVOEDING")
+    ervaring = st.radio("Hoeveel wedstrijden heb je al voeding gebruikt?",
+                         ERV_OPTIES,
+                         index=ERV_OPTIES.index(data.get("ervaring","Nog nooit")),
+                         key="tg_ervaring", horizontal=True)
+    heeft_erv = ervaring != "Nog nooit"
+
+    # Initialiseer variabelen
     maag_intern    = data.get("maag_gevoelig","Af en toe")
     maag_label     = data.get("maag_gevoelig_label","")
-    huidige_inname = 0
+    huidige_inname = int(data.get("huidige_inname",0))
     nieuwe_gekende = []
     eetmomenten    = int(data.get("eetmomenten",2))
     drinkmomenten  = int(data.get("drinkmomenten",2))
 
     if not heeft_erv:
-        _sectie("MAAGPROFIEL")
+        # ── Maagprofiel bij geen ervaring ─────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
         MAAG_OPTIES = [
             "Geen problemen — ik eet en drink zonder nadenken tijdens sport",
             "Soms lastig — bij hoge intensiteit af en toe last",
@@ -506,18 +529,18 @@ def _stap_profiel():
         else:                                maag_intern = "Altijd met sportvoeding"
 
     else:
-        # ── Productenwizard ───────────────────────────────────────────────────
-        _sectie("GEKENDE PRODUCTEN")
+        # ── Gekende producten bij ervaring ────────────────────────────────────
         st.markdown(
-            '<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:12px;">'
-            'Welke producten gebruik je momenteel? Carboo gebruikt dit voor een slim schema.</div>',
+            '<div style="font-size:0.82rem;color:#94a3b8;margin:8px 0 12px 0;">'+
+            'Welke producten gebruik je momenteel? '+
+            'Carboo gebruikt dit om jouw schema slim op te bouwen.</div>',
             unsafe_allow_html=True)
 
         gekende_producten = data.get("gekende_producten",[])
         n_prod = st.session_state.get("tg_n_gekend", max(len(gekende_producten),1))
 
         hc1,hc2,hc3,hc4,hc5 = st.columns([3,2,1,2,1])
-        for col, lbl in [(hc1,"Product"),(hc2,"Type"),(hc3,"KH/portie"),
+        for col, lbl in [(hc1,"Product / merk"),(hc2,"Type"),(hc3,"KH/portie"),
                          (hc4,"Verdraagbaarheid"),(hc5,"")]:
             col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>',
                          unsafe_allow_html=True)
@@ -531,8 +554,7 @@ def _stap_profiel():
                                          placeholder="bijv. Maurten Gel 100",
                                          key=f"tg_gnaam_{i}", label_visibility="collapsed")
             with gc2:
-                idx_t = PRODUCT_TYPES.index(gp.get("type","Gel")) \
-                        if gp.get("type") in PRODUCT_TYPES else 0
+                idx_t = PRODUCT_TYPES.index(gp.get("type","Gel"))                         if gp.get("type") in PRODUCT_TYPES else 0
                 gp_type = st.selectbox(f"gt{i}", PRODUCT_TYPES, index=idx_t,
                                         key=f"tg_gtype_{i}", label_visibility="collapsed")
             with gc3:
@@ -551,7 +573,7 @@ def _stap_profiel():
 
             prod_entry = {"naam":gp_naam,"type":gp_type,"kh":gp_kh,"verdraagbaarheid":gp_verd}
 
-            # Mini-analyse wizard
+            # Mini-analyse wizard bij klachten
             if gp_verd in ["Soms klachten","Vaak klachten"] and gp_naam:
                 kl_w = "#fbbf24" if gp_verd=="Soms klachten" else "#ef4444"
                 ic_w = "⚠️" if gp_verd=="Soms klachten" else "🚨"
@@ -559,9 +581,9 @@ def _stap_profiel():
                           if gp_verd=="Soms klachten"
                           else "Sterk aangeraden alternatief te testen.")
                 st.markdown(
-                    f'<div style="background:#1a1500;border-left:3px solid {kl_w};'
-                    f'border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0 6px 0;'
-                    f'font-size:0.8rem;color:{kl_w};">'
+                    f'<div style="background:#1a1500;border-left:3px solid {kl_w};'+
+                    f'border-radius:0 8px 8px 0;padding:8px 14px;margin:4px 0 6px 0;'+
+                    f'font-size:0.8rem;color:{kl_w};">'+
                     f'{ic_w} <b>{gp_verd} met {gp_naam}</b> — {advies}</div>',
                     unsafe_allow_html=True)
 
@@ -601,14 +623,14 @@ def _stap_profiel():
                         prod_entry["diagnose"]    = diag
                         prod_entry["alternatief"] = alt
                         st.markdown(
-                            f'<div style="background:#0f172a;border:1px solid #3b82f6;'
-                            f'border-radius:8px;padding:10px;margin-top:6px;">'
-                            f'<div style="font-size:10px;color:#3b82f6;font-weight:700;'
-                            f'margin-bottom:4px;">🔬 CARBOO DIAGNOSE</div>'
-                            f'<div style="font-size:0.8rem;color:#f1f5f9;">'
-                            f'<b>Oorzaak:</b> {diag}</div>'
-                            f'<div style="font-size:0.8rem;color:#22c55e;margin-top:2px;">'
-                            f'✅ <b>Alternatief:</b> {alt}</div>'
+                            f'<div style="background:#0f172a;border:1px solid #3b82f6;'+
+                            f'border-radius:8px;padding:10px;margin-top:6px;">'+
+                            f'<div style="font-size:10px;color:#3b82f6;font-weight:700;'+
+                            f'margin-bottom:4px;">🔬 CARBOO DIAGNOSE</div>'+
+                            f'<div style="font-size:0.8rem;color:#f1f5f9;">'+
+                            f'<b>Oorzaak:</b> {diag}</div>'+
+                            f'<div style="font-size:0.8rem;color:#22c55e;margin-top:2px;">'+
+                            f'✅ <b>Alternatief:</b> {alt}</div>'+
                             f'</div>', unsafe_allow_html=True)
 
             nieuwe_gekende.append(prod_entry)
@@ -617,21 +639,22 @@ def _stap_profiel():
             st.session_state["tg_n_gekend"] = n_prod+1
             st.rerun()
 
-        _sectie("INNAME PATROON")
-        c3, c4 = st.columns(2)
-        with c3:
-            eetmomenten = st.radio("Eetmomenten per uur?", [1,2,3],
+        # ── BLOK 4: Inname patroon ────────────────────────────────────────────
+        _sectie("INNAME PATROON BIJ VORIGE WEDSTRIJDEN")
+        c_ip1, c_ip2 = st.columns(2)
+        with c_ip1:
+            eetmomenten = st.radio("Hoeveel eetmomenten per uur?", [1,2,3],
                                     index=[1,2,3].index(eetmomenten),
                                     key="tg_eetmomenten", horizontal=True)
-        with c4:
-            drinkmomenten = st.radio("Drinkmomenten per uur?", [1,2,3],
+        with c_ip2:
+            drinkmomenten = st.radio("Hoeveel drinkmomenten per uur?", [1,2,3],
                                       index=[1,2,3].index(drinkmomenten),
                                       key="tg_drinkmomenten", horizontal=True)
 
         # Bereken inname en maagprofiel uit producten
         gevulde = [p for p in nieuwe_gekende if p.get("naam")]
         if gevulde:
-            huidige_inname = min(sum(p["kh"] for p in gevulde)*eetmomenten, 120)
+            huidige_inname = min(sum(p["kh"] for p in gevulde) * eetmomenten, 120)
             verdraagtypes  = [p.get("verdraagbaarheid","Goed") for p in gevulde]
             if any(v=="Vaak klachten" for v in verdraagtypes):
                 maag_intern = "Altijd met sportvoeding"
@@ -640,32 +663,22 @@ def _stap_profiel():
             else:
                 maag_intern = "Nooit"
 
-    # ── KH Target ─────────────────────────────────────────────────────────────
+    # ── BLOK 5: KH Target ─────────────────────────────────────────────────────
     _sectie("KH TARGET RACEDAG")
     kh_min_r, kh_max_r = _get_richtlijn(sport, wedstrijd_duur)
-    target_kh = st.slider("KH-target op racedag (g/uur)", 0, 120,
+    st.markdown(
+        f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:8px;">'+
+        f'Op basis van <b style="color:#f8fafc;">{sport}</b> en '+
+        f'<b style="color:#f8fafc;">{wedstrijd_duur} min</b> '+
+        (f'raadt de literatuur <b style="color:#22c55e;">{kh_min_r}–{kh_max_r}g KH/uur</b> aan.' if kh_max_r > 0
+         else 'is geen extra KH nodig bij deze duur.') +
+        f'</div>',
+        unsafe_allow_html=True)
+    target_kh = st.slider("Jouw KH-target op racedag (g/uur)", 0, 120,
                            int(data.get("target_kh", max(kh_min_r,30))), 5, key="tg_target")
-    if kh_max_r > 0:
-        st.markdown(
-            f'<div style="font-size:0.75rem;color:#64748b;margin-top:4px;">'
-            f'Richtlijn: <b style="color:#f8fafc;">{kh_min_r}–{kh_max_r}g/uur</b></div>',
-            unsafe_allow_html=True)
 
-    # ── Wedstrijdomstandigheden ───────────────────────────────────────────────
-    _sectie("WEDSTRIJDOMSTANDIGHEDEN")
-    c7, c8 = st.columns(2)
-    with c7:
-        wedstrijd_plaats = st.text_input("Plaats",
-                                          value=data.get("wedstrijd_plaats",""),
-                                          placeholder="bijv. Gent", key="tg_plaats")
-        temp = st.number_input("Temperatuur (°C)", -10, 50,
-                                int(data.get("temp",16)), 1, key="tg_temp")
-    with c8:
-        hoogte = st.number_input("Hoogte (m)", 0, 5000,
-                                  int(data.get("hoogte",0)), 50, key="tg_hoogte")
-        vochtigheid = st.number_input("Luchtvochtigheid (%)", 0, 100,
-                                       int(data.get("vochtigheid",60)), 5, key="tg_vochtigheid")
-
+    # ── Opslaan ───────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("Volgende →", key="tg_prof_next", use_container_width=True):
         start_kh = _bereken_startpunt({
             "sport":sport,"maag_gevoelig":maag_intern,"ervaring":ervaring,
@@ -674,7 +687,7 @@ def _stap_profiel():
         })
         fases = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
 
-        # Bouw productenlijst voor stap 2
+        # Bouw productenlijst voor stap 2 op basis van gekende producten
         vooringevuld = []
         for p in nieuwe_gekende:
             if p.get("naam"):
