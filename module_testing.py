@@ -72,7 +72,7 @@ SPORT_PRODUCT_TIPS = {
         ("⚠️","Vermijd vast voedsel","Loopbeweging verhoogt kans op maagklachten sterk."),
         ("✅","Gels + water is gouden combinatie","Elke gel altijd met minstens 150ml water — nooit met sportdrank."),
         ("⚠️","Gel en sportdrank niet combineren","Neem óf een gel met water, óf sportdrank — nooit gel wegspoelen met sportdrank. Dit geeft een te hoge suikerconcentratie in de darm."),
-        ("💡","Wissel af per moment","1 moment gel + water, volgend moment sportdrank — maar nooit tegelijk."),
+
         ("💡","Kleine frequente porties","Liever 3x klein dan 1x groot per uur."),
     ]},
     "Triatlon":{"icon":"🏊🚴🏃","intro":"Stem voeding af per segment.","tips":[
@@ -360,15 +360,23 @@ def _score_label(score):
             4:"Goed ✅",5:"Uitstekend 🌟"}.get(score,"—")
 
 
-def _is_fase_stabiel(logs: dict, fase_naam: str) -> bool:
+def _is_fase_stabiel(logs: dict, fase_naam: str, target_kh: int = 0) -> bool:
     fase_logs = {k:v for k,v in logs.items()
                  if v.get("fase")==fase_naam and v.get("ingevuld")}
     if len(fase_logs) < 2:
         return False
     laatste2 = [v for _,v in sorted(fase_logs.items(), key=lambda x:int(x[0]))[-2:]]
-    return all(l.get("score",0) >= 4 and
-               l.get("symptoom","") in ["","Geen klachten"] for l in laatste2)
-
+    scores_ok = all(l.get("score",0) >= 4 and
+                    l.get("symptoom","") in ["","Geen klachten"] for l in laatste2)
+    if not scores_ok:
+        return False
+    # Afgerond enkel als laatste 2 weken op Z4/Z5 waren EN target bereikt
+    z4_ok = all("Z4" in l.get("intensiteit","") or "Z5" in l.get("intensiteit","")
+                for l in laatste2)
+    if target_kh > 0:
+        target_ok = any(l.get("kh_doel",0) >= target_kh for l in laatste2)
+        return z4_ok and target_ok
+    return z4_ok
 
 def _bereken_startpunt(data: dict) -> int:
     maag     = data.get("maag_gevoelig","Af en toe")
@@ -786,6 +794,13 @@ def _stap_producten():
 
 
 
+    st.markdown(
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:12px;'
+        'padding:16px;margin-bottom:16px;">',
+        unsafe_allow_html=True)
+
+    _sectie("TE TESTEN PRODUCTEN")
+
     h1,h2,h3,h4 = st.columns([3,2,1,1])
     for col, lbl in [(h1,"Product"),(h2,"Type"),(h3,"KH/portie"),(h4,"")]:
         col.markdown(f'<div style="font-size:10px;color:#64748b;">{lbl}</div>',
@@ -849,6 +864,8 @@ def _stap_producten():
         if st.button("＋ Product toevoegen", key="tg_padd", use_container_width=True):
             st.session_state["tg_n_prod"] = n+1
             st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
     gevulde = [p for p in producten if p["naam"]]
 
@@ -994,12 +1011,12 @@ def _stap_schema():
         fn     = fase["naam"]
         fi_ic  = fase["icon"]
         fkl    = fase_kleuren[fi % len(fase_kleuren)]
-        stab   = _is_fase_stabiel(logs, fn)
+        stab   = _is_fase_stabiel(logs, fn, target_kh)
         actief = fn == actieve_fase_naam
         gelockt= not stab and not actief and fi > 0
         # Controleer of vorige fase stabiel is
         if fi > 0:
-            prev_stab = _is_fase_stabiel(logs, fases[fi-1]["naam"])
+            prev_stab = _is_fase_stabiel(logs, fases[fi-1]["naam"], target_kh)
             gelockt   = not prev_stab and not actief
 
         status = "✅ Afgerond" if stab else ("📝 Actief" if actief else "🔒 Wacht")
@@ -1063,7 +1080,7 @@ def _stap_schema():
 
     # ── Volgende week genereren ───────────────────────────────────────────────
     volgende_wn = _volgende_week_nr(logs)
-    stabiel     = _is_fase_stabiel(logs, actieve_fase_naam)
+    stabiel     = _is_fase_stabiel(logs, actieve_fase_naam, target_kh)
 
     if stabiel:
         st.markdown(
@@ -1107,8 +1124,12 @@ def _stap_schema():
         prog     = schema.get("progressie","")
         prog_kl  = "#22c55e" if prog=="omhoog" else ("#ef4444" if prog=="omlaag" else "#fbbf24")
 
-        tijden = " → ".join([f"+{interval*i}min" for i in range(1,porties+1)]) \
-                 if porties > 1 else f"+{interval}min na start"
+        if porties > 1:
+            tijden = " → ".join([f"+{interval*i}min" for i in range(1,porties+1)])
+            interval_txt = f"Elke {interval} min — altijd met 150-200ml water"
+        else:
+            tijden = f"+{interval}min na start"
+            interval_txt = "Altijd innemen met 150-200ml water"
 
         basis_html = ""
         if basis_prod:
@@ -1141,10 +1162,8 @@ def _stap_schema():
             f'<div style="background:#0f172a;border-radius:8px;padding:10px;margin-bottom:10px;">'
             f'<div style="font-size:10px;color:#64748b;margin-bottom:4px;">INNAMETIJDSTIPPEN</div>'
             f'<div style="font-size:0.85rem;font-weight:700;color:#f8fafc;">📍 {tijden}</div>'
-            f'<div style="font-size:0.72rem;color:#64748b;margin-top:2px;">Elke {interval} min — met 150ml water</div>'
+            f'<div style="font-size:0.72rem;color:#64748b;margin-top:2px;">{interval_txt}</div>'
             f'</div>'
-            f'{"<div style=\\'background:#0a1628;border-left:3px solid #8b5cf6;border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Waarom:</b> " + reden + "</div>" if reden else ""}'
-            f'{"<div style=\\'background:#0a1628;border-left:3px solid #f97316;border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Tip:</b> " + tip + "</div>" if tip else ""}'+
             f'{"<div style=\\'background:#1a0a0a;border-left:3px solid #ef4444;border-radius:0 6px 6px 0;padding:8px 12px;margin-top:6px;font-size:0.78rem;color:#ef4444;\\'><b style=\\'color:#f8fafc;\\'>⚠️ Alternatief:</b> " + alternatief + "</div>" if alternatief else ""}'
             f'</div>',
             unsafe_allow_html=True)
@@ -1276,6 +1295,7 @@ def _stap_logboek():
             "fase":actieve_fase,
             "product":pnaam,"kh_pp":kh_pp,"porties":porties,"kh_doel":kh_tot,
             "progressie":schema.get("progressie",""),
+            "intensiteit":schema.get("intensiteit","Z2 - Duurtraining"),
             "ingevuld":True,
         }
         # Wis cache zodat schema volgende week herberekend wordt
@@ -1346,7 +1366,7 @@ def _stap_rapport():
         fn        = fase["naam"]
         fase_logs = [v for v in ingevuld if v.get("fase")==fn]
         if not fase_logs: continue
-        stabiel   = _is_fase_stabiel(logs, fn)
+        stabiel   = _is_fase_stabiel(logs, fn, int(data.get("target_kh",0)))
         _sectie(f"{fase['icon']} {fn.upper()}", "#22c55e" if stabiel else "#f97316")
 
         prod_data = {}
