@@ -146,172 +146,193 @@ def _get_claude_client():
     return anthropic.Anthropic(api_key=api_key)
 
 
-def _genereer_week_via_claude(data: dict, logs: dict) -> dict | None:
-    """
-    Roept Claude API aan om het schema voor de volgende week te genereren.
-    Geeft een dict terug met weekschema of None bij fout.
-    """
-    client = _get_claude_client()
-    if not client:
-        return None
 
-    sport     = data.get("sport","Fietsen")
-    fases     = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
-    producten = [p for p in data.get("producten",[]) if p.get("naam")]
-    basis_prod= next((p for p in producten if p.get("rol")=="Basis"), None)
-    test_prods= [p for p in producten if p.get("rol")=="Test"]
+# ═══════════════════════════════════════════════════════════════════════════════
+# WATERVALSTRATEGIE — SCHEMA GENERATIE
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    # Bepaal actieve fase
-    actieve_fase = data.get("actieve_fase", fases[0]["naam"])
-    week_nr      = len([v for v in logs.values() if v.get("ingevuld")]) + 1
-
-    # Bouw prompt
-    basis_info = ""
-    if basis_prod:
-        bn = basis_prod["naam"]
-        bk = basis_prod["kh"]
-        basis_info = f"Basisproduct (vast per sessie): {bn} — {bk}g KH/uur"
-
-    test_info = "\n".join(
-        f"- {p['naam']} ({p['type']}) — {p['kh']}g KH/portie"
-        for p in test_prods
-    )
-
-    gekend_info = ""
-    voor_gekend = data.get("gekende_producten",[])
-    if voor_gekend:
-        gekend_info = "Productgeschiedenis:\n" + "\n".join(
-            f"- {p['naam']}: {p.get('verdraagbaarheid','?')}"
-            + (f" | Diagnose: {p['diagnose']}" if p.get("diagnose") else "")
-            + (f" | Alternatief: {p['alternatief']}" if p.get("alternatief") else "")
-            for p in voor_gekend
-        )
-
-    logs_info = ""
-    if logs:
-        logs_info = "Vorige weken:\n" + "\n".join(
-            f"- Week {k}: {v.get('fase','')} | {v.get('product','')} | "
-            f"{v.get('porties',0)}x {v.get('kh_pp',0)}g | "
-            f"Score {v.get('score',0)}/5 | {v.get('symptoom','?')}"
-            for k, v in sorted(logs.items(), key=lambda x: int(x[0]))
-            if v.get("ingevuld")
-        )
-
-    prompt = f"""Je bent een sportvoedingscoach die een Train the Gut schema opstelt.
-Geef ALLEEN een geldig JSON object terug, geen uitleg, geen markdown.
-
-PROFIEL:
-- Sport: {sport} | Fase: {actieve_fase} | Week: {week_nr}
-- Wedstrijdduur: {data.get('wedstrijd_duur',120)} min
-- KH-target racedag: {data.get('target_kh',60)}g/uur
-- Startpunt week 1: {data.get('start_kh',20)}g/uur
-- Maagprofiel: {data.get('maag_gevoelig','Af en toe')}
-- Ervaring: {data.get('ervaring','Nog nooit')}
-- Eetmomenten/uur: {data.get('eetmomenten',2)}
-- Temperatuur: {data.get('temp',16)}°C | Hoogte: {data.get('hoogte',0)}m
-
-PRODUCTEN:
-{basis_info}
-Testproducten:
-{test_info}
-
-{gekend_info}
-
-{logs_info}
-
-REGELS:
-- Opbouw in HELE PORTIES (1, 2, 3...) van het testproduct
-- Nooit meer dan 1 portie extra per week
-- Bij score <= 2 of klachten: portie verlagen of herhalen
-- Bij score >= 4 zonder klachten: portie verhogen
-- Bij score 3: herhalen
-- Rekening houden met sport (lopen = trager opbouw, fietsen = sneller)
-- Rekening houden met productgeschiedenis (diagnoses)
-- Intensiteit: week 1-2 Z2, week 3-4 Z3, daarna Z4
-
-Geef terug:
-{{"week":{week_nr},"fase":"{actieve_fase}","product":"<naam>","porties":<int>,"kh_basis":<int>,"kh_test":<int>,"kh_totaal":<int>,"interval_min":<int>,"intensiteit":"<zone>","progressie":"<omhoog/herhalen/omlaag>","reden":"<max 15 woorden>","tip":"<concrete tip max 15 woorden>"}}"""
-
-    try:
-        msg = client.messages.create(
-            model="claude-opus-4-5",
-            max_tokens=400,
-            messages=[{"role":"user","content": prompt}]
-        )
-        tekst = msg.content[0].text.strip()
-        # Strip mogelijke markdown code blocks
-        if "```" in tekst:
-            lines = tekst.split("\n")
-            tekst = "\n".join(l for l in lines if not l.startswith("```"))
-        return json.loads(tekst.strip())
-    except json.JSONDecodeError as e:
-        st.warning(f"Schema kon niet worden verwerkt: {e}")
-        return None
-    except Exception as e:
-        st.warning(f"API fout: {e}")
-        return None
+KLACHT_ALTERNATIEF = {
+    "Lichte maagkramp": "Meer water bij inname (min. 200ml), of isotone gel proberen",
+    "Krampen":          "Meer water bij inname (min. 200ml), of isotone gel proberen",
+    "Misselijkheid":    "Minder zoete variant of lagere concentratie sportdrank",
+    "Opgeblazen gevoel":"Check fructose/polyolen in ingredienten, kies ander type",
+    "Reflux / brandend maagzuur": "Caffeinevrije variant, neutrale smaak",
+    "Diarree":          "Hypotone variant of lagere osmolariteit",
+    "Braken":           "Stop testtraining, drastisch verlagen naar 0.5 portie",
+    "Hoofdpijn":        "Hydratatie verhogen, natrium controleren",
+    "Steken in de zij": "Timing aanpassen — later innemen, kleinere slokken",
+}
 
 
-def _fallback_week(data: dict, logs: dict) -> dict:
-    """
-    Fallback schema als Claude API niet bereikbaar is.
-    Gebruikt eenvoudige portie-logica.
-    """
-    sport      = data.get("sport","Fietsen")
-    fases      = SPORT_FASES.get(sport, SPORT_FASES["Fietsen"])
-    producten  = [p for p in data.get("producten",[]) if p.get("naam")]
-    basis_prod = next((p for p in producten if p.get("rol")=="Basis"), None)
-    test_prods = [p for p in producten if p.get("rol")=="Test"]
-    basis_kh   = basis_prod["kh"] if basis_prod else 0
-    target_kh  = int(data.get("target_kh",60))
-    start_kh   = int(data.get("start_kh",20))
-    eetmom     = int(data.get("eetmomenten",2))
-    actieve_fase = data.get("actieve_fase", fases[0]["naam"])
-    week_nr    = len([v for v in logs.values() if v.get("ingevuld")]) + 1
+def _sorteer_producten_lopen(producten: list) -> list:
+    PRIORITEIT = {"Gel": 0, "Cafeinegel": 1, "Sportdrank": 2,
+                  "Supplement": 3, "Vast voedsel": 4}
+    def sort_key(p):
+        prio  = PRIORITEIT.get(p.get("type","Supplement"), 5)
+        kh    = p.get("kh", 99)
+        klacht= 1 if p.get("status") == "klachten" else 0
+        return (klacht, prio, kh)
+    return sorted(producten, key=sort_key)
 
-    # Kies testproduct
-    fase_logs  = {k:v for k,v in logs.items() if v.get("fase")==actieve_fase and v.get("ingevuld")}
-    prod_idx   = len(fase_logs) % len(test_prods) if test_prods else 0
-    prod       = test_prods[prod_idx] if test_prods else {"naam":"—","kh":22}
-    kh_pp      = prod["kh"]
 
-    # Bepaal porties
-    if not fase_logs:
-        netto   = max(0, start_kh - basis_kh)
-        porties = max(1, round(netto / max(kh_pp,1)))
-        prog    = "start"
+def _bereken_start_porties_lopen(ervaring, target_kh, huidige_inname, kh_pp):
+    if kh_pp <= 0:
+        return 1
+    if ervaring == "Nog nooit":
+        return 1
+    elif ervaring == "2-4 wedstrijden":
+        start = round(target_kh * 0.55)
+    elif ervaring == "5-10 wedstrijden":
+        start = min(huidige_inname, round(target_kh * 0.80))
     else:
-        prev = sorted(fase_logs.items(), key=lambda x:int(x[0]))[-1][1]
-        prev_p = prev.get("porties",1)
-        score  = prev.get("score",3)
-        klacht = prev.get("symptoom","Geen klachten") != "Geen klachten"
-        max_p  = max(1, round(target_kh / max(kh_pp,1)))
-        if score >= 4 and not klacht:
-            porties = min(prev_p + 1, max_p)
-            prog    = "omhoog"
-        elif score <= 2 or (score == 3 and klacht):
-            porties = max(1, prev_p - 1)
-            prog    = "omlaag"
-        else:
-            porties = prev_p
-            prog    = "herhalen"
+        start = min(huidige_inname, round(target_kh * 0.90))
+    return max(1, round(start / max(kh_pp, 1)))
 
-    kh_test  = porties * kh_pp
-    kh_tot   = basis_kh + kh_test
-    interval = max(10, round(60 / max(eetmom, porties) / 5) * 5)
-    zones    = ["Z2 — Duurtraining","Z2 — Duurtraining","Z3 — Tempo",
-                "Z3 — Tempo","Z4 — Drempeltraining"]
-    zone     = zones[min(week_nr-1, len(zones)-1)]
+
+def _bepaal_intensiteit_lopen(week_nr, fase_logs):
+    if week_nr <= 2:
+        return "Z2 - Duurtraining"
+    gesorteerd = sorted([(int(k),v) for k,v in fase_logs.items()], key=lambda x:x[0])
+    if week_nr <= 4:
+        if len(gesorteerd) >= 2:
+            laatste2 = [v for _,v in gesorteerd[-2:]]
+            if all(l.get("score",0) >= 4 for l in laatste2):
+                return "Z3 - Tempo"
+        return "Z2 - Duurtraining"
+    if len(gesorteerd) >= 2:
+        laatste2 = [v for _,v in gesorteerd[-2:]]
+        if all(l.get("score",0) >= 4 and
+               l.get("symptoom","") in ["","Geen klachten"] for l in laatste2):
+            return "Z4 - Drempeltraining"
+    return "Z3 - Tempo"
+
+
+def _volgende_product_lopen(gesorteerde_prods, logs_fase):
+    if not gesorteerde_prods:
+        return {"naam":"---","kh":22,"type":"Gel","status":""}
+    if not logs_fase:
+        zonder_klachten = [p for p in gesorteerde_prods if p.get("status") != "klachten"]
+        return zonder_klachten[0] if zonder_klachten else gesorteerde_prods[0]
+    gesorteerd_logs = sorted([(int(k),v) for k,v in logs_fase.items()], key=lambda x:x[0])
+    prev_log        = gesorteerd_logs[-1][1]
+    prev_prod_naam  = prev_log.get("product","")
+    prev_score      = prev_log.get("score", 3)
+    prev_klacht     = prev_log.get("symptoom","Geen klachten") not in ["","Geen klachten"]
+    prod_namen = [p["naam"] for p in gesorteerde_prods]
+    try:
+        huidig_idx = prod_namen.index(prev_prod_naam)
+    except ValueError:
+        huidig_idx = 0
+    if prev_klacht or prev_score <= 2:
+        volgende_idx = huidig_idx + 1
+        if volgende_idx < len(gesorteerde_prods):
+            return gesorteerde_prods[volgende_idx]
+        else:
+            return gesorteerde_prods[0]
+    else:
+        return gesorteerde_prods[huidig_idx]
+
+
+def _alle_producten_klachten(gesorteerde_prods, logs_fase):
+    prod_namen_klacht = set()
+    for v in logs_fase.values():
+        if v.get("symptoom","Geen klachten") not in ["","Geen klachten"]:
+            prod_namen_klacht.add(v.get("product",""))
+    alle_namen = set(p["naam"] for p in gesorteerde_prods)
+    return alle_namen.issubset(prod_namen_klacht) and len(alle_namen) > 0
+
+
+def _bereken_volgende_porties_lopen(prev_porties, score, heeft_klachten,
+                                     max_porties, product_gewisseld):
+    if product_gewisseld:
+        return 1
+    if score >= 4 and not heeft_klachten:
+        delta = 1
+    elif score == 3 and not heeft_klachten:
+        delta = 0
+    else:
+        delta = -1
+    return max(1, min(prev_porties + delta, max_porties))
+
+
+def _genereer_schema_lopen(data, logs, actieve_fase):
+    producten      = [p for p in data.get("producten",[]) if p.get("naam")]
+    ervaring       = data.get("ervaring","Nog nooit")
+    target_kh      = int(data.get("target_kh", 60))
+    huidige_inname = int(data.get("huidige_inname", 0))
+    eetmom         = int(data.get("eetmomenten", 2))
+    fase_logs      = {k:v for k,v in logs.items()
+                      if v.get("fase")==actieve_fase and v.get("ingevuld")}
+    week_nr        = len([v for v in logs.values() if v.get("ingevuld")]) + 1
+    gesorteerd     = _sorteer_producten_lopen(producten)
+    huidig_prod    = _volgende_product_lopen(gesorteerd, fase_logs)
+    kh_pp          = huidig_prod.get("kh", 22)
+
+    prev_prod_naam    = ""
+    product_gewisseld = False
+    if fase_logs:
+        prev_log       = sorted([(int(k),v) for k,v in fase_logs.items()])[-1][1]
+        prev_prod_naam = prev_log.get("product","")
+        product_gewisseld = bool(prev_prod_naam) and huidig_prod["naam"] != prev_prod_naam
+
+    if not fase_logs:
+        porties = _bereken_start_porties_lopen(
+            ervaring, target_kh, huidige_inname, kh_pp)
+    else:
+        prev_log       = sorted([(int(k),v) for k,v in fase_logs.items()])[-1][1]
+        prev_porties   = prev_log.get("porties", 1)
+        prev_score     = prev_log.get("score", 3)
+        heeft_klachten = prev_log.get("symptoom","Geen klachten") not in ["","Geen klachten"]
+        max_porties    = max(1, round(target_kh / max(kh_pp,1)))
+        porties = _bereken_volgende_porties_lopen(
+            prev_porties, prev_score, heeft_klachten, max_porties, product_gewisseld)
+
+    kh_totaal = porties * kh_pp
+    interval  = max(10, round(60 / max(eetmom, porties) / 5) * 5)
+    zone      = _bepaal_intensiteit_lopen(week_nr, fase_logs)
+
+    if product_gewisseld:
+        progressie = "product gewisseld"
+    elif not fase_logs:
+        progressie = "start"
+    else:
+        prev_p = sorted(fase_logs.items())[-1][1].get("porties",1)
+        if porties > prev_p:   progressie = "omhoog"
+        elif porties < prev_p: progressie = "omlaag"
+        else:                  progressie = "herhalen"
+
+    alternatief_voorstel = ""
+    if fase_logs:
+        prev_log       = sorted([(int(k),v) for k,v in fase_logs.items()])[-1][1]
+        heeft_klachten = prev_log.get("symptoom","Geen klachten") not in ["","Geen klachten"]
+        if heeft_klachten and _alle_producten_klachten(gesorteerd, fase_logs):
+            klacht = prev_log.get("symptoom","")
+            alternatief_voorstel = KLACHT_ALTERNATIEF.get(
+                klacht, "Overweeg een ander producttype te testen")
+
+    if product_gewisseld:
+        tip = "Nieuw product - start opnieuw met 1 portie en observeer goed."
+    elif porties == 1:
+        tip = "Neem de gel altijd met 150-200ml water - nooit met sportdrank."
+    else:
+        tip = f"Spreid {porties} porties gelijkmatig - elke {interval} minuten, altijd met 150-200ml water."
 
     return {
         "week": week_nr, "fase": actieve_fase,
-        "product": prod["naam"], "porties": porties,
-        "kh_basis": basis_kh, "kh_test": kh_test, "kh_totaal": kh_tot,
+        "product": huidig_prod["naam"], "kh_pp": kh_pp,
+        "porties": porties, "kh_totaal": kh_totaal,
         "interval_min": interval, "intensiteit": zone,
-        "progressie": prog,
-        "reden": "Berekend op basis van vorige scores",
-        "tip": f"Neem elke portie met minstens 150ml water",
+        "progressie": progressie, "tip": tip,
+        "alternatief": alternatief_voorstel, "duur_min": "90-120",
     }
+
+
+def _genereer_schema(data, logs, actieve_fase):
+    sport = data.get("sport","Fietsen")
+    if sport == "Lopen":
+        return _genereer_schema_lopen(data, logs, actieve_fase)
+    return _genereer_schema_lopen(data, logs, actieve_fase)
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -658,7 +679,16 @@ def _stap_profiel():
          else 'is geen extra KH nodig bij deze duur.') +
         f'</div>',
         unsafe_allow_html=True)
-    kh_default = int(data.get("target_kh", round((kh_min_r + kh_max_r) / 2 / 5) * 5 if kh_max_r > 0 else 30))
+    # Standaard = gemiddelde van richtlijn, enkel als nog geen waarde opgeslagen
+    # of als sport/duur gewijzigd is t.o.v. vorige keer
+    kh_gemiddelde = round((kh_min_r + kh_max_r) / 2 / 5) * 5 if kh_max_r > 0 else 30
+    vorige_sport  = data.get("sport","")
+    vorige_duur   = data.get("wedstrijd_duur", 0)
+    sport_gewijzigd = (vorige_sport != sport or vorige_duur != wedstrijd_duur)
+    if "target_kh" not in data or sport_gewijzigd:
+        kh_default = kh_gemiddelde
+    else:
+        kh_default = int(data.get("target_kh", kh_gemiddelde))
     target_kh = st.slider("Jouw KH-target op racedag (g/uur)", 0, 120,
                            kh_default, 5, key="tg_target")
 
@@ -835,14 +865,23 @@ def _stap_producten():
             st.session_state.tg_chat_history = []
 
         for msg in st.session_state.tg_chat_history:
-            rol_kleur = "#f97316" if msg["rol"] == "coach" else "#3b82f6"
-            rol_naam  = "Carboo Coach" if msg["rol"] == "coach" else "Jij"
+            if msg["rol"] == "coach":
+                rol_kleur = "#f97316"
+                rol_naam  = "Carboo Coach"
+                bg_kleur  = "#1e293b"
+                tekst_kleur = "#f8fafc"
+            else:
+                rol_kleur = "#3b82f6"
+                rol_naam  = "Jij"
+                bg_kleur  = "#0f172a"
+                tekst_kleur = "#e2e8f0"
+            tekst_veilig = msg["tekst"]
             st.markdown(
-                f'<div style="background:#0f172a;border-left:3px solid {rol_kleur};'+
-                f'border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'+
-                f'<div style="font-size:10px;color:{rol_kleur};font-weight:700;'+
-                f'margin-bottom:4px;">{rol_naam}</div>'+
-                f'<div style="font-size:0.82rem;color:#f1f5f9;">{msg["tekst"]}</div>'+
+                f'<div style="background:{bg_kleur};border-left:3px solid {rol_kleur};'+
+                f'border-radius:0 10px 10px 0;padding:12px 16px;margin-bottom:10px;">'+
+                f'<div style="font-size:11px;color:{rol_kleur};font-weight:800;'+
+                f'letter-spacing:1px;margin-bottom:6px;">{rol_naam}</div>'+
+                f'<div style="font-size:0.88rem;color:{tekst_kleur};line-height:1.6;">{tekst_veilig}</div>'+
                 f'</div>', unsafe_allow_html=True)
 
         vraag = st.text_input("Jouw vraag...",
@@ -869,6 +908,11 @@ def _stap_producten():
                     for p in data.get("gekende_producten",[]) if p.get("naam")
                 ) or "geen"
 
+                # Haal KH richtlijn op voor deze atleet
+                kh_min_c, kh_max_c = _get_richtlijn(sport_ctx, duur_ctx)
+                kh_richtlijn_txt = (f"{kh_min_c}–{kh_max_c}g KH/uur"
+                                    if kh_max_c > 0 else "geen extra KH nodig")
+
                 systeem = (
                     "Je bent Carboo Coach, een neutrale sportvoedingsadviseur. "
                     "Je geeft wetenschappelijk onderbouwde informatie over sportvoeding tijdens inspanning. "
@@ -876,7 +920,10 @@ def _stap_producten():
                     "wel uitleg over producttypen, ingredienten, osmolariteit, verhoudingen, timing, wetenschappelijke richtlijnen. "
                     "Antwoord altijd in het Nederlands. Beknopt: max 4-5 zinnen tenzij uitgebreide uitleg nodig is. "
                     f"CONTEXT ATLEET: Sport: {sport_ctx} | Duur: {duur_ctx} min | Ervaring: {erv_ctx} | "
-                    f"Te testen producten: {prod_ctx} | Gekende producten: {gekend_ctx}"
+                    f"KH-richtlijn voor deze atleet: {kh_richtlijn_txt} | "
+                    f"Te testen producten: {prod_ctx} | Gekende producten: {gekend_ctx}. "
+                    f"Gebruik ALTIJD de KH-richtlijn van {kh_richtlijn_txt} als je spreekt over aanbevolen hoeveelheden voor deze atleet, "
+                    f"niet de algemene 60-90g/uur waarde tenzij die overeenkomt."
                 )
 
                 berichten = []
@@ -1036,14 +1083,11 @@ def _stap_schema():
         else:
             st.success("🏁 Alle fases afgerond! Bekijk je rapport.")
     else:
-        # Genereer of toon gepland schema voor volgende week
+        # Genereer schema via watervalstrategie
         cache_key = f"tg_schema_week_{volgende_wn}"
         if cache_key not in st.session_state:
-            with st.spinner("🤖 Carboo AI genereert jouw weekplan..."):
-                schema = _genereer_week_via_claude(data, logs)
-                if schema is None:
-                    schema = _fallback_week(data, logs)
-                st.session_state[cache_key] = schema
+            schema = _genereer_schema(data, logs, actieve_fase_naam)
+            st.session_state[cache_key] = schema
         else:
             schema = st.session_state[cache_key]
 
@@ -1055,8 +1099,10 @@ def _stap_schema():
         kh_tot   = schema.get("kh_totaal", kh_basis+kh_test)
         interval = schema.get("interval_min",30)
         zone     = schema.get("intensiteit","Z2 — Duurtraining")
-        reden    = schema.get("reden","")
-        tip      = schema.get("tip","")
+        reden      = schema.get("reden","")
+        tip        = schema.get("tip","")
+        alternatief= schema.get("alternatief","")
+        duur_min   = schema.get("duur_min","90-120")
         pct      = round((kh_tot/max(target_kh,1))*100)
         prog     = schema.get("progressie","")
         prog_kl  = "#22c55e" if prog=="omhoog" else ("#ef4444" if prog=="omlaag" else "#fbbf24")
@@ -1075,7 +1121,7 @@ def _stap_schema():
             f'border:2px solid #8b5cf6;border-radius:14px;padding:20px;margin-bottom:16px;">'
             f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
             f'<div style="font-size:0.65rem;font-weight:700;color:#8b5cf6;letter-spacing:2px;">'
-            f'🤖 AI WEEKPLAN — WEEK {volgende_wn}</div>'
+            f'📋 WEEKPLAN — WEEK {volgende_wn}</div>'
             f'<div style="font-size:0.72rem;font-weight:700;color:{prog_kl};">▶ {prog}</div>'
             f'</div>'
             f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">'
@@ -1098,19 +1144,13 @@ def _stap_schema():
             f'<div style="font-size:0.72rem;color:#64748b;margin-top:2px;">Elke {interval} min — met 150ml water</div>'
             f'</div>'
             f'{"<div style=\\'background:#0a1628;border-left:3px solid #8b5cf6;border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Waarom:</b> " + reden + "</div>" if reden else ""}'
-            f'{"<div style=\\'background:#0a1628;border-left:3px solid #f97316;border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Tip:</b> " + tip + "</div>" if tip else ""}'
+            f'{"<div style=\\'background:#0a1628;border-left:3px solid #f97316;border-radius:0 6px 6px 0;padding:8px 12px;font-size:0.78rem;color:#94a3b8;\\'><b style=\\'color:#f8fafc;\\'>Tip:</b> " + tip + "</div>" if tip else ""}'+
+            f'{"<div style=\\'background:#1a0a0a;border-left:3px solid #ef4444;border-radius:0 6px 6px 0;padding:8px 12px;margin-top:6px;font-size:0.78rem;color:#ef4444;\\'><b style=\\'color:#f8fafc;\\'>⚠️ Alternatief:</b> " + alternatief + "</div>" if alternatief else ""}'
             f'</div>',
             unsafe_allow_html=True)
 
-        col_refresh, col_log = st.columns(2)
-        with col_refresh:
-            if st.button("🔄 Herbereken", key="tg_herbereken"):
-                if cache_key in st.session_state:
-                    del st.session_state[cache_key]
-                st.rerun()
-        with col_log:
-            if st.button(f"📝 Week {volgende_wn} invullen →",
-                          key="goto_logboek", use_container_width=True):
+        if st.button(f"📝 Week {volgende_wn} invullen →",
+                      key="goto_logboek", use_container_width=True):
                 st.session_state["tg_actieve_week"] = volgende_wn
                 st.session_state["tg_actieve_fase"] = actieve_fase_naam
                 st.session_state["tg_huidig_schema"] = schema
@@ -1159,7 +1199,7 @@ def _stap_logboek():
         f'<div style="background:#0f172a;border:1px solid #8b5cf6;border-radius:10px;'
         f'padding:14px;margin-bottom:16px;">'
         f'<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;margin-bottom:6px;">'
-        f'🤖 AI SCHEMA — WEEK {actieve_week} — {actieve_fase.upper()}</div>'
+        f'📋 SCHEMA — WEEK {actieve_week} — {actieve_fase.upper()}</div>'
         f'<div style="display:flex;justify-content:space-between;align-items:center;">'
         f'<div>'
         f'<div style="font-weight:800;color:#f8fafc;font-size:1rem;">{pnaam}</div>'
@@ -1175,14 +1215,24 @@ def _stap_logboek():
     if schema.get("tip"):
         st.markdown(
             f'<div style="background:#0a1628;border-left:3px solid #f97316;'
-            f'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:14px;'
+            f'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:8px;'
             f'font-size:0.8rem;color:#94a3b8;">'
             f'💡 <b style="color:#f8fafc;">Tip:</b> {schema["tip"]}</div>',
             unsafe_allow_html=True)
+    if schema.get("alternatief"):
+        st.markdown(
+            f'<div style="background:#1a0a0a;border-left:3px solid #ef4444;'
+            f'border-radius:0 6px 6px 0;padding:8px 12px;margin-bottom:14px;'
+            f'font-size:0.8rem;color:#ef4444;">'
+            f'⚠️ <b style="color:#f8fafc;">Alternatief voorstel:</b> {schema["alternatief"]}</div>',
+            unsafe_allow_html=True)
 
+    duur_schema = schema.get("duur_min","90-120")
     st.markdown(
-        '<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
-        'Hoe verliep de training? AI past het volgende weekplan aan op basis van jouw score.</div>',
+        f'<div style="font-size:0.82rem;color:#94a3b8;margin-bottom:14px;">'
+        f'Voer deze training uit van <b style="color:#f8fafc;">{duur_schema} minuten</b> '
+        f'op <b style="color:#f8fafc;">{schema.get("intensiteit","Z2")}</b>. '
+        f'Vul daarna hieronder in hoe het verliep.</div>',
         unsafe_allow_html=True)
 
     c1, c2 = st.columns(2)
@@ -1228,13 +1278,13 @@ def _stap_logboek():
             "progressie":schema.get("progressie",""),
             "ingevuld":True,
         }
-        # Wis cache voor volgende week zodat AI opnieuw berekent
+        # Wis cache zodat schema volgende week herberekend wordt
         volgende_wn = actieve_week+1
         cache_key = f"tg_schema_week_{volgende_wn}"
         if cache_key in st.session_state:
             del st.session_state[cache_key]
 
-        st.success(f"✅ Week {actieve_week} opgeslagen! AI berekent week {volgende_wn}...")
+        st.success(f"✅ Week {actieve_week} opgeslagen!")
         st.session_state["tg_actieve_week"] = volgende_wn
         st.session_state.tg_stap = 4
         st.rerun()
