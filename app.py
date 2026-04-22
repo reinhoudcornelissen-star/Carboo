@@ -294,9 +294,6 @@ elif module == "fuelc":
 
 elif module == "testing":
     render_testing(user)
-    if st.button("← Terug naar modules", key="testing_terug"):
-        st.session_state.module = "menu"
-        st.rerun()
 
 elif module == "rapport":
     html = st.session_state.get("rapport_html", "")
