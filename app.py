@@ -129,7 +129,7 @@ st.markdown(f"""
       <div style="font-size:1.5rem; font-weight:900; letter-spacing:3px; color:#f8fafc;">
         CAR<span style="color:#f97316;">BOO</span>
       </div>
-      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">RACE NUTRITION COACH</div>
+      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">NUTRITION COACH</div>
     </div>
   </div>
   <div style="text-align:right; font-size:0.82rem; color:#64748b;">
