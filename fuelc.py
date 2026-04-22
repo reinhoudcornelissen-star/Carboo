@@ -3095,7 +3095,7 @@ def _render_voedingsdagboek(user: dict):
                 water_val = st.number_input("Water (liter)", 0.0, 8.0, float(welzijn.get("waterinname_l") or 0.0), 0.25, key=f"db_water_{dag_str}")
 
             gewicht_val = welzijn.get("gewicht_kg")
-            if dag_datum.weekday() == 0:
+            if dag_datum.weekday() == 3:
                 st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin:10px 0 8px;">⚖️ GEWICHT (wekelijks)</div>', unsafe_allow_html=True)
                 gw1, _ = st.columns([1,2])
                 with gw1:
@@ -3237,8 +3237,9 @@ def _render_analyses(user: dict):
                 "voeding_gev": w.get("voeding_gevolgd",""),
             })
 
-    dagen_lijst = sorted(dag_dict.values(), key=lambda x: x["datum"])
-    dagen_met_data = [d for d in dagen_lijst if d["kcal"] > 0]
+    dagen_lijst       = sorted(dag_dict.values(), key=lambda x: x["datum"])
+    dagen_met_data    = [d for d in dagen_lijst if d["kcal"] > 0]
+    dagen_met_welzijn = [d for d in dagen_lijst if d.get("voeding_gev") or d.get("hrv") or d.get("slaap",0) > 0]
 
     def _kleur_balk(waarde, doel, kleur="#22c55e"):
         pct = min(100, round(waarde/doel*100)) if doel > 0 else 0
@@ -3255,16 +3256,33 @@ def _render_analyses(user: dict):
     st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:2px;margin:16px 0 8px;">🎯 WEEKSCORE</div>', unsafe_allow_html=True)
 
     if dagen_met_data:
-        score_voeding = round(sum(1 for d in dagen_met_data if d.get("voeding_gev")=="Volledig") / len(dagen_met_data) * 100)
-        slaap_ok      = [d for d in dagen_met_data if d.get("slaap",0) >= 7]
-        score_slaap   = round(len(slaap_ok) / max(len(dagen_met_data),1) * 100)
-        hrv_ok        = [d for d in dagen_met_data if d.get("hrv") in ("Hoog","Gemiddeld")]
-        score_hrv     = round(len(hrv_ok) / max(len(dagen_met_data),1) * 100)
-        stress_ok     = [d for d in dagen_met_data if d.get("stress") in ("Laag","Matig")]
-        score_stress  = round(len(stress_ok) / max(len(dagen_met_data),1) * 100)
-        kcal_ok       = [d for d in dagen_met_data if abs(d["kcal"] - energie_doel) / energie_doel < 0.15]
-        score_kcal    = round(len(kcal_ok) / max(len(dagen_met_data),1) * 100)
-        totaal_score  = round((score_voeding*0.3 + score_slaap*0.2 + score_hrv*0.2 + score_stress*0.15 + score_kcal*0.15))
+        n_w = max(len(dagen_met_welzijn), 1)
+        n_d = max(len(dagen_met_data), 1)
+        # Voeding gevolgd: enkel tellen als NIET "Volledig" ook telt
+        score_voeding = round(sum(
+            {"Volledig":100,"Gedeeltelijk":50,"Niet":0}.get(d.get("voeding_gev",""),0)
+            for d in dagen_met_welzijn) / n_w) if dagen_met_welzijn else 0
+        # Slaap: >= 7u = goed, 6-7 = matig, <6 = slecht
+        score_slaap = round(sum(
+            100 if d.get("slaap",0) >= 7 else (50 if d.get("slaap",0) >= 6 else 0)
+            for d in dagen_met_welzijn if d.get("slaap",0) > 0) /
+            max(len([d for d in dagen_met_welzijn if d.get("slaap",0) > 0]),1)) if dagen_met_welzijn else 0
+        # HRV: Hoog=100, Gemiddeld=60, Laag=20
+        score_hrv = round(sum(
+            {"Hoog":100,"Gemiddeld":60,"Laag":20}.get(d.get("hrv",""),0)
+            for d in dagen_met_welzijn if d.get("hrv")) /
+            max(len([d for d in dagen_met_welzijn if d.get("hrv")]),1)) if dagen_met_welzijn else 0
+        # Stress: Laag=100, Matig=60, Hoog=20
+        score_stress = round(sum(
+            {"Laag":100,"Matig":60,"Hoog":20}.get(d.get("stress",""),0)
+            for d in dagen_met_welzijn if d.get("stress")) /
+            max(len([d for d in dagen_met_welzijn if d.get("stress")]),1)) if dagen_met_welzijn else 0
+        # Kcal: binnen 15% van doel = goed
+        score_kcal = round(sum(
+            100 if energie_doel > 0 and abs(d["kcal"] - energie_doel) / energie_doel < 0.15 else
+            (50 if energie_doel > 0 and abs(d["kcal"] - energie_doel) / energie_doel < 0.30 else 0)
+            for d in dagen_met_data) / n_d) if dagen_met_data else 0
+        totaal_score  = round(score_voeding*0.3 + score_slaap*0.2 + score_hrv*0.2 + score_stress*0.15 + score_kcal*0.15)
         score_kleur   = "#22c55e" if totaal_score >= 70 else ("#fbbf24" if totaal_score >= 50 else "#ef4444")
 
         st.markdown(
@@ -3294,62 +3312,76 @@ def _render_analyses(user: dict):
     # ═══════════════════════════════════════════════════════════════════════
     st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:2px;margin:20px 0 8px;">⚖️ GEWICHT & BMI</div>', unsafe_allow_html=True)
 
-    gew_col1, gew_col2 = st.columns([3,1])
-    with gew_col2:
-        nieuw_gewicht = st.number_input("Gewicht vandaag (kg)", 30.0, 200.0,
-            gewicht_prof, 0.1, key="dash_gewicht")
-        if st.button("💾 Opslaan", key="dash_gew_ops"):
-            try:
-                _get_supabase().table("fuelc_dagboek_welzijn").upsert({
-                    "user_id":user_id,"datum":str(vandaag),
-                    "gewicht_kg":nieuw_gewicht
-                }, on_conflict="user_id,datum").execute()
-                st.success("✅")
-                st.cache_data.clear()
-                st.rerun()
-            except Exception as e:
-                st.error(str(e))
-
     gewicht_punten = [(d["datum"], d["gewicht"]) for d in dagen_lijst if d.get("gewicht",0) > 0]
-    with gew_col1:
-        if len(gewicht_punten) >= 2:
-            data_gew = {"Datum":[p[0] for p in gewicht_punten],
-                        "Gewicht":[p[1] for p in gewicht_punten]}
-            gem_gew = sum(p[1] for p in gewicht_punten) / len(gewicht_punten)
-            bmi     = round(gem_gew / ((lengte_prof/100)**2), 1) if lengte_prof > 0 else 0
-            bmi_cat = "Ondergewicht" if bmi < 18.5 else ("Normaal" if bmi < 25 else ("Overgewicht" if bmi < 30 else "Obesitas"))
-            bmi_kleur = "#22c55e" if bmi < 25 else ("#fbbf24" if bmi < 30 else "#ef4444")
+
+    if len(gewicht_punten) >= 1:
+        laatste_gew = gewicht_punten[-1][1]
+        bmi         = round(laatste_gew / ((lengte_prof/100)**2), 1) if lengte_prof > 0 else 0
+        bmi_cat     = "Ondergewicht" if bmi < 18.5 else ("Normaal" if bmi < 25 else ("Overgewicht" if bmi < 30 else "Obesitas"))
+        bmi_kleur   = "#22c55e" if bmi < 25 else ("#fbbf24" if bmi < 30 else "#ef4444")
+
+        # Metrics rij
+        gm1, gm2, gm3, gm4 = st.columns(4)
+        with gm1:
             st.markdown(
-                f'<div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:8px;">'
-                f'<div style="display:flex;gap:20px;">'
-                f'<div><div style="font-size:0.65rem;color:#64748b;">GEMIDDELD</div>'
-                f'<div style="font-size:1.1rem;font-weight:800;color:#f8fafc;">{round(gem_gew,1)} kg</div></div>'
-                f'<div><div style="font-size:0.65rem;color:#64748b;">BMI</div>'
-                f'<div style="font-size:1.1rem;font-weight:800;color:{bmi_kleur};">{bmi}</div></div>'
-                f'<div><div style="font-size:0.65rem;color:#64748b;">CATEGORIE</div>'
-                f'<div style="font-size:0.85rem;font-weight:700;color:{bmi_kleur};">{bmi_cat}</div></div>'
-                f'</div></div>',
+                f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                f'<div style="font-size:0.6rem;color:#64748b;">HUIDIG GEWICHT</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:#f8fafc;">{laatste_gew}kg</div></div>',
                 unsafe_allow_html=True)
-            # Gewicht grafiek als ASCII-stijl balken
+        with gm2:
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                f'<div style="font-size:0.6rem;color:#64748b;">BMI</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:{bmi_kleur};">{bmi}</div>' +
+                f'<div style="font-size:0.65rem;color:{bmi_kleur};">{bmi_cat}</div></div>',
+                unsafe_allow_html=True)
+        with gm3:
+            if len(gewicht_punten) >= 2:
+                trend = gewicht_punten[-1][1] - gewicht_punten[0][1]
+                trend_tekst = f"▲ +{round(trend,1)}kg" if trend > 0.1 else (f"▼ {round(trend,1)}kg" if trend < -0.1 else "→ Stabiel")
+                trend_kleur = "#ef4444" if trend > 0.5 else ("#22c55e" if trend < -0.5 else "#fbbf24")
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">TREND</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:800;color:{trend_kleur};">{trend_tekst}</div>' +
+                    f'<div style="font-size:0.65rem;color:#64748b;">{len(gewicht_punten)} metingen</div></div>',
+                    unsafe_allow_html=True)
+        with gm4:
+            if len(gewicht_punten) >= 2:
+                gem_gew = round(sum(p[1] for p in gewicht_punten) / len(gewicht_punten), 1)
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">GEMIDDELD</div>' +
+                    f'<div style="font-size:1.1rem;font-weight:800;color:#f8fafc;">{gem_gew}kg</div></div>',
+                    unsafe_allow_html=True)
+
+        # Gewicht grafiek
+        if len(gewicht_punten) >= 2:
+            st.markdown('<div style="font-size:0.7rem;color:#64748b;margin:10px 0 4px;">Gewichtsevolutie</div>', unsafe_allow_html=True)
             max_gew = max(p[1] for p in gewicht_punten)
             min_gew = min(p[1] for p in gewicht_punten)
-            trend   = gewicht_punten[-1][1] - gewicht_punten[0][1]
-            trend_tekst = f"▲ +{round(trend,1)}kg" if trend > 0 else f"▼ {round(trend,1)}kg"
-            trend_kleur = "#ef4444" if trend > 0.5 else ("#22c55e" if trend < -0.5 else "#fbbf24")
+            spread  = max_gew - min_gew or 1
+            grafiek = '<div style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:4px;">'
+            for datum, gew in gewicht_punten:
+                h = round(((gew - min_gew) / spread) * 65) + 10
+                k = "#ef4444" if gew > gewicht_punten[0][1] + 0.5 else ("#22c55e" if gew < gewicht_punten[0][1] - 0.5 else "#fbbf24")
+                grafiek += (
+                    f'<div style="flex:1;display:flex;flex-direction:column;align-items:center;">' +
+                    f'<div style="font-size:0.6rem;color:#f8fafc;margin-bottom:2px;">{gew}</div>' +
+                    f'<div style="width:100%;background:{k};border-radius:3px 3px 0 0;height:{h}px;"></div>' +
+                    f'<div style="font-size:0.5rem;color:#475569;margin-top:2px;">{datum[8:]}/{datum[5:7]}</div></div>'
+                )
+            grafiek += '</div>'
+            st.markdown(grafiek, unsafe_allow_html=True)
             st.markdown(
-                f'<div style="font-size:0.75rem;color:{trend_kleur};margin-bottom:8px;">'
-                f'Trend: {trend_tekst} over {len(gewicht_punten)} metingen</div>',
+                '<div style="font-size:0.7rem;color:#64748b;">Gewicht wordt elke donderdag ingevoerd in het Dagboek.</div>',
                 unsafe_allow_html=True)
-            grafiek_html = '<div style="display:flex;align-items:flex-end;gap:4px;height:80px;margin-bottom:4px;">'
-            for datum, gew in gewicht_punten[-14:]:
-                hoogte = round(((gew - min_gew + 0.5) / (max_gew - min_gew + 1)) * 70) + 10
-                grafiek_html += (f'<div style="flex:1;display:flex;flex-direction:column;align-items:center;">'
-                                 f'<div style="width:100%;background:#22c55e;border-radius:3px 3px 0 0;height:{hoogte}px;"></div>'
-                                 f'<div style="font-size:0.55rem;color:#475569;margin-top:2px;">{datum[8:]}</div></div>')
-            grafiek_html += '</div>'
-            st.markdown(grafiek_html, unsafe_allow_html=True)
-        else:
-            st.markdown('<div style="color:#64748b;font-size:0.8rem;">Voer gewicht in via het Dagboek (maandag) of hier rechts.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(
+            '<div style="background:#1e293b;border-radius:8px;padding:12px;color:#64748b;font-size:0.8rem;">' +
+            '⚖️ Nog geen gewichtsdata. Vul je gewicht in via het Dagboek (elke donderdag).</div>',
+            unsafe_allow_html=True)
+
 
     # ═══════════════════════════════════════════════════════════════════════
     # ⚡ ENERGIE & MACRO'S
@@ -3737,87 +3769,3 @@ def _render_analyses(user: dict):
             unsafe_allow_html=True)
     else:
         st.info("Vul het Voedingsdagboek in om correlaties te zien.")
-
-
-
-def _stap_dashboard(user: dict):
-    tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
-    with tab_db:
-        _render_voedingsdagboek(user)
-    with tab_an:
-        _render_analyses(user)
-
-
-def render_fuelc(user: dict):
-    st.markdown(
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">'
-        '<div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">'
-        'FUEL<span style="color:#22c55e;">C</span></div>'
-        '<div style="font-size:0.85rem;font-weight:700;color:#22c55e;letter-spacing:2px;'
-        'border:1px solid #22c55e;border-radius:6px;padding:3px 10px;">'
-        'ENERGIE COACH</div>'
-        '</div>',
-        unsafe_allow_html=True)
-
-    st.markdown(
-        '<style>.fc-terug button{background:#0f172a!important;border:1px solid #22c55e!important;'
-        'color:#22c55e!important;font-size:0.8rem!important;padding:6px 14px!important;'
-        'width:auto!important;border-radius:8px!important;}</style>',
-        unsafe_allow_html=True)
-    if st.button("← Terug naar modules", key="fc_terug_top"):
-        st.session_state.module = "menu"
-        st.rerun()
-
-    # ── Navigatieknoppen ──────────────────────────────────────────────────────
-    stap   = st.session_state.get("fc_stap", 1)
-    namen  = ["Profiel","Trainingen","Bibliotheek","Weekschema","Analyses"]
-    emojis = ["👤","🏃","🥦","📅","📊"]
-
-    nav_cols = st.columns(5)
-    for i, (col, naam_stap, emoji) in enumerate(zip(nav_cols, namen, emojis)):
-        with col:
-            actief = (i+1) == stap
-            if st.button(
-                f"{emoji}  {naam_stap}",
-                key=f"nav_stap_{i+1}",
-                use_container_width=True,
-                type="primary" if actief else "secondary"):
-                st.session_state.fc_stap = i+1
-                st.rerun()
-
-    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-
-
-    # Profiel geladen check
-    if "fc_profiel" not in st.session_state:
-        st.session_state.fc_profiel = _laad_profiel(user.get("id",""))
-
-    profiel_ingevuld = bool(st.session_state.fc_profiel.get("bmr"))
-
-    # Routing
-    if   stap == 1: _stap_profiel(user)
-    elif stap == 2:
-        if not profiel_ingevuld:
-            st.warning("Vul eerst je profiel in.")
-            if st.button("← Naar profiel", key="fc_naar_prof"):
-                st.session_state.fc_stap = 1
-                st.rerun()
-        else:
-            _stap_trainingen(user)
-    elif stap == 3: _stap_bibliotheek(user)
-    elif stap == 4: _stap_dagschema(user)
-    elif stap == 5: _stap_dashboard(user)
-
-    # Navigatieknoppen onderaan (enkel tonen als profiel ingevuld)
-    if profiel_ingevuld and stap > 1:
-        st.markdown("<br>", unsafe_allow_html=True)
-        c_terug, c_next = st.columns([1,2])
-        with c_terug:
-            if st.button("← Vorige", key="fc_vorige", use_container_width=True):
-                st.session_state.fc_stap = max(1, stap - 1)
-                st.rerun()
-        with c_next:
-            if stap < len(namen):
-                if st.button("Volgende →", key="fc_volgende", use_container_width=True):
-                    st.session_state.fc_stap = stap + 1
-                    st.rerun()
