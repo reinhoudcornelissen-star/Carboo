@@ -1699,7 +1699,6 @@ MAALTIJD_TEMPLATES = {
         {"naam": "Eerste maaltijd", "tijdstip": "13:00", "type": "ontbijt"},
         {"naam": "Tweede maaltijd", "tijdstip": "18:30", "type": "avond"},
     ],
-    "Vrij": [],
 }
 
 OPTIONELE_MOMENTEN = [
@@ -1887,7 +1886,7 @@ def _stap_dagschema(user: dict):
         # Naar maandag
         maandag = week_start - _td(days=week_start.weekday())
     with wi2:
-        eet_patroon = st.selectbox("Eetpatroon (week)", list(MAALTIJD_TEMPLATES.keys()), key="week_patroon")
+        eet_patroon = st.selectbox("Eetpatroon (week)", ["Klassiek","Intermittent 16:8","Intermittent 18:6"], key="week_patroon")
     with wi3:
         st.markdown(
             f'<div style="padding-top:24px;font-size:0.75rem;color:#64748b;">'
@@ -1895,6 +1894,26 @@ def _stap_dagschema(user: dict):
             unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
+    # Tussendoor momenten
+    if eet_patroon in ("Klassiek", "2 maaltijden", "Intermittent 16:8", "Intermittent 18:6"):
+        st.markdown(
+            '<div style="background:#1e293b;border-radius:10px;padding:10px 14px;margin-bottom:12px;">'
+            '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">Tussendoor momenten toevoegen aan alle dagen:</div>',
+            unsafe_allow_html=True)
+        opt_cols = st.columns(3)
+        for _oi, _opt in enumerate(OPTIONELE_MOMENTEN):
+            with opt_cols[_oi]:
+                if st.checkbox(_opt["naam"], key=f"week_opt_{_oi}"):
+                    pass  # Wordt gebruikt bij opbouw basis per dag
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    def _bouw_basis(patroon):
+        basis = MAALTIJD_TEMPLATES.get(patroon, MAALTIJD_TEMPLATES["Klassiek"]).copy()
+        for _oi, _opt in enumerate(OPTIONELE_MOMENTEN):
+            if st.session_state.get(f"week_opt_{_oi}", False):
+                basis.append(_opt.copy())
+        return sorted(basis, key=lambda x: x.get("tijdstip","00:00"))
+
 
     # Bibliotheek laden (1x)
     bibliotheek = _laad_gecombineerde_bibliotheek(user_id)
@@ -1917,7 +1936,7 @@ def _stap_dagschema(user: dict):
         border_kleur = "#22c55e" if heeft_plan else ("#f97316" if is_vandaag else "#334155")
 
         # Bouw momenten voor deze dag
-        basis = MAALTIJD_TEMPLATES[eet_patroon].copy()
+        basis = _bouw_basis(eet_patroon)
         training_dag = st.session_state.get(f"training_{dag_str}", "Geen training")
         momenten = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
 
