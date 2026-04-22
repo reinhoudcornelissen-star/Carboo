@@ -1464,9 +1464,16 @@ def _stap_bibliotheek(user: dict):
                                 ]
                             }]
                         }
+                        import os as _os
+                        _api_key = _os.environ.get("ANTHROPIC_API_KEY","")
                         resp_raw = _req2.post(
                             "https://api.anthropic.com/v1/messages",
                             json=payload,
+                            headers={
+                                "x-api-key": _api_key,
+                                "anthropic-version": "2023-06-01",
+                                "content-type": "application/json",
+                            },
                             timeout=30
                         )
                         resp = resp_raw.json()
@@ -2074,12 +2081,19 @@ def _stap_dagschema(user: dict):
                                 f"{_json2.dumps(bib_kort, ensure_ascii=False)}. "
                                 f"Geef een kort praktisch voorstel in het Nederlands. Max 80 woorden."
                             )
+                            import os as _os3
+                            _api_key3 = _os3.environ.get("ANTHROPIC_API_KEY","")
                             resp = _req3.post(
                                 "https://api.anthropic.com/v1/messages",
                                 json={
                                     "model": "claude-sonnet-4-20250514",
                                     "max_tokens": 300,
                                     "messages": [{"role":"user","content": prompt}]
+                                },
+                                headers={
+                                    "x-api-key": _api_key3,
+                                    "anthropic-version": "2023-06-01",
+                                    "content-type": "application/json",
                                 },
                                 timeout=20
                             ).json()
