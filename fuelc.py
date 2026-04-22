@@ -1680,6 +1680,438 @@ def _stap_bibliotheek(user: dict):
                                 st.rerun()
 
 
+RECEPT_DB = [
+    # ── ONTBIJT ───────────────────────────────────────────────────────────────
+    {
+        "naam": "Havermout met banaan en honing",
+        "type": "ontbijt",
+        "kcal": 420, "kh": 72, "eiwit": 14, "vet": 8,
+        "ingredienten": [
+            ("Havermout", 80), ("Volle melk", 200), ("Banaan", 120), ("Honing", 15)
+        ],
+        "bereiding": "1. Kook de havermout 3 min in de melk. 2. Snijd de banaan in schijfjes. 3. Leg op de pap en druppel honing erover."
+    },
+    {
+        "naam": "Volkoren boterhammen met ei en tomaat",
+        "type": "ontbijt",
+        "kcal": 390, "kh": 48, "eiwit": 22, "vet": 12,
+        "ingredienten": [
+            ("Volkorenbrood", 105), ("Ei groot", 120), ("Tomaat", 100), ("Boter", 10)
+        ],
+        "bereiding": "1. Bak de eieren in boter. 2. Snijd tomaat in schijfjes. 3. Beleg de boterhammen."
+    },
+    {
+        "naam": "Griekse yoghurt met bosbes en granola",
+        "type": "ontbijt",
+        "kcal": 380, "kh": 52, "eiwit": 18, "vet": 10,
+        "ingredienten": [
+            ("Griekse yoghurt vol", 200), ("Bosbes", 100), ("Granola", 45)
+        ],
+        "bereiding": "1. Schep yoghurt in een kom. 2. Verdeel bosbessen erover. 3. Strooi granola erbovenop."
+    },
+    {
+        "naam": "Roerei met champignons op brood",
+        "type": "ontbijt",
+        "kcal": 450, "kh": 44, "eiwit": 26, "vet": 18,
+        "ingredienten": [
+            ("Ei groot", 180), ("Champignon", 100), ("Bruin brood", 70), ("Boter", 10)
+        ],
+        "bereiding": "1. Bak champignons 3 min in boter. 2. Klop eieren los en roer door de pan. 3. Serveer op geroosterd brood."
+    },
+    {
+        "naam": "Smoothie met havermout en fruit",
+        "type": "ontbijt",
+        "kcal": 400, "kh": 68, "eiwit": 12, "vet": 7,
+        "ingredienten": [
+            ("Havermout", 50), ("Banaan", 120), ("Aardbei", 100), ("Halfvolle melk", 200)
+        ],
+        "bereiding": "1. Doe alle ingrediënten in de blender. 2. Mix tot glad. 3. Direct serveren."
+    },
+    {
+        "naam": "Kwark met rozijnen en appel",
+        "type": "ontbijt",
+        "kcal": 310, "kh": 48, "eiwit": 20, "vet": 2,
+        "ingredienten": [
+            ("Kwark mager", 200), ("Appel", 150), ("Rozijnen", 30)
+        ],
+        "bereiding": "1. Snijd appel in kleine stukjes. 2. Meng met kwark. 3. Voeg rozijnen toe en roer goed."
+    },
+    {
+        "naam": "Pannenkoeken met appelmoes",
+        "type": "ontbijt",
+        "kcal": 480, "kh": 78, "eiwit": 14, "vet": 12,
+        "ingredienten": [
+            ("Pannenkoek", 240), ("Appelmoes", 120), ("Honing", 15)
+        ],
+        "bereiding": "1. Bak pannenkoeken goudbruin. 2. Serveer met appelmoes. 3. Druppel honing erover."
+    },
+    {
+        "naam": "Muesli met halfvolle melk en banaan",
+        "type": "ontbijt",
+        "kcal": 430, "kh": 70, "eiwit": 12, "vet": 9,
+        "ingredienten": [
+            ("Muesli", 80), ("Halfvolle melk", 200), ("Banaan", 120)
+        ],
+        "bereiding": "1. Doe muesli in een kom. 2. Giet melk erover. 3. Snijd banaan in schijfjes en voeg toe."
+    },
+    {
+        "naam": "Volkoren toast met pindakaas en banaan",
+        "type": "ontbijt",
+        "kcal": 460, "kh": 62, "eiwit": 16, "vet": 16,
+        "ingredienten": [
+            ("Volkorenbrood", 105), ("Pindakaas", 40), ("Banaan", 120)
+        ],
+        "bereiding": "1. Rooster de boterhammen. 2. Smeer pindakaas erop. 3. Beleg met schijfjes banaan."
+    },
+    {
+        "naam": "Skyr met kiwi en noten",
+        "type": "ontbijt",
+        "kcal": 340, "kh": 38, "eiwit": 24, "vet": 9,
+        "ingredienten": [
+            ("Skyr", 200), ("Kiwi", 100), ("Walnoten", 20), ("Honing", 10)
+        ],
+        "bereiding": "1. Schep skyr in een kom. 2. Snijd kiwi en leg bovenop. 3. Strooi gehakte walnoten en honing erover."
+    },
+
+    # ── TUSSENDOOR ────────────────────────────────────────────────────────────
+    {
+        "naam": "Appel met amandelboter",
+        "type": "tussendoor",
+        "kcal": 220, "kh": 28, "eiwit": 4, "vet": 11,
+        "ingredienten": [
+            ("Appel", 150), ("Amandelboter", 20)
+        ],
+        "bereiding": "1. Snijd appel in partjes. 2. Serveer met amandelboter als dip."
+    },
+    {
+        "naam": "Rijstwafels met hummus",
+        "type": "tussendoor",
+        "kcal": 200, "kh": 32, "eiwit": 6, "vet": 6,
+        "ingredienten": [
+            ("Rijstwafel naturel", 36), ("Hummus", 50)
+        ],
+        "bereiding": "1. Smeer hummus op de rijstwafels. 2. Eventueel bestrooien met paprikapoeder."
+    },
+    {
+        "naam": "Banaan met walnoten",
+        "type": "tussendoor",
+        "kcal": 250, "kh": 32, "eiwit": 4, "vet": 12,
+        "ingredienten": [
+            ("Banaan", 120), ("Walnoten", 25)
+        ],
+        "bereiding": "1. Pel de banaan. 2. Eet samen met een handjevol walnoten."
+    },
+    {
+        "naam": "Volkoren cracker met plattekaas en tomaat",
+        "type": "tussendoor",
+        "kcal": 190, "kh": 22, "eiwit": 9, "vet": 7,
+        "ingredienten": [
+            ("Cracker volkoren", 30), ("Plattekaas", 60), ("Tomaat", 80)
+        ],
+        "bereiding": "1. Smeer plattekaas op crackers. 2. Beleg met schijfjes tomaat."
+    },
+    {
+        "naam": "Griekse yoghurt met honing",
+        "type": "tussendoor",
+        "kcal": 210, "kh": 22, "eiwit": 14, "vet": 7,
+        "ingredienten": [
+            ("Griekse yoghurt vol", 150), ("Honing", 15)
+        ],
+        "bereiding": "1. Schep yoghurt in een kommetje. 2. Druppel honing erover."
+    },
+    {
+        "naam": "Dadels met cashewnoten",
+        "type": "tussendoor",
+        "kcal": 240, "kh": 38, "eiwit": 4, "vet": 9,
+        "ingredienten": [
+            ("Dadel gedroogd", 40), ("Cashewnoten", 20)
+        ],
+        "bereiding": "1. Combineer dadels en cashewnoten in een bakje. 2. Direct serveren."
+    },
+    {
+        "naam": "Kwark met aardbei",
+        "type": "tussendoor",
+        "kcal": 170, "kh": 20, "eiwit": 16, "vet": 1,
+        "ingredienten": [
+            ("Kwark mager", 150), ("Aardbei", 100), ("Honing", 10)
+        ],
+        "bereiding": "1. Snijd aardbeien in stukjes. 2. Meng met kwark en honing."
+    },
+    {
+        "naam": "Boterham met kippenham en komkommer",
+        "type": "tussendoor",
+        "kcal": 220, "kh": 28, "eiwit": 14, "vet": 5,
+        "ingredienten": [
+            ("Bruin brood", 70), ("Kippenham", 60), ("Komkommer", 60)
+        ],
+        "bereiding": "1. Beleg boterham met kippenham. 2. Voeg schijfjes komkommer toe."
+    },
+
+    # ── LUNCH ─────────────────────────────────────────────────────────────────
+    {
+        "naam": "Volkoren boterhammen met kipfilet en sla",
+        "type": "lunch",
+        "kcal": 480, "kh": 52, "eiwit": 36, "vet": 12,
+        "ingredienten": [
+            ("Volkorenbrood", 140), ("Kipfilet", 100), ("Sla gemengd", 50),
+            ("Tomaat", 80), ("Mayonaise", 15)
+        ],
+        "bereiding": "1. Snijd kipfilet in reepjes en kruid. 2. Bak 6 min in pan. 3. Beleg brood met sla, tomaat en kip."
+    },
+    {
+        "naam": "Pasta met tonijn en tomaat",
+        "type": "lunch",
+        "kcal": 520, "kh": 68, "eiwit": 32, "vet": 9,
+        "ingredienten": [
+            ("Pasta wit gekookt", 250), ("Tonijn in water", 120),
+            ("Tomatensaus", 100), ("Paprika rood", 80)
+        ],
+        "bereiding": "1. Kook pasta al dente. 2. Verwarm tomatensaus met paprika. 3. Meng met tonijn en pasta."
+    },
+    {
+        "naam": "Rijst met kipfilet en groenten",
+        "type": "lunch",
+        "kcal": 540, "kh": 65, "eiwit": 38, "vet": 8,
+        "ingredienten": [
+            ("Rijst wit gekookt", 200), ("Kipfilet", 120),
+            ("Broccoli", 150), ("Wortel", 80), ("Sojasaus", 15)
+        ],
+        "bereiding": "1. Kook rijst. 2. Bak kipfilet 8 min en snijd in stukjes. 3. Stoom groenten 5 min en serveer met sojasaus."
+    },
+    {
+        "naam": "Soep met brood",
+        "type": "lunch",
+        "kcal": 380, "kh": 52, "eiwit": 16, "vet": 10,
+        "ingredienten": [
+            ("Wortel", 100), ("Ui", 80), ("Aardappel gekookt", 175),
+            ("Kipfilet", 60), ("Volkorenbrood", 70)
+        ],
+        "bereiding": "1. Kook groenten en kip 20 min in bouillon. 2. Mix tot soep. 3. Serveer met volkorenbrood."
+    },
+    {
+        "naam": "Quinoa salade met ei en groenten",
+        "type": "lunch",
+        "kcal": 490, "kh": 52, "eiwit": 24, "vet": 18,
+        "ingredienten": [
+            ("Quinoa gekookt", 185), ("Ei groot", 120),
+            ("Komkommer", 100), ("Tomaat", 100), ("Olijfolie", 15)
+        ],
+        "bereiding": "1. Kook eieren 8 min. 2. Snijd groenten fijn. 3. Meng met quinoa en besprenkel met olijfolie."
+    },
+    {
+        "naam": "Wraps met kalkoen en avocado",
+        "type": "lunch",
+        "kcal": 560, "kh": 55, "eiwit": 34, "vet": 22,
+        "ingredienten": [
+            ("Wrap", 120), ("Kalkoenfilet", 100),
+            ("Avocado", 80), ("Sla gemengd", 50), ("Tomaat", 80)
+        ],
+        "bereiding": "1. Bak kalkoen 6 min en snijd in reepjes. 2. Prak avocado grof. 3. Vul wraps met alle ingrediënten."
+    },
+    {
+        "naam": "Aardappelsalade met haring",
+        "type": "lunch",
+        "kcal": 500, "kh": 50, "eiwit": 24, "vet": 20,
+        "ingredienten": [
+            ("Aardappel gekookt", 300), ("Haring", 100),
+            ("Ui", 60), ("Mayonaise", 30), ("Sla gemengd", 50)
+        ],
+        "bereiding": "1. Snijd aardappelen in blokjes. 2. Meng met mayonaise en ui. 3. Serveer met haring op sla."
+    },
+    {
+        "naam": "Broodje zalm met komkommer",
+        "type": "lunch",
+        "kcal": 460, "kh": 44, "eiwit": 28, "vet": 18,
+        "ingredienten": [
+            ("Stokbrood", 100), ("Zalm", 100),
+            ("Plattekaas", 50), ("Komkommer", 80)
+        ],
+        "bereiding": "1. Snijd stokbrood open. 2. Smeer plattekaas erop. 3. Beleg met zalm en komkommer."
+    },
+    {
+        "naam": "Couscous met kip en paprika",
+        "type": "lunch",
+        "kcal": 510, "kh": 62, "eiwit": 34, "vet": 10,
+        "ingredienten": [
+            ("Couscous gekookt", 200), ("Kipfilet", 100),
+            ("Paprika rood", 100), ("Wortel", 80), ("Olijfolie", 10)
+        ],
+        "bereiding": "1. Bereid couscous per verpakking. 2. Bak kip en groenten 8 min. 3. Meng alles en besprenkel met olijfolie."
+    },
+    {
+        "naam": "Linzensoep met brood",
+        "type": "lunch",
+        "kcal": 430, "kh": 62, "eiwit": 22, "vet": 7,
+        "ingredienten": [
+            ("Linzen gekookt", 200), ("Wortel", 100),
+            ("Ui", 80), ("Tomatensaus", 80), ("Volkorenbrood", 70)
+        ],
+        "bereiding": "1. Fruit ui aan. 2. Voeg linzen, wortel en tomatensaus toe, kook 15 min. 3. Serveer met brood."
+    },
+    {
+        "naam": "Rijstwafel met kippenham en kaas",
+        "type": "lunch",
+        "kcal": 350, "kh": 40, "eiwit": 20, "vet": 11,
+        "ingredienten": [
+            ("Rijstwafel naturel", 36), ("Kippenham", 90),
+            ("Edammer 30+", 30), ("Tomaat", 80)
+        ],
+        "bereiding": "1. Beleg rijstwafels met ham. 2. Voeg kaas en tomaat toe. 3. Direct serveren."
+    },
+
+    # ── AVOND ─────────────────────────────────────────────────────────────────
+    {
+        "naam": "Spaghetti bolognese",
+        "type": "avond",
+        "kcal": 620, "kh": 72, "eiwit": 36, "vet": 18,
+        "ingredienten": [
+            ("Pasta wit gekookt", 300), ("Rundergehakt mager", 120),
+            ("Tomatensaus", 150), ("Ui", 80), ("Olijfolie", 10)
+        ],
+        "bereiding": "1. Bak ui en gehakt 8 min. 2. Voeg tomatensaus toe, sudder 10 min. 3. Serveer over pasta."
+    },
+    {
+        "naam": "Kipfilet met aardappelen en broccoli",
+        "type": "avond",
+        "kcal": 580, "kh": 52, "eiwit": 48, "vet": 14,
+        "ingredienten": [
+            ("Kipfilet", 180), ("Aardappel gekookt", 300),
+            ("Broccoli", 200), ("Boter", 10), ("Olijfolie", 10)
+        ],
+        "bereiding": "1. Bak kip 10 min in olie. 2. Kook aardappelen 20 min. 3. Stoom broccoli 5 min en serveer met beetje boter."
+    },
+    {
+        "naam": "Zalm met rijst en courgette",
+        "type": "avond",
+        "kcal": 610, "kh": 56, "eiwit": 42, "vet": 20,
+        "ingredienten": [
+            ("Zalm", 180), ("Rijst wit gekookt", 200),
+            ("Courgette", 150), ("Olijfolie", 15), ("Citroen", 30)
+        ],
+        "bereiding": "1. Kruid zalm en bak 4 min per kant. 2. Gril courgette in olie. 3. Serveer met rijst en citroensap."
+    },
+    {
+        "naam": "Stoemp met worst en spek",
+        "type": "avond",
+        "kcal": 640, "kh": 58, "eiwit": 28, "vet": 28,
+        "ingredienten": [
+            ("Aardappel gekookt", 350), ("Wortel", 150),
+            ("Spek", 40), ("Boter", 15), ("Halfvolle melk", 50)
+        ],
+        "bereiding": "1. Kook aardappelen en wortels gaar. 2. Stamp met boter en melk. 3. Bak spek krokant en meng erdoor."
+    },
+    {
+        "naam": "Pasta pesto met kip en spinazie",
+        "type": "avond",
+        "kcal": 630, "kh": 64, "eiwit": 40, "vet": 22,
+        "ingredienten": [
+            ("Pasta volkoren gekookt", 280), ("Kipfilet", 150),
+            ("Spinazie", 100), ("Pesto groen", 30)
+        ],
+        "bereiding": "1. Kook pasta. 2. Bak kip in reepjes 8 min. 3. Meng pasta met spinazie, kip en pesto."
+    },
+    {
+        "naam": "Gebakken kabeljauw met aardappelpuree",
+        "type": "avond",
+        "kcal": 520, "kh": 48, "eiwit": 40, "vet": 14,
+        "ingredienten": [
+            ("Kabeljauw", 200), ("Aardappel gekookt", 300),
+            ("Boter", 15), ("Halfvolle melk", 60), ("Broccoli", 150)
+        ],
+        "bereiding": "1. Stamp aardappelen met boter en melk. 2. Bak kabeljauw 4 min per kant. 3. Serveer met gestoomde broccoli."
+    },
+    {
+        "naam": "Rijst met gehakt en paprika",
+        "type": "avond",
+        "kcal": 600, "kh": 66, "eiwit": 34, "vet": 18,
+        "ingredienten": [
+            ("Rijst wit gekookt", 220), ("Rundergehakt mager", 120),
+            ("Paprika rood", 150), ("Ui", 80), ("Tomatensaus", 100)
+        ],
+        "bereiding": "1. Bak gehakt en ui 8 min. 2. Voeg paprika en saus toe, 10 min sudderen. 3. Serveer over rijst."
+    },
+    {
+        "naam": "Linzen met zoete aardappel en spinazie",
+        "type": "avond",
+        "kcal": 560, "kh": 78, "eiwit": 24, "vet": 10,
+        "ingredienten": [
+            ("Linzen gekookt", 200), ("Zoete aardappel gekookt", 250),
+            ("Spinazie", 100), ("Ui", 80), ("Olijfolie", 15)
+        ],
+        "bereiding": "1. Bak ui aan in olie. 2. Voeg linzen en zoete aardappel toe, 10 min verwarmen. 3. Roer spinazie erdoor."
+    },
+    {
+        "naam": "Kip met groentewok en noedels",
+        "type": "avond",
+        "kcal": 570, "kh": 62, "eiwit": 38, "vet": 14,
+        "ingredienten": [
+            ("Kipfilet", 150), ("Pasta wit gekookt", 200),
+            ("Broccoli", 120), ("Wortel", 100), ("Sojasaus", 20)
+        ],
+        "bereiding": "1. Bak kip 6 min. 2. Voeg groenten toe en roerbak 4 min. 3. Meng met noedels en sojasaus."
+    },
+    {
+        "naam": "Biefstuk met frietjes en salade",
+        "type": "avond",
+        "kcal": 680, "kh": 58, "eiwit": 38, "vet": 28,
+        "ingredienten": [
+            ("Biefstuk", 150), ("Aardappel gekookt", 300),
+            ("Sla gemengd", 80), ("Olijfolie", 15)
+        ],
+        "bereiding": "1. Bak biefstuk 3 min per kant. 2. Bak aardappelen als blokjes in oven 25 min. 3. Serveer met salade."
+    },
+    {
+        "naam": "Ovenschotel met kip en groenten",
+        "type": "avond",
+        "kcal": 540, "kh": 44, "eiwit": 42, "vet": 18,
+        "ingredienten": [
+            ("Kipfilet", 180), ("Aardappel gekookt", 250),
+            ("Courgette", 150), ("Paprika rood", 100), ("Olijfolie", 15)
+        ],
+        "bereiding": "1. Snijd alles in stukken en kruid. 2. Besprenkel met olijfolie. 3. Oven 200°C, 30 min bakken."
+    },
+    {
+        "naam": "Varkenshaas met appel en aardappelen",
+        "type": "avond",
+        "kcal": 590, "kh": 54, "eiwit": 40, "vet": 18,
+        "ingredienten": [
+            ("Varkenshaas", 160), ("Aardappel gekookt", 280),
+            ("Appel", 150), ("Boter", 15), ("Ui", 60)
+        ],
+        "bereiding": "1. Bak varkenshaas 10 min. 2. Fruit appel en ui in boter. 3. Serveer met gekookte aardappelen."
+    },
+    {
+        "naam": "Tonijnpasta met olijven en tomaat",
+        "type": "avond",
+        "kcal": 550, "kh": 66, "eiwit": 34, "vet": 12,
+        "ingredienten": [
+            ("Pasta volkoren gekookt", 280), ("Tonijn in water", 150),
+            ("Tomatensaus", 120), ("Olijfolie", 10)
+        ],
+        "bereiding": "1. Kook pasta al dente. 2. Verwarm tomatensaus. 3. Meng met tonijn en pasta, besprenkel met olijfolie."
+    },
+    {
+        "naam": "Gehaktballen met aardappelpuree en erwtjes",
+        "type": "avond",
+        "kcal": 640, "kh": 60, "eiwit": 36, "vet": 24,
+        "ingredienten": [
+            ("Rundergehakt mager", 150), ("Aardappel gekookt", 300),
+            ("Erwten", 100), ("Boter", 15), ("Halfvolle melk", 60)
+        ],
+        "bereiding": "1. Vorm gehaktballen en bak 12 min. 2. Stamp aardappelen met boter en melk. 3. Serveer met erwtjes."
+    },
+    {
+        "naam": "Makreel met rijst en groene salade",
+        "type": "avond",
+        "kcal": 580, "kh": 52, "eiwit": 36, "vet": 22,
+        "ingredienten": [
+            ("Makreel", 150), ("Rijst volkoren gekookt", 200),
+            ("Sla gemengd", 80), ("Citroen", 30), ("Olijfolie", 10)
+        ],
+        "bereiding": "1. Bak makreel 4 min per kant. 2. Kook rijst. 3. Serveer met salade en citroensap."
+    },
+]
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # BLOK 4 — WEEKSCHEMA
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1832,24 +2264,52 @@ def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
         st.error(f"Fout opslaan: {e}")
         return False
 
+def _kies_recept(moment_type: str, energie_doel: int) -> dict:
+    """Kies het best passende recept op basis van type en energiedoel."""
+    # Map moment type naar recept type
+    type_map = {"ontbijt":"ontbijt","lunch":"lunch","avond":"avond","tussendoor":"tussendoor"}
+    recept_type = type_map.get(moment_type, "lunch")
+    kandidaten = [r for r in RECEPT_DB if r["type"] == recept_type]
+    if not kandidaten:
+        kandidaten = RECEPT_DB
+    # Kies recept met kcal het dichtst bij het doel
+    return min(kandidaten, key=lambda r: abs(r["kcal"] - energie_doel))
+
+def _formatteer_recept(recept: dict, moment_naam: str, tijdstip: str) -> str:
+    """Formatteer recept als leesbare tekst."""
+    ingredienten = "\n".join([f"- {naam} — {gram}g" for naam, gram in recept["ingredienten"]])
+    return (
+        f"## {moment_naam} — {tijdstip}\n"
+        f"**{recept['naam']}**\n"
+        f"Ingrediënten:\n{ingredienten}\n\n"
+        f"Bereiding: {recept['bereiding']}\n\n"
+        f"Macro\'s: {recept['kcal']}kcal · {recept['kh']}g KH · {recept['eiwit']}g eiwit · {recept['vet']}g vet\n\n---"
+    )
+
 def _genereer_dagplan(momenten, training_timing, bibliotheek):
+    """Gratis dagplan op basis van vaste receptendatabank."""
+    secties = []
+    for m in momenten:
+        recept = _kies_recept(m.get("type","lunch"), m.get("energie_doel",500))
+        secties.append(_formatteer_recept(recept, m["naam"], m.get("tijdstip","")))
+    return "\n\n".join(secties)
+
+def _genereer_dagplan_ai(momenten, training_timing, bibliotheek):
+    """AI dagplan — enkel op expliciete vraag (kost geld)."""
     import requests as _r, os as _o, json as _j
-    bib = [p for p in bibliotheek if p.get("categorie","") != "Sportvoeding"][:25]
+    bib = [p for p in bibliotheek if p.get("categorie","") != "Sportvoeding"][:20]
     bib_kort = [{"naam":p["naam"],"kcal":p.get("kcal_100g",0),"kh":p.get("kh_100g",0),
                  "eiwit":p.get("eiwit_100g",0),"portie":p.get("portie_g",100)} for p in bib]
     info = "\n".join([
         f"- {m['naam']} {m['tijdstip']}: {m['energie_doel']}kcal · {m['kh_doel_g']}g KH · {m['eiwit_doel_g']}g eiwit · {m['vet_doel_g']}g vet"
         for m in momenten])
     prompt = (
-        f"Maak een dagplan voor {len(momenten)} maaltijden. Training: {training_timing}\n\n"
+        f"Maak een persoonlijk dagplan voor {len(momenten)} maaltijden. Training: {training_timing}\n\n"
         f"Doelen:\n{info}\n\n"
         f"Bibliotheek (gebruik bij voorkeur):\n{_j.dumps(bib_kort, ensure_ascii=False)}\n\n"
-        f"Geef voor ELKE maaltijd:\n"
-        f"## [Naam] — [tijdstip]\n"
-        f"**[Gerecht]**\n"
-        f"Ingrediënten:\n- [product] — [g]\n\n"
-        f"Bereiding: [max 3 stappen]\n\n"
-        f"Macro's: [kcal]kcal · [kh]g KH · [eiwit]g eiwit · [vet]g vet\n\n---\n\n"
+        f"Geef voor ELKE maaltijd:\n## [Naam] — [tijdstip]\n**[Gerecht]**\n"
+        f"Ingrediënten:\n- [product] — [g]\n\nBereiding: [max 3 stappen]\n\n"
+        f"Macro\'s: [kcal]kcal · [kh]g KH · [eiwit]g eiwit · [vet]g vet\n\n---\n\n"
     )
     resp = _r.post("https://api.anthropic.com/v1/messages",
         json={"model":"claude-sonnet-4-5","max_tokens":2000,
@@ -1973,25 +2433,20 @@ def _stap_dagschema(user: dict):
                 label_visibility="collapsed")
         with h3:
             if st.button("📋 Dagplan", key=f"gen_{dag_str}", use_container_width=True):
-                with st.spinner(f"{dag_naam}..."):
-                    try:
-                        mom = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
-                        plan = _genereer_dagplan(mom, training_dag, bibliotheek)
-                        st.session_state[plan_key] = plan
-                        # Auto opslaan schema
-                        sid = _sla_dagschema_op(user_id, dag_str, {
-                            "energie_doel":energie_dag,"kh_doel_g":kh_dag,
-                            "eiwit_doel_g":eiwit_dag,"vet_doel_g":vet_dag,
-                            "aantal_maaltijden":len(basis),
-                            "momenten_json":_json.dumps(mom),
-                            "training_timing":training_dag,
-                            "eet_patroon":eet_patroon,
-                        })
-                        st.session_state[f"schema_id_{dag_str}"] = sid
-                        st.session_state[dag_open_key] = True
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Mislukt: {e}")
+                mom = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
+                plan = _genereer_dagplan(mom, training_dag, bibliotheek)
+                st.session_state[plan_key] = plan
+                sid = _sla_dagschema_op(user_id, dag_str, {
+                    "energie_doel":energie_dag,"kh_doel_g":kh_dag,
+                    "eiwit_doel_g":eiwit_dag,"vet_doel_g":vet_dag,
+                    "aantal_maaltijden":len(basis),
+                    "momenten_json":_json.dumps(mom),
+                    "training_timing":training_dag,
+                    "eet_patroon":eet_patroon,
+                })
+                st.session_state[f"schema_id_{dag_str}"] = sid
+                st.session_state[dag_open_key] = True
+                st.rerun()
         with h4:
             label_open = "▲ Dicht" if st.session_state.get(dag_open_key) else "▼ Open"
             if st.button(label_open, key=f"toggle_{dag_str}", use_container_width=True):
@@ -2015,11 +2470,28 @@ def _stap_dagschema(user: dict):
                 unsafe_allow_html=True)
 
             # Dagplan voorstel tonen
-            if plan_tekst:
+            ai_plan_key = f"ai_plan_{dag_str}"
+            toon_plan = st.session_state.get(ai_plan_key, plan_tekst)
+
+            pc1, pc2 = st.columns([3,1])
+            with pc2:
+                if st.button("✨ Verras me", key=f"ai_{dag_str}",
+                             use_container_width=True,
+                             help="AI genereert een persoonlijk voorstel (kost krediet)"):
+                    with st.spinner("AI aan het werk..."):
+                        try:
+                            mom_ai = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
+                            ai_plan = _genereer_dagplan_ai(mom_ai, training_dag, bibliotheek)
+                            st.session_state[ai_plan_key] = ai_plan
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"AI mislukt: {e}")
+
+            if toon_plan:
                 st.markdown(
                     f'<div style="background:#0f172a;border-radius:8px;padding:14px;'
                     f'font-size:0.82rem;color:#f1f5f9;line-height:1.8;margin-bottom:14px;">'
-                    f'{plan_tekst.replace(chr(10), "<br>")}</div>',
+                    f'{toon_plan.replace(chr(10), "<br>")}</div>',
                     unsafe_allow_html=True)
 
             # Maaltijdmomenten
@@ -2131,15 +2603,26 @@ def _stap_dagschema(user: dict):
                     elif not bibliotheek:
                         st.caption("Voeg eerst producten toe in Blok 3.")
                     else:
-                        zoek = st.text_input(
-                            "Zoek",
-                            placeholder="Zoek product uit bibliotheek...",
-                            key=f"zoek_{dag_str}_{mi}",
-                            label_visibility="collapsed")
+                        fz1, fz2, fz3 = st.columns([3,2,1])
+                        with fz1:
+                            zoek = st.text_input("Zoek",
+                                placeholder="Zoek product...",
+                                key=f"zoek_{dag_str}_{mi}",
+                                label_visibility="collapsed")
+                        with fz2:
+                            cat_filter = st.selectbox("Categorie",
+                                ["Alle"] + CATEGORIE_OPTIES,
+                                key=f"cat_{dag_str}_{mi}",
+                                label_visibility="collapsed")
+                        with fz3:
+                            fav_only = st.checkbox("⭐", key=f"fav_{dag_str}_{mi}",
+                                help="Enkel favorieten")
 
-                        # Filter bibliotheek op zoekterm
+                        # Filter bibliotheek
                         gefilterd = [p for p in bibliotheek
-                                     if not zoek or zoek.lower() in p["naam"].lower()]
+                                     if (not zoek or zoek.lower() in p["naam"].lower())
+                                     and (cat_filter == "Alle" or p.get("categorie","") == cat_filter)
+                                     and (not fav_only or p.get("favoriet", False))]
 
                         if gefilterd:
                             keuze = st.selectbox(
