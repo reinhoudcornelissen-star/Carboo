@@ -18,10 +18,15 @@ def _get_secrets(key: str, default: str = "") -> str:
         return default
 
 
-def _get_supabase():
+@st.cache_resource
+def _get_supabase_client():
+    """Gecachede Supabase client — één connectie per server instantie."""
     url = _get_secrets("SUPABASE_URL")
     key = _get_secrets("SUPABASE_KEY")
     return create_client(url, key)
+
+def _get_supabase():
+    return _get_supabase_client()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -354,6 +359,7 @@ def _dominante_zone(blokken: list) -> str:
         zones[key] = zones.get(key, 0) + m
     return max(zones, key=zones.get) if zones else "Z2 — Duurzaam"
 
+@st.cache_data(ttl=120)
 def _laad_zones(user_id: str, sport: str) -> dict:
     try:
         sb = _get_supabase()
@@ -377,6 +383,7 @@ def _sla_zones_op(user_id: str, sport: str, zones: dict) -> bool:
         st.error(f"Fout opslaan zones: {e}")
         return False
 
+@st.cache_data(ttl=60)
 def _laad_trainingen(user_id: str) -> list:
     try:
         sb = _get_supabase()
@@ -1170,21 +1177,25 @@ def _laad_gecombineerde_bibliotheek(user_id: str, zoek: str = "", categorie: str
 
     return gecombineerd
 
-def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+@st.cache_data(ttl=30)
+def _laad_bibliotheek_raw(user_id: str) -> list:
+    """Laad alle bibliotheek items zonder filter — gecached."""
     try:
         sb = _get_supabase()
-        q  = sb.table("fuelc_bibliotheek").select("*").eq("user_id", user_id)
-        if categorie and categorie != "Alle":
-            q = q.eq("categorie", categorie)
-        r = q.order("naam").execute()
-        data = r.data or []
-        if zoek:
-            zoek_l = zoek.lower()
-            data = [p for p in data if zoek_l in (p.get("naam") or "").lower()]
-        return data
+        r  = sb.table("fuelc_bibliotheek").select("*").eq("user_id", user_id).order("naam").execute()
+        return r.data or []
     except Exception as e:
         print(f"Fout laden bibliotheek: {e}")
         return []
+
+def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    data = _laad_bibliotheek_raw(user_id)
+    if zoek:
+        zoek_l = zoek.lower()
+        data = [p for p in data if zoek_l in (p.get("naam") or "").lower()]
+    if categorie and categorie != "Alle":
+        data = [p for p in data if p.get("categorie","") == categorie]
+    return data
 
 def _sla_product_op(user_id: str, product: dict) -> bool:
     try:
@@ -1362,6 +1373,8 @@ def _render_receptenbeheer(user_id: str):
 
         st.markdown("<br>", unsafe_allow_html=True)
         if r_naam:
+            if user.get("role","") == "admin":
+                r_globaal = st.checkbox("🌍 Globaal recept (zichtbaar voor alle gebruikers)", key="r_globaal")
             if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
                 recept = {
                     "naam":         r_naam.strip(),
@@ -1372,7 +1385,7 @@ def _render_receptenbeheer(user_id: str):
                     "vet":          r_vet,
                     "ingredienten": _j.dumps(ingredienten),
                     "bereiding":    r_bereiding.strip() if r_bereiding else "",
-                    "is_globaal":   False,
+                    "is_globaal":   st.session_state.get("r_globaal", False),
                 }
                 if _sla_eigen_recept_op(user_id, recept):
                     st.success(f"✅ '{r_naam}' opgeslagen!")
