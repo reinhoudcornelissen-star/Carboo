@@ -1,4 +1,3 @@
-
 import streamlit as st
 import streamlit.components.v1
 from login import render_login_page, render_admin_panel, render_wachtwoord_reset
