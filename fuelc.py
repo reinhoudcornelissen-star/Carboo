@@ -974,9 +974,294 @@ def _stap_trainingen(user: dict):
                             st.rerun()
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOK 3 — VOEDSELBIBLIOTHEEK (MANUEEL)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+CATEGORIE_OPTIES = [
+    "Granen & brood", "Zuivel", "Vlees & vis", "Groenten", "Fruit",
+    "Sportvoeding", "Dranken", "Sauzen & spreads", "Snacks", "Overige"
+]
+
+def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    try:
+        sb = _get_supabase()
+        q  = sb.table("fuelc_bibliotheek").select("*").eq("user_id", user_id)
+        if categorie and categorie != "Alle":
+            q = q.eq("categorie", categorie)
+        r = q.order("naam").execute()
+        data = r.data or []
+        if zoek:
+            zoek_l = zoek.lower()
+            data = [p for p in data if zoek_l in (p.get("naam") or "").lower()]
+        return data
+    except Exception as e:
+        print(f"Fout laden bibliotheek: {e}")
+        return []
+
+def _sla_product_op(user_id: str, product: dict) -> bool:
+    try:
+        sb = _get_supabase()
+        product["user_id"] = user_id
+        product["bron"]    = "manueel"
+        sb.table("fuelc_bibliotheek").insert(product).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij opslaan: {e}")
+        return False
+
+def _update_product(product_id: str, data: dict) -> bool:
+    try:
+        sb = _get_supabase()
+        sb.table("fuelc_bibliotheek").update(data).eq("id", product_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij updaten: {e}")
+        return False
+
+def _verwijder_product(product_id: str) -> bool:
+    try:
+        sb = _get_supabase()
+        sb.table("fuelc_bibliotheek").delete().eq("id", product_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij verwijderen: {e}")
+        return False
+
+def _macro_preview(kcal, kh, suikers, eiwit, vet, verzadigd, vezels, portie):
+    """Toon macro balken per 100g en per portie."""
+    totaal_macro = (kh or 0) + (eiwit or 0) + (vet or 0)
+    if totaal_macro == 0:
+        return
+    kh_pct    = round((kh or 0) / totaal_macro * 100) if totaal_macro > 0 else 0
+    eiwit_pct = round((eiwit or 0) / totaal_macro * 100) if totaal_macro > 0 else 0
+    vet_pct   = round((vet or 0) / totaal_macro * 100) if totaal_macro > 0 else 0
+
+    st.markdown(
+        f'<div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:12px;margin-top:8px;">'
+        f'<div style="font-size:0.65rem;color:#64748b;font-weight:700;margin-bottom:8px;">MACRO PREVIEW — per 100g</div>'
+        f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+        f'<span style="font-size:0.7rem;color:#f97316;width:60px;">KH</span>'
+        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px;">'
+        f'<div style="width:{kh_pct}%;height:100%;background:#f97316;border-radius:3px;"></div></div>'
+        f'<span style="font-size:0.7rem;color:#f97316;width:40px;text-align:right;">{kh}g</span></div>'
+        f'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+        f'<span style="font-size:0.7rem;color:#3b82f6;width:60px;">Eiwit</span>'
+        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px;">'
+        f'<div style="width:{eiwit_pct}%;height:100%;background:#3b82f6;border-radius:3px;"></div></div>'
+        f'<span style="font-size:0.7rem;color:#3b82f6;width:40px;text-align:right;">{eiwit}g</span></div>'
+        f'<div style="display:flex;align-items:center;gap:6px;">'
+        f'<span style="font-size:0.7rem;color:#8b5cf6;width:60px;">Vet</span>'
+        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px;">'
+        f'<div style="width:{vet_pct}%;height:100%;background:#8b5cf6;border-radius:3px;"></div></div>'
+        f'<span style="font-size:0.7rem;color:#8b5cf6;width:40px;text-align:right;">{vet}g</span></div>'
+        + (f'<div style="font-size:0.65rem;color:#64748b;margin-top:8px;">'
+           f'Per portie ({portie}g): {round((kcal or 0)*portie/100)}kcal · '
+           f'{round((kh or 0)*portie/100)}g KH · '
+           f'{round((eiwit or 0)*portie/100)}g eiwit · '
+           f'{round((vet or 0)*portie/100)}g vet</div>' if portie > 0 else '')
+        + '</div>',
+        unsafe_allow_html=True)
+
 def _stap_bibliotheek(user: dict):
+    user_id = user.get("id", "")
+
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
-    st.info("🚧 Blok 5 → 3 — Bibliotheek — wordt binnenkort gebouwd.")
+
+    tab_add, tab_lijst = st.tabs([
+        "➕  Product toevoegen",
+        "📋  Mijn bibliotheek",
+    ])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — PRODUCT TOEVOEGEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_add:
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Algemeen ─────────────────────────────────────────────────────────
+        _sectie("PRODUCTINFO", "#22c55e")
+        a1, a2 = st.columns(2)
+        with a1:
+            naam = st.text_input("Productnaam *",
+                placeholder="bijv. Havermout Quaker", key="bib_naam")
+        with a2:
+            categorie = st.selectbox("Categorie *", CATEGORIE_OPTIES, key="bib_cat")
+
+        p1, p2 = st.columns(2)
+        with p1:
+            portie_g = st.number_input("Standaard portiegrootte (g of ml)",
+                0.0, 2000.0, 100.0, 5.0, key="bib_portie",
+                help="Bijv. 45g voor een portie havermout, 200ml voor een glas melk")
+        with p2:
+            notitie = st.text_input("Notitie (optioneel)",
+                placeholder="bijv. biologisch, glutenvrij...", key="bib_notitie")
+
+        # ── Macros per 100g ───────────────────────────────────────────────────
+        _sectie("VOEDINGSWAARDEN PER 100g", "#22c55e")
+        st.markdown(
+            '<div style="font-size:0.75rem;color:#94a3b8;margin-bottom:12px;">'
+            'Voer de waarden in zoals vermeld op de verpakking (per 100g of per 100ml).</div>',
+            unsafe_allow_html=True)
+
+        m1, m2, m3 = st.columns(3)
+        with m1:
+            kcal_100g = st.number_input("Energie (kcal)", 0.0, 900.0, 0.0, 1.0, key="bib_kcal")
+        with m2:
+            kh_100g = st.number_input("Koolhydraten (g)", 0.0, 100.0, 0.0, 0.1, key="bib_kh")
+        with m3:
+            suikers_100g = st.number_input("waarvan suikers (g)", 0.0, 100.0, 0.0, 0.1, key="bib_suikers")
+
+        m4, m5, m6 = st.columns(3)
+        with m4:
+            eiwit_100g = st.number_input("Eiwit (g)", 0.0, 100.0, 0.0, 0.1, key="bib_eiwit")
+        with m5:
+            vet_100g = st.number_input("Vetten (g)", 0.0, 100.0, 0.0, 0.1, key="bib_vet")
+        with m6:
+            verzadigd_100g = st.number_input("waarvan verzadigd (g)", 0.0, 100.0, 0.0, 0.1, key="bib_verz")
+
+        m7, m8 = st.columns(2)
+        with m7:
+            vezels_100g = st.number_input("Vezels (g)", 0.0, 100.0, 0.0, 0.1, key="bib_vezels")
+        with m8:
+            natrium_100g = st.number_input("Natrium (mg)", 0.0, 5000.0, 0.0, 1.0, key="bib_natrium")
+
+        # Live macro preview
+        if kcal_100g > 0 or kh_100g > 0 or eiwit_100g > 0 or vet_100g > 0:
+            _macro_preview(kcal_100g, kh_100g, suikers_100g,
+                           eiwit_100g, vet_100g, verzadigd_100g,
+                           vezels_100g, portie_g)
+
+        favoriet = st.checkbox("⭐ Toevoegen aan favorieten", key="bib_fav")
+
+        # ── Opslaan ───────────────────────────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        if naam and categorie:
+            if st.button("💾 Product opslaan", key="bib_opslaan",
+                         use_container_width=True):
+                product = {
+                    "naam":           naam.strip(),
+                    "categorie":      categorie,
+                    "portie_g":       portie_g if portie_g > 0 else None,
+                    "kcal_100g":      kcal_100g if kcal_100g > 0 else None,
+                    "kh_100g":        kh_100g if kh_100g > 0 else None,
+                    "suikers_100g":   suikers_100g if suikers_100g > 0 else None,
+                    "eiwit_100g":     eiwit_100g if eiwit_100g > 0 else None,
+                    "vet_100g":       vet_100g if vet_100g > 0 else None,
+                    "verzadigd_100g": verzadigd_100g if verzadigd_100g > 0 else None,
+                    "vezels_100g":    vezels_100g if vezels_100g > 0 else None,
+                    "natrium_100g":   natrium_100g if natrium_100g > 0 else None,
+                    "favoriet":       favoriet,
+                    "notitie":        notitie.strip() if notitie else None,
+                }
+                if _sla_product_op(user_id, product):
+                    st.success(f"✅ '{naam}' opgeslagen in je bibliotheek!")
+                    for k in ["bib_naam","bib_cat","bib_portie","bib_notitie",
+                              "bib_kcal","bib_kh","bib_suikers","bib_eiwit",
+                              "bib_vet","bib_verz","bib_vezels","bib_natrium","bib_fav"]:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+        else:
+            st.button("💾 Product opslaan", key="bib_opslaan",
+                      use_container_width=True, disabled=True)
+            st.caption("Vul minstens naam en categorie in.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — MIJN BIBLIOTHEEK
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_lijst:
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Zoek en filter
+        f1, f2 = st.columns([3, 1])
+        with f1:
+            zoek = st.text_input("🔍 Zoeken op naam",
+                placeholder="bijv. havermout", key="bib_zoek",
+                label_visibility="collapsed")
+        with f2:
+            filter_cat = st.selectbox("Categorie",
+                ["Alle"] + CATEGORIE_OPTIES, key="bib_filter_cat",
+                label_visibility="collapsed")
+
+        toon_fav = st.checkbox("⭐ Alleen favorieten", key="bib_fav_filter")
+
+        producten = _laad_bibliotheek(user_id, zoek, filter_cat)
+        if toon_fav:
+            producten = [p for p in producten if p.get("favoriet")]
+
+        if not producten:
+            st.markdown(
+                '<div style="text-align:center;color:#64748b;padding:30px;">'
+                'Geen producten gevonden.</div>',
+                unsafe_allow_html=True)
+        else:
+            st.markdown(
+                f'<div style="font-size:0.72rem;color:#64748b;margin-bottom:12px;">'
+                f'{len(producten)} product(en) gevonden</div>',
+                unsafe_allow_html=True)
+
+            for p in producten:
+                fav_ster = "⭐ " if p.get("favoriet") else ""
+                portie   = p.get("portie_g") or 0
+                kcal     = p.get("kcal_100g") or 0
+                kh       = p.get("kh_100g") or 0
+                eiwit    = p.get("eiwit_100g") or 0
+                vet      = p.get("vet_100g") or 0
+
+                with st.expander(
+                    f"{fav_ster}{p.get('naam','')} — {p.get('categorie','')}",
+                    expanded=False):
+
+                    # Macros tabel
+                    st.markdown(
+                        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);'
+                        f'gap:8px;margin-bottom:10px;">'
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">KCAL</div>'
+                        f'<div style="font-size:0.95rem;font-weight:700;color:#f97316;">{kcal}</div></div>'
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">KH</div>'
+                        f'<div style="font-size:0.95rem;font-weight:700;color:#f97316;">{kh}g</div></div>'
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">EIWIT</div>'
+                        f'<div style="font-size:0.95rem;font-weight:700;color:#3b82f6;">{eiwit}g</div></div>'
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">VET</div>'
+                        f'<div style="font-size:0.95rem;font-weight:700;color:#8b5cf6;">{vet}g</div></div>'
+                        f'</div>'
+                        + (f'<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">'
+                           f'Per portie ({portie}g): '
+                           f'{round(kcal*portie/100)}kcal · '
+                           f'{round(kh*portie/100)}g KH · '
+                           f'{round(eiwit*portie/100)}g eiwit · '
+                           f'{round(vet*portie/100)}g vet</div>'
+                           if portie > 0 else '')
+                        + (f'<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">'
+                           f'Suikers: {p.get("suikers_100g") or 0}g · '
+                           f'Vezels: {p.get("vezels_100g") or 0}g · '
+                           f'Natrium: {p.get("natrium_100g") or 0}mg</div>'),
+                        unsafe_allow_html=True)
+
+                    if p.get("notitie"):
+                        st.markdown(
+                            f'<div style="font-size:0.75rem;color:#94a3b8;'
+                            f'font-style:italic;margin-bottom:8px;">{p["notitie"]}</div>',
+                            unsafe_allow_html=True)
+
+                    # Acties
+                    ba1, ba2 = st.columns(2)
+                    with ba1:
+                        fav_label = "★ Verwijder uit favorieten" if p.get("favoriet") else "☆ Voeg toe aan favorieten"
+                        if st.button(fav_label, key=f"bib_fav_{p['id']}",
+                                     use_container_width=True):
+                            if _update_product(p["id"], {"favoriet": not p.get("favoriet")}):
+                                st.rerun()
+                    with ba2:
+                        if st.button("🗑 Verwijderen", key=f"bib_del_{p['id']}",
+                                     use_container_width=True):
+                            if _verwijder_product(p["id"]):
+                                st.success("Verwijderd.")
+                                st.rerun()
 
 
 def _stap_dagschema(user: dict):
