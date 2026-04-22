@@ -9,8 +9,9 @@ except ImportError:
     def render_testing(user): st.info("Module nog niet beschikbaar.")
 try:
     from fuelc import render_fuelc
-except Exception as _e:
-    def render_fuelc(user): st.error("FuelC importfout - zie Render logs")
+except Exception as _fuelc_err:
+    _msg = str(_fuelc_err)
+    def render_fuelc(user, msg=_msg): st.error(f"FuelC: {msg}")
 try:
     from carbomax import render_carbomax
 except ImportError:
