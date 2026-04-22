@@ -1254,16 +1254,183 @@ def _macro_preview(kcal, kh, suikers, eiwit, vet, verzadigd, vezels, portie):
         + '</div>',
         unsafe_allow_html=True)
 
+# ─── RECEPTENBEHEER ──────────────────────────────────────────────────────────
+
+def _laad_eigen_recepten(user_id: str) -> list:
+    try:
+        sb = _get_supabase()
+        r  = sb.table("fuelc_recepten_eigen").select("*")\
+               .or_(f"user_id.eq.{user_id},is_globaal.eq.true")\
+               .order("naam").execute()
+        return r.data or []
+    except Exception as e:
+        print(f"Fout laden recepten: {e}")
+        return []
+
+def _sla_eigen_recept_op(user_id: str, recept: dict) -> bool:
+    try:
+        sb = _get_supabase()
+        recept["user_id"] = user_id
+        sb.table("fuelc_recepten_eigen").insert(recept).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout opslaan recept: {e}")
+        return False
+
+def _verwijder_eigen_recept(recept_id: str) -> bool:
+    try:
+        _get_supabase().table("fuelc_recepten_eigen").delete().eq("id", recept_id).execute()
+        return True
+    except: return False
+
+def _laad_alle_recepten(user_id: str) -> list:
+    """Combineer vaste databank + eigen recepten."""
+    eigen = _laad_eigen_recepten(user_id)
+    # Zet eigen recepten om naar zelfde structuur als RECEPT_DB
+    eigen_conv = []
+    for r in eigen:
+        import json as _j
+        ing = r.get("ingredienten") or []
+        if isinstance(ing, str):
+            try: ing = _j.loads(ing)
+            except: ing = []
+        eigen_conv.append({
+            "id":           r["id"],
+            "naam":         r["naam"],
+            "type":         r.get("type","lunch"),
+            "kcal":         int(r.get("kcal") or 0),
+            "kh":           float(r.get("kh") or 0),
+            "eiwit":        float(r.get("eiwit") or 0),
+            "vet":          float(r.get("vet") or 0),
+            "ingredienten": [(i.get("naam",""), i.get("gram",0)) for i in ing] if ing else [],
+            "bereiding":    r.get("bereiding",""),
+            "eigen":        True,
+        })
+    return RECEPT_DB + eigen_conv
+
+def _render_receptenbeheer(user_id: str):
+    """Tab voor receptenbeheer in bibliotheek."""
+    import json as _j
+
+    tab_add, tab_lijst = st.tabs(["➕ Recept toevoegen", "📋 Mijn recepten"])
+
+    with tab_add:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _sectie("NIEUW RECEPT", "#22c55e")
+
+        ra1, ra2 = st.columns(2)
+        with ra1:
+            r_naam = st.text_input("Naam recept *", key="r_naam",
+                placeholder="bijv. Havermout met fruit")
+        with ra2:
+            r_type = st.selectbox("Type *", ["ontbijt","tussendoor","lunch","avond"],
+                key="r_type",
+                format_func=lambda x: {"ontbijt":"🌅 Ontbijt","tussendoor":"🍎 Tussendoor",
+                                        "lunch":"🥗 Lunch","avond":"🍽️ Avond"}[x])
+
+        _sectie("MACRO'S", "#22c55e")
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        with mc1: r_kcal  = st.number_input("Kcal", 0, 2000, 400, 10, key="r_kcal")
+        with mc2: r_kh    = st.number_input("KH (g)", 0.0, 300.0, 50.0, 1.0, key="r_kh")
+        with mc3: r_eiwit = st.number_input("Eiwit (g)", 0.0, 150.0, 20.0, 1.0, key="r_eiwit")
+        with mc4: r_vet   = st.number_input("Vet (g)", 0.0, 100.0, 10.0, 1.0, key="r_vet")
+
+        _sectie("INGREDIËNTEN", "#22c55e")
+        n_ing = st.session_state.get("r_n_ing", 3)
+        ingredienten = []
+        for ii in range(n_ing):
+            ic1, ic2, ic3 = st.columns([4,2,0.5])
+            with ic1:
+                ing_naam = st.text_input(f"Product {ii+1}", key=f"r_ing_naam_{ii}",
+                    label_visibility="collapsed" if ii > 0 else "visible",
+                    placeholder="bijv. Havermout")
+            with ic2:
+                ing_gram = st.number_input("gram", 0.0, 1000.0, 100.0, 5.0,
+                    key=f"r_ing_gram_{ii}",
+                    label_visibility="collapsed" if ii > 0 else "visible")
+            with ic3:
+                if st.button("✕", key=f"r_ing_del_{ii}") and n_ing > 1:
+                    st.session_state["r_n_ing"] = n_ing - 1
+                    st.rerun()
+            if ing_naam:
+                ingredienten.append({"naam": ing_naam, "gram": ing_gram})
+
+        if st.button("➕ Ingredient toevoegen", key="r_ing_add"):
+            st.session_state["r_n_ing"] = n_ing + 1
+            st.rerun()
+
+        _sectie("BEREIDING", "#22c55e")
+        r_bereiding = st.text_area("Bereidingswijze (max 3 stappen)",
+            key="r_bereiding", height=80,
+            placeholder="1. Kook de havermout 3 min. 2. Voeg fruit toe. 3. Serveer warm.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if r_naam:
+            if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
+                recept = {
+                    "naam":         r_naam.strip(),
+                    "type":         r_type,
+                    "kcal":         r_kcal,
+                    "kh":           r_kh,
+                    "eiwit":        r_eiwit,
+                    "vet":          r_vet,
+                    "ingredienten": _j.dumps(ingredienten),
+                    "bereiding":    r_bereiding.strip() if r_bereiding else "",
+                    "is_globaal":   False,
+                }
+                if _sla_eigen_recept_op(user_id, recept):
+                    st.success(f"✅ '{r_naam}' opgeslagen!")
+                    for k in ["r_naam","r_kcal","r_kh","r_eiwit","r_vet","r_bereiding","r_n_ing"]:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+        else:
+            st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True, disabled=True)
+            st.caption("Vul minstens een naam in.")
+
+    with tab_lijst:
+        st.markdown("<br>", unsafe_allow_html=True)
+        eigen_recepten = _laad_eigen_recepten(user_id)
+
+        if not eigen_recepten:
+            st.markdown(
+                '<div style="text-align:center;color:#64748b;padding:30px;">'
+                'Nog geen eigen recepten toegevoegd.</div>',
+                unsafe_allow_html=True)
+        else:
+            TYPE_LABEL = {"ontbijt":"🌅 Ontbijt","tussendoor":"🍎 Tussendoor",
+                          "lunch":"🥗 Lunch","avond":"🍽️ Avond"}
+            for r in eigen_recepten:
+                import json as _j2
+                ing = r.get("ingredienten") or []
+                if isinstance(ing, str):
+                    try: ing = _j2.loads(ing)
+                    except: ing = []
+                with st.expander(
+                    f"{TYPE_LABEL.get(r.get('type',''), '🍴')} {r.get('naam','')} — "
+                    f"{r.get('kcal',0)}kcal · {r.get('kh',0)}g KH · {r.get('eiwit',0)}g eiwit",
+                    expanded=False):
+                    if ing:
+                        ing_tekst = " · ".join([f"{i.get('naam','')} {i.get('gram',0)}g" for i in ing])
+                        st.markdown(f'<div style="font-size:0.78rem;color:#94a3b8;margin-bottom:6px;">{ing_tekst}</div>', unsafe_allow_html=True)
+                    if r.get("bereiding"):
+                        st.markdown(f'<div style="font-size:0.78rem;color:#64748b;">{r["bereiding"]}</div>', unsafe_allow_html=True)
+                    if st.button("🗑 Verwijderen", key=f"r_del_{r['id']}"):
+                        _verwijder_eigen_recept(r["id"])
+                        st.rerun()
+
+
+
 def _stap_bibliotheek(user: dict):
     user_id = user.get("id", "")
 
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
 
-    tab_add, tab_db, tab_scan, tab_lijst = st.tabs([
+    tab_add, tab_db, tab_scan, tab_lijst, tab_recepten = st.tabs([
         "➕  Manueel toevoegen",
         "🔍  Voedselbank zoeken",
         "📷  Etiketscan",
         "📋  Mijn bibliotheek",
+        "🍴  Recepten",
     ])
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -1678,6 +1845,11 @@ def _stap_bibliotheek(user: dict):
                             if _verwijder_product(p["id"]):
                                 st.success("Verwijderd.")
                                 st.rerun()
+
+    with tab_recepten:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _render_receptenbeheer(user_id)
+
 
 
 RECEPT_DB = [
@@ -2264,16 +2436,13 @@ def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
         st.error(f"Fout opslaan: {e}")
         return False
 
-def _kies_recept(moment_type: str, energie_doel: int) -> dict:
+def _kies_recept(moment_type: str, energie_doel: int, alle_recepten: list = None) -> dict:
     """Kies het best passende recept op basis van type en energiedoel."""
-    # Map moment type naar recept type
-    type_map = {"ontbijt":"ontbijt","lunch":"lunch","avond":"avond","tussendoor":"tussendoor"}
-    recept_type = type_map.get(moment_type, "lunch")
-    kandidaten = [r for r in RECEPT_DB if r["type"] == recept_type]
+    pool = alle_recepten if alle_recepten else RECEPT_DB
+    kandidaten = [r for r in pool if r.get("type") == moment_type]
     if not kandidaten:
-        kandidaten = RECEPT_DB
-    # Kies recept met kcal het dichtst bij het doel
-    return min(kandidaten, key=lambda r: abs(r["kcal"] - energie_doel))
+        kandidaten = pool
+    return min(kandidaten, key=lambda r: abs((r.get("kcal") or 0) - energie_doel))
 
 def _formatteer_recept(recept: dict, moment_naam: str, tijdstip: str) -> str:
     """Formatteer recept als leesbare tekst."""
@@ -2286,11 +2455,12 @@ def _formatteer_recept(recept: dict, moment_naam: str, tijdstip: str) -> str:
         f"Macro\'s: {recept['kcal']}kcal · {recept['kh']}g KH · {recept['eiwit']}g eiwit · {recept['vet']}g vet\n\n---"
     )
 
-def _genereer_dagplan(momenten, training_timing, bibliotheek):
-    """Gratis dagplan op basis van vaste receptendatabank."""
+def _genereer_dagplan(momenten, training_timing, bibliotheek, user_id: str = ""):
+    """Gratis dagplan op basis van vaste + eigen receptendatabank."""
+    alle = _laad_alle_recepten(user_id) if user_id else RECEPT_DB
     secties = []
     for m in momenten:
-        recept = _kies_recept(m.get("type","lunch"), m.get("energie_doel",500))
+        recept = _kies_recept(m.get("type","lunch"), m.get("energie_doel",500), alle)
         secties.append(_formatteer_recept(recept, m["naam"], m.get("tijdstip","")))
     return "\n\n".join(secties)
 
@@ -2405,12 +2575,16 @@ def _stap_dagschema(user: dict):
                 momenten = _json.loads(schema_dag["momenten_json"])
             except: pass
 
-        # Dag totaal berekenen
-        alle_items_dag = []
-        for mi in range(len(momenten)):
-            alle_items_dag += _laad_dagboek_items(user_id, dag_str, mi)
-        tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
-        pct_dag  = min(100, round(tot_kcal/energie_dag*100)) if energie_dag > 0 else 0
+        # Dag totaal — laad uit cache (1 query per dag)
+        cache_key_dag = f"dagboek_cache_{dag_str}"
+        if cache_key_dag not in st.session_state:
+            try:
+                r_dag = _get_supabase().table("fuelc_dagboek").select("*")                    .eq("user_id", user_id).eq("datum", dag_str).execute()
+                st.session_state[cache_key_dag] = r_dag.data or []
+            except: st.session_state[cache_key_dag] = []
+        alle_items_dag = st.session_state[cache_key_dag]
+        tot_kcal  = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
+        pct_dag   = min(100, round(tot_kcal/energie_dag*100)) if energie_dag > 0 else 0
         kleur_dag = "#22c55e" if pct_dag >= 80 else ("#fbbf24" if pct_dag >= 40 else "#334155")
 
         # ── Dag blok ─────────────────────────────────────────────────────────
@@ -2434,7 +2608,7 @@ def _stap_dagschema(user: dict):
         with h3:
             if st.button("📋 Dagplan", key=f"gen_{dag_str}", use_container_width=True):
                 mom = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
-                plan = _genereer_dagplan(mom, training_dag, bibliotheek)
+                plan = _genereer_dagplan(mom, training_dag, bibliotheek, user_id)
                 st.session_state[plan_key] = plan
                 sid = _sla_dagschema_op(user_id, dag_str, {
                     "energie_doel":energie_dag,"kh_doel_g":kh_dag,
