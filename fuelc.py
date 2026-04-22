@@ -96,6 +96,7 @@ def _bereken_macros(energie_doel: int, kh_pct: int, eiwit_pct: int, vet_pct: int
 # SUPABASE — PROFIEL OPSLAAN / LADEN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@st.cache_data(ttl=60)
 def _laad_profiel(user_id: str) -> dict:
     try:
         sb = _get_supabase()
@@ -115,6 +116,7 @@ def _sla_profiel_op(user_id: str, profiel: dict) -> bool:
         else:
             profiel["user_id"] = user_id
             sb.table("fuelc_profiel").insert(profiel).execute()
+        _laad_profiel.clear()
         return True
     except Exception as e:
         st.error(f"Fout bij opslaan profiel: {e}")
@@ -378,6 +380,7 @@ def _sla_zones_op(user_id: str, sport: str, zones: dict) -> bool:
             sb.table("fuelc_zones").update(zones).eq("user_id", user_id).eq("sport", sport).execute()
         else:
             sb.table("fuelc_zones").insert(zones).execute()
+        _laad_zones.clear()
         return True
     except Exception as e:
         st.error(f"Fout opslaan zones: {e}")
@@ -398,6 +401,7 @@ def _sla_training_op(user_id: str, training: dict) -> bool:
         training["user_id"] = user_id
         training["bron"]    = "manueel"
         sb.table("fuelc_trainingen").insert(training).execute()
+        _laad_trainingen.clear()
         return True
     except Exception as e:
         st.error(f"Fout bij opslaan training: {e}")
@@ -1139,42 +1143,33 @@ VOEDSEL_DB = [
 ]
 
 
-def _laad_gecombineerde_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
-    """Combineer eigen bibliotheek + ingebouwde databank."""
-    # Eigen bibliotheek
-    eigen = _laad_bibliotheek(user_id)
+@st.cache_data(ttl=30)
+def _laad_gecombineerde_bibliotheek_raw(user_id: str) -> list:
+    """Gecachede gecombineerde bibliotheek zonder filter."""
+    eigen = _laad_bibliotheek_raw(user_id)
     eigen_namen = {p["naam"].lower() for p in eigen}
-
-    # Ingebouwde databank — omzetten naar zelfde structuur
     databank = []
     for p in VOEDSEL_DB:
         if p["naam"].lower() not in eigen_namen:
             databank.append({
-                "id":            f"db_{p['naam']}",
-                "naam":          p["naam"],
-                "categorie":     p["cat"],
-                "bron":          "databank",
-                "portie_g":      p["portie"],
-                "kcal_100g":     p["kcal"],
-                "kh_100g":       p["kh"],
-                "suikers_100g":  p["suikers"],
-                "eiwit_100g":    p["eiwit"],
-                "vet_100g":      p["vet"],
-                "verzadigd_100g":p["verz"],
-                "vezels_100g":   p["vezels"],
-                "natrium_100g":  p["natrium"],
-                "favoriet":      False,
+                "id": f"db_{p['naam']}", "naam": p["naam"],
+                "categorie": p["cat"], "bron": "databank",
+                "portie_g": p["portie"], "kcal_100g": p["kcal"],
+                "kh_100g": p["kh"], "suikers_100g": p["suikers"],
+                "eiwit_100g": p["eiwit"], "vet_100g": p["vet"],
+                "verzadigd_100g": p["verz"], "vezels_100g": p["vezels"],
+                "natrium_100g": p["natrium"], "favoriet": False,
             })
+    return eigen + databank
 
-    gecombineerd = eigen + databank
-
-    # Filter
+def _laad_gecombineerde_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    """Combineer eigen bibliotheek + ingebouwde databank met optionele filters."""
+    gecombineerd = _laad_gecombineerde_bibliotheek_raw(user_id)
     if zoek:
         zoek_l = zoek.lower()
         gecombineerd = [p for p in gecombineerd if zoek_l in p["naam"].lower()]
     if categorie and categorie != "Alle":
         gecombineerd = [p for p in gecombineerd if p.get("categorie","") == categorie]
-
     return gecombineerd
 
 @st.cache_data(ttl=30)
@@ -1201,8 +1196,10 @@ def _sla_product_op(user_id: str, product: dict) -> bool:
     try:
         sb = _get_supabase()
         product["user_id"] = user_id
-        product["bron"]    = "manueel"
+        if "bron" not in product:
+            product["bron"] = "manueel"
         sb.table("fuelc_bibliotheek").insert(product).execute()
+        _laad_bibliotheek_raw.clear()
         return True
     except Exception as e:
         st.error(f"Fout bij opslaan: {e}")
@@ -1221,6 +1218,7 @@ def _verwijder_product(product_id: str) -> bool:
     try:
         sb = _get_supabase()
         sb.table("fuelc_bibliotheek").delete().eq("id", product_id).execute()
+        _laad_bibliotheek_raw.clear()
         return True
     except Exception as e:
         st.error(f"Fout bij verwijderen: {e}")
@@ -2391,10 +2389,9 @@ def _sla_dagschema_op(user_id, datum, schema):
 
 def _laad_dagboek_items(user_id, datum, moment):
     try:
-        # Gebruik cache per dag om queries te beperken
         cache_key = f"dagboek_cache_{datum}"
         if cache_key not in st.session_state:
-            r = _get_supabase().table("fuelc_dagboek").select("*").eq("user_id",user_id).eq("datum",datum).execute()
+            r = _get_supabase().table("fuelc_dagboek")                .select("id,datum,moment,naam,hoeveelheid_g,kcal,kh_g,eiwit_g,vet_g,vezels_g,product_id")                .eq("user_id",user_id).eq("datum",datum).execute()
             st.session_state[cache_key] = r.data or []
         return [i for i in st.session_state[cache_key] if i.get("moment") == moment]
     except: return []
@@ -2419,27 +2416,31 @@ def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
         # Zorg dat schema bestaat voor deze dag
         schema = _laad_dagschema(user_id, datum)
         if not schema:
-            sid = _sla_dagschema_op(user_id, datum, {
+            _sla_dagschema_op(user_id, datum, {
                 "energie_doel": 2000, "kh_doel_g": 250,
                 "eiwit_doel_g": 125, "vet_doel_g": 56,
-                "aantal_maaltijden": 3,
-                "momenten_json": "[]",
-                "training_timing": "Geen training",
-                "eet_patroon": "Klassiek",
+                "aantal_maaltijden": 3, "momenten_json": "[]",
+                "training_timing": "Geen training", "eet_patroon": "Klassiek",
             })
+        # Enkel echte UUID's als product_id — databank items hebben fake ID
+        prod_id = product.get("id","")
+        if not prod_id or str(prod_id).startswith("db_"):
+            prod_id = None
+
         _get_supabase().table("fuelc_dagboek").insert({
-            "user_id":   user_id,
-            "datum":     datum,
-            "moment":    moment,
-            "product_id": product["id"],
-            "naam":      product["naam"],
+            "user_id":       user_id,
+            "datum":         datum,
+            "moment":        moment,
+            "product_id":    prod_id,
+            "naam":          product["naam"],
             "hoeveelheid_g": hoeveelheid,
-            "kcal":      round((product.get("kcal_100g") or 0)*f, 1),
-            "kh_g":      round((product.get("kh_100g") or 0)*f, 1),
-            "eiwit_g":   round((product.get("eiwit_100g") or 0)*f, 1),
-            "vet_g":     round((product.get("vet_100g") or 0)*f, 1),
-            "vezels_g":  round((product.get("vezels_100g") or 0)*f, 1),
+            "kcal":          round((product.get("kcal_100g") or 0)*f, 1),
+            "kh_g":          round((product.get("kh_100g") or 0)*f, 1),
+            "eiwit_g":       round((product.get("eiwit_100g") or 0)*f, 1),
+            "vet_g":         round((product.get("vet_100g") or 0)*f, 1),
+            "vezels_g":      round((product.get("vezels_100g") or 0)*f, 1),
         }).execute()
+        _invalideer_dagboek_cache(datum)
         return True
     except Exception as e:
         st.error(f"Fout opslaan: {e}")
@@ -2557,6 +2558,17 @@ def _stap_dagschema(user: dict):
     # Bibliotheek laden (1x)
     bibliotheek = _laad_gecombineerde_bibliotheek(user_id)
 
+    # Laad alle schemas voor de week in één query
+    @st.cache_data(ttl=60)
+    def _laad_week_schemas(uid, ma_str, zo_str):
+        try:
+            r = _get_supabase().table("fuelc_dagschema").select("*")                .eq("user_id",uid).gte("datum",ma_str).lte("datum",zo_str).execute()
+            return {row["datum"]: row for row in (r.data or [])}
+        except: return {}
+
+    zondag_str = str(maandag + _td(days=6))
+    week_schemas = _laad_week_schemas(user_id, str(maandag), zondag_str)
+
     # ── 7 dagen ───────────────────────────────────────────────────────────────
     for dag_idx in range(7):
         dag_datum  = maandag + _td(days=dag_idx)
@@ -2565,8 +2577,8 @@ def _stap_dagschema(user: dict):
         dag_label  = f"{dag_naam} {dag_datum.strftime('%d/%m')}"
         is_vandaag = (dag_datum == _date.today())
 
-        # Laad bestaand schema voor deze dag
-        schema_dag  = _laad_dagschema(user_id, dag_str)
+        # Gebruik gecachede schemas
+        schema_dag  = week_schemas.get(dag_str, {})
         heeft_plan  = bool(schema_dag)
         plan_key    = f"dagplan_{dag_str}"
         plan_tekst  = st.session_state.get(plan_key, "")
@@ -2584,14 +2596,12 @@ def _stap_dagschema(user: dict):
                 momenten = _json.loads(schema_dag["momenten_json"])
             except: pass
 
-        # Dag totaal — laad uit cache (1 query per dag)
-        cache_key_dag = f"dagboek_cache_{dag_str}"
-        if cache_key_dag not in st.session_state:
-            try:
-                r_dag = _get_supabase().table("fuelc_dagboek").select("*")                    .eq("user_id", user_id).eq("datum", dag_str).execute()
-                st.session_state[cache_key_dag] = r_dag.data or []
-            except: st.session_state[cache_key_dag] = []
-        alle_items_dag = st.session_state[cache_key_dag]
+        # Dag totaal — gebruik _laad_dagboek_items cache
+        alle_items_dag = []
+        n_mom = len(_bereken_moment_doelen(energie_dag, _bouw_basis(eet_patroon),
+                    st.session_state.get(f"training_{dag_str}","Geen training"), profiel))
+        for _mi in range(max(n_mom, 5)):
+            alle_items_dag += _laad_dagboek_items(user_id, dag_str, _mi)
         tot_kcal  = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
         pct_dag   = min(100, round(tot_kcal/energie_dag*100)) if energie_dag > 0 else 0
         kleur_dag = "#22c55e" if pct_dag >= 80 else ("#fbbf24" if pct_dag >= 40 else "#334155")
@@ -2651,6 +2661,39 @@ def _stap_dagschema(user: dict):
                 f'<div style="background:#1e293b;border-radius:12px;'
                 f'border-left:3px solid {border_kleur};padding:14px;margin-bottom:4px;">',
                 unsafe_allow_html=True)
+
+            # Dag acties bovenaan
+            da1, da2, da3 = st.columns(3)
+            with da1:
+                st.markdown(
+                    f'<div style="font-size:0.7rem;color:#64748b;padding-top:8px;">' +
+                    f'{"✅ Schema opgeslagen" if schema_dag else "⚠️ Nog niet opgeslagen"}</div>',
+                    unsafe_allow_html=True)
+            with da2:
+                if st.button("💾 Dag opslaan", key=f"dag_ops_{dag_str}",
+                             use_container_width=True):
+                    mom = _bereken_moment_doelen(energie_dag, _bouw_basis(eet_patroon),
+                        st.session_state.get(f"training_{dag_str}","Geen training"), profiel)
+                    sid = _sla_dagschema_op(user_id, dag_str, {
+                        "energie_doel": energie_dag, "kh_doel_g": kh_dag,
+                        "eiwit_doel_g": eiwit_dag, "vet_doel_g": vet_dag,
+                        "aantal_maaltijden": len(mom),
+                        "momenten_json": _json.dumps(mom),
+                        "training_timing": st.session_state.get(f"training_{dag_str}","Geen training"),
+                        "eet_patroon": eet_patroon,
+                    })
+                    if sid:
+                        week_schemas[dag_str] = {"id": sid}
+                        st.success("✅ Dag opgeslagen!")
+                        st.rerun()
+            with da3:
+                if plan_tekst and st.button("🗑 Dagplan wissen", key=f"plan_wis_{dag_str}",
+                             use_container_width=True):
+                    st.session_state.pop(plan_key, None)
+                    st.session_state.pop(f"ai_plan_{dag_str}", None)
+                    st.rerun()
+
+            st.markdown("<br>", unsafe_allow_html=True)
 
             # Dagplan voorstel tonen
             ai_plan_key = f"ai_plan_{dag_str}"
@@ -2732,6 +2775,15 @@ def _stap_dagschema(user: dict):
                         unsafe_allow_html=True)
 
                     # ── Geselecteerde producten overzicht ─────────────────────
+                    # Maaltijd wissen knop
+                    if items:
+                        mc1, mc2 = st.columns([2,3])
+                        with mc1:
+                            if st.button("🗑 Maaltijd wissen",
+                                         key=f"clear_mom_{dag_str}_{mi}"):
+                                for _item in items:
+                                    _verwijder_dagboek_item(_item["id"], dag_str)
+                                st.rerun()
                     if items:
                         # Totaalrij
                         st.markdown(
