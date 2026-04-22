@@ -409,21 +409,33 @@ def _verwijder_training(training_id: str) -> bool:
         st.error(f"Fout bij verwijderen: {e}")
         return False
 
+def _format_tempo(val: float) -> str:
+    """Zet decimaal tempo om naar min:sec formaat."""
+    if not val: return ""
+    minuten = int(val)
+    seconden = round((val - minuten) * 60)
+    return f"{minuten}:{seconden:02d}"
+
 def _zone_info(zones: dict, zone_label: str, eenheid: str, sport: str) -> str:
-    """Geef tempo/hs info voor een zone."""
+    """Geef tempo/hs bereik info voor een zone."""
     z_key = zone_label[:2].lower()
     if eenheid == "tempo" and sport == "Lopen":
-        val = zones.get(f"{z_key}_tempo")
-        if val:
-            minuten = int(val)
-            seconden = round((val - minuten) * 60)
-            return f"{minuten}:{seconden:02d} min/km"
+        van = zones.get(f"{z_key}_tempo_van")
+        tot = zones.get(f"{z_key}_tempo_tot")
+        if van and tot:
+            return f"{_format_tempo(van)} — {_format_tempo(tot)} min/km"
+        elif van:
+            return f"vanaf {_format_tempo(van)} min/km"
     elif eenheid == "watt":
-        val = zones.get(f"{z_key}_tempo")
-        if val: return f"{int(val)}W"
-    elif eenheid in ("hartslag", None, ""):
-        val = zones.get(f"{z_key}_hs")
-        if val: return f"{int(val)} bpm"
+        van = zones.get(f"{z_key}_tempo_van")
+        tot = zones.get(f"{z_key}_tempo_tot")
+        if van and tot: return f"{int(van)}—{int(tot)}W"
+        elif van: return f"vanaf {int(van)}W"
+    if eenheid in ("hartslag", None, ""):
+        van = zones.get(f"{z_key}_hs_van")
+        tot = zones.get(f"{z_key}_hs_tot")
+        if van and tot: return f"{int(van)}—{int(tot)} bpm"
+        elif van: return f"vanaf {int(van)} bpm"
     return ""
 
 def _stap_trainingen(user: dict):
@@ -729,35 +741,78 @@ def _stap_trainingen(user: dict):
         nieuwe_zones = {"eenheid": "tempo" if "Tempo" in kal_eenheid or "Watt" in kal_eenheid
                         else "hartslag"}
 
+        st.markdown(
+            '<div style="font-size:0.75rem;color:#64748b;margin-bottom:12px;">' +
+            ('Tempo: voer in als min.sec — bijv. 5.30 = 5min30sec/km' if toon_tempo and kal_sport == "Lopen" else '') +
+            '</div>', unsafe_allow_html=True)
+
         for i, z in enumerate(ZONE_LABELS):
             z_key = z[:2].lower()
             st.markdown(
                 f'<div style="font-size:0.75rem;font-weight:700;color:#22c55e;'
-                f'margin:12px 0 4px;">{z}</div>',
+                f'margin:14px 0 4px;padding:4px 8px;background:#0f172a;border-left:3px solid #22c55e;border-radius:0 4px 4px 0;">{z}</div>',
                 unsafe_allow_html=True)
-            cols = st.columns(2 if (toon_tempo and toon_hs) else 1)
+
             if toon_tempo:
-                with cols[0]:
+                t1, t2 = st.columns(2)
+                with t1:
                     if kal_sport == "Lopen":
-                        # Tempo als min/km — invoer als decimaal (bijv. 5.30 = 5min30sec)
-                        huidig = float(kal_zones.get(f"{z_key}_tempo") or 0)
-                        val = st.number_input(
-                            tempo_label, 0.0, 20.0, huidig, 0.05,
-                            key=f"kal_{z_key}_tempo",
-                            help="Voer in als min.sec (bijv. 5.30 = 5min30sec)")
+                        huidig_van = float(kal_zones.get(f"{z_key}_tempo_van") or 0)
+                        val_van = st.number_input(
+                            f"{tempo_label} — van (langzamer)",
+                            0.0, 20.0, huidig_van, 0.05,
+                            key=f"kal_{z_key}_tempo_van",
+                            help="bijv. 5.30 = 5min30sec/km")
                     else:
-                        huidig = float(kal_zones.get(f"{z_key}_tempo") or 0)
-                        val = st.number_input(
-                            tempo_label, 0, 600, int(huidig), 5,
-                            key=f"kal_{z_key}_tempo")
-                    nieuwe_zones[f"{z_key}_tempo"] = val if val > 0 else None
+                        huidig_van = float(kal_zones.get(f"{z_key}_tempo_van") or 0)
+                        val_van = st.number_input(
+                            f"{tempo_label} — van", 0, 600, int(huidig_van), 5,
+                            key=f"kal_{z_key}_tempo_van")
+                    nieuwe_zones[f"{z_key}_tempo_van"] = val_van if val_van > 0 else None
+                with t2:
+                    if kal_sport == "Lopen":
+                        huidig_tot = float(kal_zones.get(f"{z_key}_tempo_tot") or 0)
+                        val_tot = st.number_input(
+                            f"{tempo_label} — tot (sneller)",
+                            0.0, 20.0, huidig_tot, 0.05,
+                            key=f"kal_{z_key}_tempo_tot",
+                            help="bijv. 5.00 = 5min00sec/km")
+                    else:
+                        huidig_tot = float(kal_zones.get(f"{z_key}_tempo_tot") or 0)
+                        val_tot = st.number_input(
+                            f"{tempo_label} — tot", 0, 600, int(huidig_tot), 5,
+                            key=f"kal_{z_key}_tempo_tot")
+                    nieuwe_zones[f"{z_key}_tempo_tot"] = val_tot if val_tot > 0 else None
+
+                # Preview
+                if val_van and val_tot:
+                    if kal_sport == "Lopen":
+                        preview = f"{_format_tempo(val_van)} — {_format_tempo(val_tot)} min/km"
+                    else:
+                        preview = f"{int(val_van)}—{int(val_tot)}W"
+                    st.markdown(
+                        f'<div style="font-size:0.72rem;color:#86efac;margin-top:-6px;margin-bottom:4px;">' +
+                        f'→ {preview}</div>', unsafe_allow_html=True)
+
             if toon_hs:
-                with cols[-1]:
-                    huidig_hs = int(kal_zones.get(f"{z_key}_hs") or 0)
-                    hs_val = st.number_input(
-                        "Hartslag (bpm)", 0, 220, huidig_hs, 1,
-                        key=f"kal_{z_key}_hs")
-                    nieuwe_zones[f"{z_key}_hs"] = hs_val if hs_val > 0 else None
+                h1, h2 = st.columns(2)
+                with h1:
+                    huidig_hs_van = int(kal_zones.get(f"{z_key}_hs_van") or 0)
+                    hs_van = st.number_input(
+                        "Hartslag — van (bpm)", 0, 220, huidig_hs_van, 1,
+                        key=f"kal_{z_key}_hs_van")
+                    nieuwe_zones[f"{z_key}_hs_van"] = hs_van if hs_van > 0 else None
+                with h2:
+                    huidig_hs_tot = int(kal_zones.get(f"{z_key}_hs_tot") or 0)
+                    hs_tot = st.number_input(
+                        "Hartslag — tot (bpm)", 0, 220, huidig_hs_tot, 1,
+                        key=f"kal_{z_key}_hs_tot")
+                    nieuwe_zones[f"{z_key}_hs_tot"] = hs_tot if hs_tot > 0 else None
+
+                if hs_van and hs_tot:
+                    st.markdown(
+                        f'<div style="font-size:0.72rem;color:#86efac;margin-top:-6px;margin-bottom:4px;">' +
+                        f'→ {int(hs_van)}—{int(hs_tot)} bpm</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("💾 Zones opslaan", key="kal_opslaan", use_container_width=True):
