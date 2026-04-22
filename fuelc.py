@@ -328,46 +328,65 @@ def _stap_profiel(user: dict):
 
 SPORT_OPTIES = ["Lopen", "Fietsen", "Zwemmen", "Kracht", "Andere"]
 
-ZONE_OPTIES = ["Z1 — Herstel (zeer rustig)", "Z2 — Duurzaam (rustig)",
-               "Z3 — Tempo (matig)", "Z4 — Drempel (zwaar)",
-               "Z5 — VO2max (maximaal)"]
+ZONE_LABELS = [
+    "Z1 — Herstel",
+    "Z2 — Duurzaam",
+    "Z3 — Tempo",
+    "Z4 — Drempel",
+    "Z5 — VO2max",
+]
 
 ZONE_MET = {
-    "Z1 — Herstel (zeer rustig)":   4.0,
-    "Z2 — Duurzaam (rustig)":       6.0,
-    "Z3 — Tempo (matig)":           8.5,
-    "Z4 — Drempel (zwaar)":        10.5,
-    "Z5 — VO2max (maximaal)":      13.0,
-}
-
-ZONE_HERSTEL = {
-    "Z1 — Herstel (zeer rustig)":   8,
-    "Z2 — Duurzaam (rustig)":      16,
-    "Z3 — Tempo (matig)":          24,
-    "Z4 — Drempel (zwaar)":        36,
-    "Z5 — VO2max (maximaal)":      48,
+    "Z1 — Herstel":    4.0,
+    "Z2 — Duurzaam":   6.0,
+    "Z3 — Tempo":      8.5,
+    "Z4 — Drempel":   10.5,
+    "Z5 — VO2max":    13.0,
 }
 
 def _bereken_kcal(gewicht_kg: float, minuten: float, zone: str) -> int:
     """MET-gebaseerde kcalberekening."""
-    met = ZONE_MET.get(zone, 6.0)
+    key = next((k for k in ZONE_MET if zone.startswith(k[:2])), None)
+    met = ZONE_MET.get(key, 6.0) if key else 6.0
     return round((met * gewicht_kg * 3.5 / 200) * minuten)
 
-def _dominante_zone(opwarming_zone, kern_zone, kern_min, opw_min, cool_min) -> str:
-    """Bepaal dominante zone op basis van tijd in elke zone."""
+def _dominante_zone(blokken: list) -> str:
+    """Blokken = lijst van (zone_label, minuten)."""
     zones = {}
-    zones[opwarming_zone] = zones.get(opwarming_zone, 0) + opw_min
-    zones[kern_zone]      = zones.get(kern_zone, 0) + kern_min
-    zones["Z1 — Herstel (zeer rustig)"] = zones.get("Z1 — Herstel (zeer rustig)", 0) + cool_min
-    return max(zones, key=zones.get)
+    for z, m in blokken:
+        key = next((k for k in ZONE_MET if z.startswith(k[:2])), z)
+        zones[key] = zones.get(key, 0) + m
+    return max(zones, key=zones.get) if zones else "Z2 — Duurzaam"
+
+def _laad_zones(user_id: str, sport: str) -> dict:
+    try:
+        sb = _get_supabase()
+        r  = sb.table("fuelc_zones").select("*").eq("user_id", user_id).eq("sport", sport).execute()
+        return r.data[0] if r.data else {}
+    except:
+        return {}
+
+def _sla_zones_op(user_id: str, sport: str, zones: dict) -> bool:
+    try:
+        sb = _get_supabase()
+        bestaand = sb.table("fuelc_zones").select("id").eq("user_id", user_id).eq("sport", sport).execute()
+        zones["user_id"] = user_id
+        zones["sport"]   = sport
+        if bestaand.data:
+            sb.table("fuelc_zones").update(zones).eq("user_id", user_id).eq("sport", sport).execute()
+        else:
+            sb.table("fuelc_zones").insert(zones).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout opslaan zones: {e}")
+        return False
 
 def _laad_trainingen(user_id: str) -> list:
     try:
         sb = _get_supabase()
         r  = sb.table("fuelc_trainingen").select("*").eq("user_id", user_id).order("datum", desc=True).limit(30).execute()
         return r.data or []
-    except Exception as e:
-        print(f"Fout laden trainingen: {e}")
+    except:
         return []
 
 def _sla_training_op(user_id: str, training: dict) -> bool:
@@ -390,18 +409,39 @@ def _verwijder_training(training_id: str) -> bool:
         st.error(f"Fout bij verwijderen: {e}")
         return False
 
+def _zone_info(zones: dict, zone_label: str, eenheid: str, sport: str) -> str:
+    """Geef tempo/hs info voor een zone."""
+    z_key = zone_label[:2].lower()
+    if eenheid == "tempo" and sport == "Lopen":
+        val = zones.get(f"{z_key}_tempo")
+        if val:
+            minuten = int(val)
+            seconden = round((val - minuten) * 60)
+            return f"{minuten}:{seconden:02d} min/km"
+    elif eenheid == "watt":
+        val = zones.get(f"{z_key}_tempo")
+        if val: return f"{int(val)}W"
+    elif eenheid in ("hartslag", None, ""):
+        val = zones.get(f"{z_key}_hs")
+        if val: return f"{int(val)} bpm"
+    return ""
+
 def _stap_trainingen(user: dict):
     user_id = user.get("id", "")
-
-    # Laad profiel voor gewicht
     profiel = st.session_state.get("fc_profiel", {})
     gewicht = float(profiel.get("gewicht_kg", 70) or 70)
 
-    _sectie("TRAININGEN TOEVOEGEN", "#22c55e")
+    _sectie("TRAININGEN", "#22c55e")
 
-    # ── Tabs: Toevoegen / Overzicht ───────────────────────────────────────────
-    tab_add, tab_lijst = st.tabs(["➕  Training toevoegen", "📋  Mijn trainingen"])
+    tab_add, tab_zones, tab_lijst = st.tabs([
+        "➕  Training toevoegen",
+        "⚙️  Zone kalibratie",
+        "📋  Mijn trainingen",
+    ])
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1 — TRAINING TOEVOEGEN
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_add:
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -413,145 +453,321 @@ def _stap_trainingen(user: dict):
         with c2:
             datum = st.date_input("Datum", key="tr_datum")
         with c3:
-            omschrijving = st.text_input("Naam / omschrijving (optioneel)",
-                                          placeholder="bijv. Lange duurloop",
-                                          key="tr_naam")
+            omschrijving = st.text_input("Naam / omschrijving",
+                placeholder="bijv. Lange duurloop", key="tr_naam")
+
+        # Laad zones voor dit sport
+        zones_data = _laad_zones(user_id, sport)
+        eenheid    = zones_data.get("eenheid", "hartslag")
+
+        # Invoermodus lopen: tijd of afstand
+        if sport == "Lopen":
+            invoer_modus = st.radio("Invoer op basis van",
+                ["Tijd (minuten)", "Afstand (km)"],
+                horizontal=True, key="tr_invoer_modus")
+        else:
+            invoer_modus = "Tijd (minuten)"
+
+        def _zone_selectbox(label, key, default_idx=1):
+            """Zone selectbox met kalibratie-info."""
+            zone = st.selectbox(label, ZONE_LABELS, index=default_idx, key=key)
+            info = _zone_info(zones_data, zone, eenheid, sport)
+            if info:
+                st.markdown(
+                    f'<div style="font-size:0.7rem;color:#86efac;margin-top:-8px;'
+                    f'margin-bottom:4px;">→ {info}</div>',
+                    unsafe_allow_html=True)
+            return zone
+
+        def _invoer_blok(prefix, label_min, label_km, default_min, default_km, zone_idx):
+            """Invoerblok met tijd of km keuze."""
+            if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                km = st.number_input(label_km, 0.0, 200.0, default_km, 0.1,
+                                     key=f"{prefix}_km")
+                zone = _zone_selectbox("Intensiteitszone",
+                                       f"{prefix}_zone", zone_idx)
+                # Bereken minuten op basis van tempo uit zones
+                tempo = zones_data.get(f"{zone[:2].lower()}_tempo")
+                if tempo and tempo > 0 and km > 0:
+                    minuten = round(km * tempo)
+                    st.markdown(
+                        f'<div style="font-size:0.7rem;color:#22c55e;margin-top:-8px;">'
+                        f'≈ {int(minuten)}min op basis van gekalibreerd tempo</div>',
+                        unsafe_allow_html=True)
+                else:
+                    minuten = round(km * 6) if km > 0 else 0
+                return minuten, km, zone
+            else:
+                minuten = st.number_input(label_min, 0, 300, default_min,
+                                          key=f"{prefix}_min")
+                zone = _zone_selectbox("Intensiteitszone",
+                                       f"{prefix}_zone", zone_idx)
+                km_auto = 0.0
+                if sport == "Lopen":
+                    tempo = zones_data.get(f"{zone[:2].lower()}_tempo")
+                    if tempo and tempo > 0 and minuten > 0:
+                        km_auto = round(minuten / tempo, 2)
+                        st.markdown(
+                            f'<div style="font-size:0.7rem;color:#22c55e;margin-top:-8px;">'
+                            f'≈ {km_auto} km op basis van gekalibreerd tempo</div>',
+                            unsafe_allow_html=True)
+                return minuten, km_auto, zone
 
         # ── Opwarming ─────────────────────────────────────────────────────────
         _sectie("OPWARMING", "#22c55e")
         ow1, ow2 = st.columns(2)
         with ow1:
-            opw_min = st.number_input("Duur (minuten)", 0, 60, 10,
-                                       key="tr_opw_min")
+            opw_min, opw_km, opw_zone = _invoer_blok(
+                "tr_opw", "Duur (minuten)", "Afstand (km)", 10, 2.0, 0)
         with ow2:
-            opw_zone = st.selectbox("Intensiteitszone", ZONE_OPTIES,
-                                     index=0, key="tr_opw_zone")
-        opw_kcal = _bereken_kcal(gewicht, opw_min, opw_zone) if opw_min > 0 else 0
-        if opw_min > 0:
-            st.markdown(
-                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
-                f'≈ {opw_kcal} kcal</div>', unsafe_allow_html=True)
+            opw_kcal = _bereken_kcal(gewicht, opw_min, opw_zone) if opw_min > 0 else 0
+            if opw_min > 0:
+                st.markdown("<br>", unsafe_allow_html=True)
+                _metric_card("KCAL", str(opw_kcal), "kcal", "#22c55e")
 
         # ── Kern ──────────────────────────────────────────────────────────────
         _sectie("KERN", "#22c55e")
-        k1, k2 = st.columns(2)
-        with k1:
-            kern_min = st.number_input("Duur (minuten)", 0, 300, 40,
-                                        key="tr_kern_min")
-        with k2:
-            kern_zone = st.selectbox("Intensiteitszone", ZONE_OPTIES,
-                                      index=1, key="tr_kern_zone")
 
-        # Intervalblokken
-        gebruik_interval = st.checkbox("Intervalblokken toevoegen", key="tr_interval_aan")
-        interval_tekst = ""
-        if gebruik_interval:
-            ic1, ic2, ic3, ic4 = st.columns(4)
+        kern_type = st.radio("Type kern",
+            ["Doorlopend", "Intervalblokken", "Ramp up", "Ramp down"],
+            horizontal=True, key="tr_kern_type")
+
+        kern_min   = 0
+        kern_km    = 0.0
+        kern_zone  = ZONE_LABELS[1]
+        kern_notitie = ""
+        kern_zone2 = ZONE_LABELS[3]
+
+        if kern_type == "Doorlopend":
+            k1, k2 = st.columns(2)
+            with k1:
+                kern_min, kern_km, kern_zone = _invoer_blok(
+                    "tr_kern", "Duur (minuten)", "Afstand (km)", 40, 8.0, 1)
+            with k2:
+                kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
+                if kern_min > 0:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    _metric_card("KCAL", str(kern_kcal), "kcal", "#22c55e")
+
+        elif kern_type == "Intervalblokken":
+            ic1, ic2, ic3 = st.columns(3)
             with ic1:
-                int_herhalingen = st.number_input("Herhalingen", 1, 20, 5, key="tr_int_herh")
+                int_herh   = st.number_input("Herhalingen", 1, 30, 5, key="tr_int_herh")
+                int_werk   = st.number_input("Werkblok (min)", 1, 60, 4, key="tr_int_werk")
             with ic2:
-                int_werk_min = st.number_input("Werkblok (min)", 1, 30, 4, key="tr_int_werk")
+                int_rust   = st.number_input("Rustblok (min)", 1, 30, 2, key="tr_int_rust")
+                int_zone_w = _zone_selectbox("Zone werk", "tr_int_zone_w", 3)
             with ic3:
-                int_rust_min = st.number_input("Rustblok (min)", 1, 15, 2, key="tr_int_rust")
-            with ic4:
-                int_zone = st.selectbox("Zone werk", ZONE_OPTIES, index=3, key="tr_int_zone")
-            interval_tekst = f"{int_herhalingen}× {int_werk_min}min {int_zone.split(' ')[0]} + {int_rust_min}min herstel"
+                int_zone_r = _zone_selectbox("Zone rust", "tr_int_zone_r", 0)
+            kern_min  = int_herh * (int_werk + int_rust)
+            kern_zone = int_zone_w
+            kern_notitie = f"{int_herh}× {int_werk}min {int_zone_w[:2]} + {int_rust}min {int_zone_r[:2]}"
             st.markdown(
                 f'<div style="background:#0f172a;border-left:3px solid #22c55e;'
                 f'border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#22c55e;">'
-                f'📋 {interval_tekst}</div>', unsafe_allow_html=True)
+                f'📋 {kern_notitie} = {kern_min}min totaal</div>',
+                unsafe_allow_html=True)
+
+        elif kern_type == "Ramp up":
+            ru1, ru2, ru3 = st.columns(3)
+            with ru1:
+                ramp_min  = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_ramp_min")
+            with ru2:
+                ramp_van  = _zone_selectbox("Van zone", "tr_ramp_van", 1)
+            with ru3:
+                ramp_naar = _zone_selectbox("Naar zone", "tr_ramp_naar", 3)
+            kern_min     = ramp_min
+            kern_zone    = ramp_naar
+            kern_notitie = f"Ramp up: {ramp_van[:2]} → {ramp_naar[:2]} over {ramp_min}min"
+            st.markdown(
+                f'<div style="background:#0f172a;border-left:3px solid #22c55e;'
+                f'border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#22c55e;">'
+                f'📈 {kern_notitie}</div>', unsafe_allow_html=True)
+
+        elif kern_type == "Ramp down":
+            rd1, rd2, rd3 = st.columns(3)
+            with rd1:
+                ramp_min  = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_rampd_min")
+            with rd2:
+                ramp_van  = _zone_selectbox("Van zone", "tr_rampd_van", 3)
+            with rd3:
+                ramp_naar = _zone_selectbox("Naar zone", "tr_rampd_naar", 1)
+            kern_min     = ramp_min
+            kern_zone    = ramp_van
+            kern_notitie = f"Ramp down: {ramp_van[:2]} → {ramp_naar[:2]} over {ramp_min}min"
+            st.markdown(
+                f'<div style="background:#0f172a;border-left:3px solid #22c55e;'
+                f'border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#22c55e;">'
+                f'📉 {kern_notitie}</div>', unsafe_allow_html=True)
 
         kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
-        if kern_min > 0:
-            st.markdown(
-                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
-                f'≈ {kern_kcal} kcal</div>', unsafe_allow_html=True)
 
         # ── Cooling down ──────────────────────────────────────────────────────
         _sectie("COOLING DOWN", "#22c55e")
         cd1, cd2 = st.columns(2)
         with cd1:
-            cool_min = st.number_input("Duur (minuten)", 0, 30, 10,
-                                        key="tr_cool_min")
+            cool_min, cool_km, cool_zone = _invoer_blok(
+                "tr_cool", "Duur (minuten)", "Afstand (km)", 10, 2.0, 0)
         with cd2:
-            st.selectbox("Intensiteitszone", ["Z1 — Herstel (zeer rustig)"],
-                         key="tr_cool_zone", disabled=True)
-        cool_kcal = _bereken_kcal(gewicht, cool_min, "Z1 — Herstel (zeer rustig)") if cool_min > 0 else 0
-        if cool_min > 0:
-            st.markdown(
-                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
-                f'≈ {cool_kcal} kcal</div>', unsafe_allow_html=True)
+            cool_kcal = _bereken_kcal(gewicht, cool_min, cool_zone) if cool_min > 0 else 0
+            if cool_min > 0:
+                st.markdown("<br>", unsafe_allow_html=True)
+                _metric_card("KCAL", str(cool_kcal), "kcal", "#22c55e")
 
         # ── Optioneel ─────────────────────────────────────────────────────────
         _sectie("OPTIONEEL", "#86efac")
-        o1, o2, o3, o4 = st.columns(4)
+        o1, o2, o3 = st.columns(3)
         with o1:
             hartslag_gem = st.number_input("Hartslag gem (bpm)", 0, 220, 0, key="tr_hs_gem")
         with o2:
-            afstand_km = st.number_input("Afstand (km)", 0.0, 300.0, 0.0, 0.1, key="tr_afstand")
+            if sport != "Lopen" or invoer_modus == "Tijd (minuten)":
+                afstand_km = st.number_input("Afstand (km)", 0.0, 300.0, 0.0, 0.1, key="tr_afstand")
+            else:
+                afstand_km = round(opw_km + kern_km + cool_km, 2)
+                st.markdown(
+                    f'<div style="font-size:0.8rem;color:#22c55e;font-weight:700;'
+                    f'padding-top:28px;">Totaal: {afstand_km} km</div>',
+                    unsafe_allow_html=True)
         with o3:
-            hoogtemeters = st.number_input("Hoogtemeters", 0, 5000, 0, key="tr_hoogte")
-        with o4:
-            notitie = st.text_input("Notitie", placeholder="bijv. Goed gevoel", key="tr_notitie")
+            notitie_extra = st.text_input("Notitie", placeholder="bijv. Goed gevoel", key="tr_notitie")
 
         # ── Totalen ───────────────────────────────────────────────────────────
-        totaal_min   = opw_min + kern_min + cool_min
-        totaal_kcal  = opw_kcal + kern_kcal + cool_kcal
-        dom_zone     = _dominante_zone(opw_zone, kern_zone, kern_min, opw_min, cool_min) if totaal_min > 0 else "—"
-        herstel_uren = ZONE_HERSTEL.get(dom_zone, 16) if totaal_min > 0 else 0
+        totaal_min  = opw_min + kern_min + cool_min
+        totaal_kcal = opw_kcal + kern_kcal + cool_kcal
+        blokken     = [(opw_zone, opw_min), (kern_zone, kern_min), (cool_zone, cool_min)]
+        dom_zone    = _dominante_zone(blokken) if totaal_min > 0 else "—"
 
         if totaal_min > 0:
             st.markdown("<br>", unsafe_allow_html=True)
             _sectie("SAMENVATTING", "#22c55e")
-            m1, m2, m3, m4 = st.columns(4)
+            m1, m2, m3 = st.columns(3)
             with m1:
-                _metric_card("TOTALE DUUR", f"{totaal_min // 60}u{totaal_min % 60:02d}",
-                             "min", "#22c55e")
+                _metric_card("TOTALE DUUR",
+                    f"{totaal_min // 60}u{totaal_min % 60:02d}", "min", "#22c55e")
             with m2:
                 _metric_card("KCAL VERBRANDING", str(totaal_kcal), "kcal", "#4ade80")
             with m3:
-                dom_kort = dom_zone.split("—")[0].strip()
-                _metric_card("DOMINANTE ZONE", dom_kort, "", "#16a34a")
-            with m4:
-                _metric_card("HERSTELTIJD", str(herstel_uren), "uur", "#86efac")
+                _metric_card("DOMINANTE ZONE", dom_zone[:2], dom_zone[4:], "#16a34a")
 
         # ── Opslaan ───────────────────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
         if totaal_min > 0:
-            if st.button("💾 Training opslaan", key="tr_opslaan",
-                         use_container_width=True):
-                zone_verdeling = {
-                    "z1": opw_min + cool_min if "Z1" in opw_zone else cool_min,
-                    "z2": kern_min if "Z2" in kern_zone else (opw_min if "Z2" in opw_zone else 0),
-                    "z3": kern_min if "Z3" in kern_zone else (opw_min if "Z3" in opw_zone else 0),
-                    "z4": kern_min if "Z4" in kern_zone else (opw_min if "Z4" in opw_zone else 0),
-                    "z5": kern_min if "Z5" in kern_zone else (opw_min if "Z5" in opw_zone else 0),
-                }
+            if st.button("💾 Training opslaan", key="tr_opslaan", use_container_width=True):
+                zone_verdeling = {}
+                for z, m in blokken:
+                    key = z[:2].lower()
+                    zone_verdeling[key] = zone_verdeling.get(key, 0) + m
+
+                notitie_vol = (
+                    f"{omschrijving + ' | ' if omschrijving else ''}"
+                    f"OPW: {opw_min}min {opw_zone[:2]} | "
+                    f"KERN: {kern_min}min {kern_zone[:2]}"
+                    f"{' | ' + kern_notitie if kern_notitie else ''} | "
+                    f"COOL: {cool_min}min {cool_zone[:2]}"
+                    f"{' | HS: ' + str(hartslag_gem) + 'bpm' if hartslag_gem > 0 else ''}"
+                    f"{' | ' + str(round(afstand_km, 2)) + 'km' if afstand_km > 0 else ''}"
+                    f"{' | ' + notitie_extra if notitie_extra else ''}"
+                ).strip(" | ")
+
                 training_data = {
-                    "datum":          str(datum),
-                    "sport":          sport,
-                    "duur_min":       totaal_min,
-                    "afstand_km":     afstand_km if afstand_km > 0 else None,
-                    "hartslag_gem":   hartslag_gem if hartslag_gem > 0 else None,
-                    "kcal_verbranding": totaal_kcal,
-                    "hersteltijd_uur": herstel_uren,
-                    "zone_verdeling": zone_verdeling,
-                    "notitie":        f"{omschrijving} | OPW: {opw_min}min {opw_zone.split()[0]} | KERN: {kern_min}min {kern_zone.split()[0]}{' | ' + interval_tekst if interval_tekst else ''} | COOL: {cool_min}min Z1{' | HS: ' + str(hartslag_gem) + 'bpm' if hartslag_gem > 0 else ''}{' | ' + str(afstand_km) + 'km' if afstand_km > 0 else ''}{' | ' + notitie if notitie else ''}".strip(" | "),
+                    "datum":             str(datum),
+                    "sport":             sport,
+                    "duur_min":          totaal_min,
+                    "afstand_km":        round(afstand_km, 2) if afstand_km > 0 else None,
+                    "hartslag_gem":      hartslag_gem if hartslag_gem > 0 else None,
+                    "kcal_verbranding":  totaal_kcal,
+                    "zone_verdeling":    zone_verdeling,
+                    "notitie":           notitie_vol,
                 }
                 if _sla_training_op(user_id, training_data):
                     st.success("✅ Training opgeslagen!")
-                    # Reset formulier
                     for k in ["tr_opw_min","tr_kern_min","tr_cool_min","tr_naam",
-                              "tr_notitie","tr_afstand","tr_hs_gem","tr_hoogte",
-                              "tr_interval_aan"]:
-                        if k in st.session_state:
-                            del st.session_state[k]
+                              "tr_notitie","tr_afstand","tr_hs_gem","tr_interval_aan",
+                              "tr_opw_km","tr_kern_km","tr_cool_km"]:
+                        st.session_state.pop(k, None)
                     st.rerun()
         else:
             st.button("💾 Training opslaan", key="tr_opslaan",
                       use_container_width=True, disabled=True)
             st.caption("Vul minstens één blok in om op te slaan.")
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2 — ZONE KALIBRATIE
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_zones:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _sectie("ZONE KALIBRATIE PER SPORT", "#22c55e")
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:16px;">'
+            'Koppel je intensiteitszones aan tempo of hartslag. '
+            'Dit wordt gebruikt voor automatische berekeningen bij het invoeren van trainingen.</div>',
+            unsafe_allow_html=True)
+
+        kal_sport = st.selectbox("Sport", SPORT_OPTIES, key="kal_sport")
+        kal_zones = _laad_zones(user_id, kal_sport)
+
+        if kal_sport == "Lopen":
+            kal_eenheid = st.radio("Koppelen aan",
+                ["Tempo (min/km)", "Hartslag (bpm)", "Beide"],
+                horizontal=True, key="kal_eenheid")
+        elif kal_sport == "Fietsen":
+            kal_eenheid = st.radio("Koppelen aan",
+                ["Watt", "Hartslag (bpm)", "Beide"],
+                horizontal=True, key="kal_eenheid")
+        else:
+            kal_eenheid = "Hartslag (bpm)"
+            st.markdown(
+                '<div style="font-size:0.8rem;color:#64748b;">Koppeling via hartslag.</div>',
+                unsafe_allow_html=True)
+
+        toon_tempo = kal_eenheid in ["Tempo (min/km)", "Watt", "Beide"]
+        toon_hs    = kal_eenheid in ["Hartslag (bpm)", "Beide"]
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        tempo_label = "Tempo (min/km)" if kal_sport == "Lopen" else "Watt"
+
+        nieuwe_zones = {"eenheid": "tempo" if "Tempo" in kal_eenheid or "Watt" in kal_eenheid
+                        else "hartslag"}
+
+        for i, z in enumerate(ZONE_LABELS):
+            z_key = z[:2].lower()
+            st.markdown(
+                f'<div style="font-size:0.75rem;font-weight:700;color:#22c55e;'
+                f'margin:12px 0 4px;">{z}</div>',
+                unsafe_allow_html=True)
+            cols = st.columns(2 if (toon_tempo and toon_hs) else 1)
+            if toon_tempo:
+                with cols[0]:
+                    if kal_sport == "Lopen":
+                        # Tempo als min/km — invoer als decimaal (bijv. 5.30 = 5min30sec)
+                        huidig = float(kal_zones.get(f"{z_key}_tempo") or 0)
+                        val = st.number_input(
+                            tempo_label, 0.0, 20.0, huidig, 0.05,
+                            key=f"kal_{z_key}_tempo",
+                            help="Voer in als min.sec (bijv. 5.30 = 5min30sec)")
+                    else:
+                        huidig = float(kal_zones.get(f"{z_key}_tempo") or 0)
+                        val = st.number_input(
+                            tempo_label, 0, 600, int(huidig), 5,
+                            key=f"kal_{z_key}_tempo")
+                    nieuwe_zones[f"{z_key}_tempo"] = val if val > 0 else None
+            if toon_hs:
+                with cols[-1]:
+                    huidig_hs = int(kal_zones.get(f"{z_key}_hs") or 0)
+                    hs_val = st.number_input(
+                        "Hartslag (bpm)", 0, 220, huidig_hs, 1,
+                        key=f"kal_{z_key}_hs")
+                    nieuwe_zones[f"{z_key}_hs"] = hs_val if hs_val > 0 else None
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("💾 Zones opslaan", key="kal_opslaan", use_container_width=True):
+            if _sla_zones_op(user_id, kal_sport, nieuwe_zones):
+                st.success(f"✅ Zones opgeslagen voor {kal_sport}!")
+                st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — MIJN TRAININGEN
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_lijst:
         st.markdown("<br>", unsafe_allow_html=True)
         trainingen = _laad_trainingen(user_id)
@@ -562,11 +778,10 @@ def _stap_trainingen(user: dict):
                 'Nog geen trainingen toegevoegd.</div>',
                 unsafe_allow_html=True)
         else:
-            # Weekoverzicht totalen
             from datetime import date, timedelta
-            vandaag = date.today()
+            vandaag    = date.today()
             week_start = vandaag - timedelta(days=vandaag.weekday())
-            week_kcal = sum(
+            week_kcal  = sum(
                 t.get("kcal_verbranding", 0) or 0
                 for t in trainingen
                 if t.get("datum", "") >= str(week_start)
@@ -588,29 +803,26 @@ def _stap_trainingen(user: dict):
                 f'</div>',
                 unsafe_allow_html=True)
 
-            # Lijst van trainingen
             SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊",
                            "Kracht":"💪","Andere":"⚡"}
             ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24",
                            "z4":"#f97316","z5":"#ef4444"}
 
             for t in trainingen:
-                sport_em = SPORT_EMOJI.get(t.get("sport",""), "⚡")
+                sport_em  = SPORT_EMOJI.get(t.get("sport",""), "⚡")
                 datum_str = t.get("datum","")[:10]
                 duur_min  = t.get("duur_min", 0) or 0
                 duur_str  = f"{duur_min // 60}u{duur_min % 60:02d}"
                 kcal      = t.get("kcal_verbranding", 0) or 0
-                herstel   = t.get("hersteltijd_uur", 0) or 0
                 notitie   = t.get("notitie", "") or ""
-                notitie_kort = notitie[:60] + "..." if len(notitie) > 60 else notitie
+                notitie_kort = notitie[:70] + "..." if len(notitie) > 70 else notitie
 
-                # Zone balken
                 zv = t.get("zone_verdeling") or {}
                 if isinstance(zv, str):
                     import json
                     try: zv = json.loads(zv)
                     except: zv = {}
-                totaal_zv = sum(zv.values()) if zv else duur_min or 1
+                totaal_zv = sum(zv.values()) if zv else max(duur_min, 1)
                 zone_balken = ""
                 for z, kleur in ZONE_KLEUR.items():
                     pct = round((zv.get(z, 0) / totaal_zv) * 100) if totaal_zv > 0 else 0
@@ -628,14 +840,20 @@ def _stap_trainingen(user: dict):
                         f'{notitie_kort}</div>'
                         f'<div style="background:#1e293b;border-radius:4px;height:8px;'
                         f'overflow:hidden;margin-bottom:8px;">{zone_balken}</div>'
+                        f'<div style="display:flex;gap:8px;margin-bottom:6px;">'
+                        + "".join([
+                            f'<span style="font-size:0.65rem;font-weight:700;padding:2px 6px;'
+                            f'border-radius:4px;background:{kleur}22;color:{kleur};">'
+                            f'{z.upper()}: {zv.get(z,0)}min</span>'
+                            for z, kleur in ZONE_KLEUR.items() if zv.get(z, 0) > 0
+                        ])
+                        + f'</div>'
                         f'<div style="font-size:0.72rem;color:#64748b;">'
-                        f'Hersteltijd: {herstel}u'
-                        f'{" · " + str(t.get("afstand_km")) + "km" if t.get("afstand_km") else ""}'
-                        f'{" · " + str(t.get("hartslag_gem")) + " bpm" if t.get("hartslag_gem") else ""}'
+                        f'{str(t.get("afstand_km","")) + "km · " if t.get("afstand_km") else ""}'
+                        f'{str(t.get("hartslag_gem","")) + " bpm" if t.get("hartslag_gem") else ""}'
                         f'</div>',
                         unsafe_allow_html=True)
-                    if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}",
-                                 use_container_width=False):
+                    if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}"):
                         if _verwijder_training(t["id"]):
                             st.success("Verwijderd.")
                             st.rerun()
