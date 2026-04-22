@@ -1,4 +1,4 @@
-s st
+import streamlit as st
 from datetime import date, timedelta
 from supabase import create_client
 
