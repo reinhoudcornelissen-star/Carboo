@@ -1068,8 +1068,10 @@ def _stap_bibliotheek(user: dict):
 
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
 
-    tab_add, tab_lijst = st.tabs([
-        "➕  Product toevoegen",
+    tab_add, tab_off, tab_scan, tab_lijst = st.tabs([
+        "➕  Manueel toevoegen",
+        "🌐  Open Food Facts",
+        "📷  Etiketscan",
         "📋  Mijn bibliotheek",
     ])
 
@@ -1167,7 +1169,290 @@ def _stap_bibliotheek(user: dict):
             st.caption("Vul minstens naam en categorie in.")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # TAB 2 — MIJN BIBLIOTHEEK
+    # TAB 2 — OPEN FOOD FACTS
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_off:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _sectie("ZOEKEN IN OPEN FOOD FACTS", "#22c55e")
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:12px;">' +
+            'Zoek op productnaam of barcode in de Open Food Facts database ' +
+            'en importeer rechtstreeks naar je bibliotheek.</div>',
+            unsafe_allow_html=True)
+
+        off_zoek = st.text_input("Zoekterm of barcode",
+            placeholder="bijv. havermout, 5449000000996...",
+            key="off_zoek")
+
+        if off_zoek and st.button("🔍 Zoeken", key="off_zoek_btn", use_container_width=True):
+            import urllib.request, json, urllib.parse
+            with st.spinner("Zoeken in Open Food Facts..."):
+                try:
+                    # Check of het een barcode is (enkel cijfers)
+                    if off_zoek.strip().isdigit():
+                        url = f"https://world.openfoodfacts.org/api/v0/product/{off_zoek.strip()}.json"
+                        with urllib.request.urlopen(url, timeout=8) as r:
+                            data = json.loads(r.read())
+                        if data.get("status") == 1:
+                            prod = data["product"]
+                            results = [{
+                                "naam":     prod.get("product_name", ""),
+                                "merk":     prod.get("brands", ""),
+                                "barcode":  off_zoek.strip(),
+                                "kcal":     prod.get("nutriments", {}).get("energy-kcal_100g", 0),
+                                "kh":       prod.get("nutriments", {}).get("carbohydrates_100g", 0),
+                                "suikers":  prod.get("nutriments", {}).get("sugars_100g", 0),
+                                "eiwit":    prod.get("nutriments", {}).get("proteins_100g", 0),
+                                "vet":      prod.get("nutriments", {}).get("fat_100g", 0),
+                                "verz":     prod.get("nutriments", {}).get("saturated-fat_100g", 0),
+                                "vezels":   prod.get("nutriments", {}).get("fiber_100g", 0),
+                                "natrium":  round((prod.get("nutriments", {}).get("sodium_100g", 0) or 0) * 1000),
+                                "portie":   prod.get("serving_size", "100"),
+                            }]
+                        else:
+                            results = []
+                    else:
+                        zoek_enc = urllib.parse.quote(off_zoek.strip())
+                        url = (f"https://world.openfoodfacts.org/cgi/search.pl"
+                               f"?search_terms={zoek_enc}&search_simple=1"
+                               f"&action=process&json=1&page_size=10&lc=nl,fr,en")
+                        with urllib.request.urlopen(url, timeout=10) as r:
+                            data = json.loads(r.read())
+                        prods = data.get("products", [])
+                        results = []
+                        for prod in prods:
+                            naam = prod.get("product_name", "").strip()
+                            if not naam:
+                                continue
+                            nut = prod.get("nutriments", {})
+                            results.append({
+                                "naam":    naam,
+                                "merk":    prod.get("brands", ""),
+                                "barcode": prod.get("code", ""),
+                                "kcal":    nut.get("energy-kcal_100g", 0),
+                                "kh":      nut.get("carbohydrates_100g", 0),
+                                "suikers": nut.get("sugars_100g", 0),
+                                "eiwit":   nut.get("proteins_100g", 0),
+                                "vet":     nut.get("fat_100g", 0),
+                                "verz":    nut.get("saturated-fat_100g", 0),
+                                "vezels":  nut.get("fiber_100g", 0),
+                                "natrium": round((nut.get("sodium_100g", 0) or 0) * 1000),
+                                "portie":  prod.get("serving_size", "100"),
+                            })
+                    st.session_state["off_results"] = results
+                except Exception as e:
+                    st.error(f"Fout bij zoeken: {e}")
+                    st.session_state["off_results"] = []
+
+        results = st.session_state.get("off_results", [])
+        if results == []:
+            if off_zoek:
+                st.markdown(
+                    '<div style="color:#64748b;font-size:0.8rem;padding:12px;">'
+                    'Geen resultaten gevonden.</div>',
+                    unsafe_allow_html=True)
+        elif results:
+            st.markdown(
+                f'<div style="font-size:0.72rem;color:#64748b;margin:8px 0;">' +
+                f'{len(results)} resultaat/resultaten gevonden</div>',
+                unsafe_allow_html=True)
+            for i, p in enumerate(results):
+                naam_merk = p["naam"] + (f" — {p['merk']}" if p.get("merk") else "")
+                with st.expander(naam_merk, expanded=i==0):
+                    # Macros tonen
+                    st.markdown(
+                        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">' +
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;">KCAL</div>' +
+                        f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{round(p.get("kcal") or 0)}</div></div>' +
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;">KH</div>' +
+                        f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{round(p.get("kh") or 0)}g</div></div>' +
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;">EIWIT</div>' +
+                        f'<div style="font-size:0.9rem;font-weight:700;color:#3b82f6;">{round(p.get("eiwit") or 0)}g</div></div>' +
+                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;">VET</div>' +
+                        f'<div style="font-size:0.9rem;font-weight:700;color:#8b5cf6;">{round(p.get("vet") or 0)}g</div></div>' +
+                        f'</div>' +
+                        (f'<div style="font-size:0.7rem;color:#64748b;">Suikers: {round(p.get("suikers") or 0)}g · ' +
+                         f'Vezels: {round(p.get("vezels") or 0)}g · Natrium: {round(p.get("natrium") or 0)}mg</div>' if p.get("vezels") or p.get("natrium") else ""),
+                        unsafe_allow_html=True)
+
+                    # Categorie kiezen voor import
+                    cat_key = f"off_cat_{i}"
+                    import_cat = st.selectbox("Categorie", CATEGORIE_OPTIES,
+                        key=cat_key)
+
+                    # Portiegrootte
+                    portie_raw = str(p.get("portie", "100")).replace("g","").replace("ml","").strip()
+                    try:
+                        portie_default = float(portie_raw.split()[0]) if portie_raw else 100.0
+                    except:
+                        portie_default = 100.0
+                    import_portie = st.number_input("Portiegrootte (g/ml)",
+                        0.0, 2000.0, portie_default, 5.0,
+                        key=f"off_portie_{i}")
+
+                    if st.button(f"📥 Importeer naar bibliotheek",
+                                 key=f"off_import_{i}", use_container_width=True):
+                        product = {
+                            "naam":           p["naam"],
+                            "categorie":      import_cat,
+                            "bron":           "openfoodfacts",
+                            "barcode":        p.get("barcode") or None,
+                            "portie_g":       import_portie if import_portie > 0 else None,
+                            "kcal_100g":      round(p.get("kcal") or 0, 1),
+                            "kh_100g":        round(p.get("kh") or 0, 1),
+                            "suikers_100g":   round(p.get("suikers") or 0, 1),
+                            "eiwit_100g":     round(p.get("eiwit") or 0, 1),
+                            "vet_100g":       round(p.get("vet") or 0, 1),
+                            "verzadigd_100g": round(p.get("verz") or 0, 1),
+                            "vezels_100g":    round(p.get("vezels") or 0, 1),
+                            "natrium_100g":   round(p.get("natrium") or 0, 1),
+                            "favoriet":       False,
+                            "user_id":        user_id,
+                        }
+                        if _sla_product_op(user_id, product):
+                            st.success(f"✅ '{p['naam']}' toegevoegd aan bibliotheek!")
+                            st.session_state.pop("off_results", None)
+                            st.rerun()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — ETIKETSCAN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_scan:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _sectie("ETIKETSCAN VIA AI", "#22c55e")
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:12px;">' +
+            'Upload een foto van het voedingsetiket. De AI leest de macros automatisch uit ' +
+            'en vult het formulier in. Controleer altijd de waarden voor het opslaan.</div>',
+            unsafe_allow_html=True)
+
+        scan_foto = st.file_uploader(
+            "Foto van etiket uploaden (JPG of PNG)",
+            type=["jpg","jpeg","png"],
+            key="scan_foto")
+
+        if scan_foto:
+            import base64
+            foto_bytes = scan_foto.read()
+            foto_b64   = base64.b64encode(foto_bytes).decode()
+            foto_mime  = "image/jpeg" if scan_foto.name.lower().endswith((".jpg",".jpeg")) else "image/png"
+
+            st.image(scan_foto, caption="Geüpload etiket", use_column_width=False, width=300)
+
+            if st.button("🤖 Scan etiket", key="scan_btn", use_container_width=True):
+                with st.spinner("AI leest het etiket uit..."):
+                    try:
+                        import urllib.request, json as _json
+                        payload = _json.dumps({
+                            "model": "claude-sonnet-4-20250514",
+                            "max_tokens": 1000,
+                            "messages": [{
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image",
+                                        "source": {
+                                            "type": "base64",
+                                            "media_type": foto_mime,
+                                            "data": foto_b64
+                                        }
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": (
+                                            "Dit is een foto van een voedingsetiket. "
+                                            "Lees de voedingswaarden per 100g of per 100ml uit. "
+                                            "Geef ENKEL een JSON terug met deze velden (gebruik 0 als niet gevonden): "
+                                            "{\"naam\": \"\", \"kcal_100g\": 0, \"kh_100g\": 0, "
+                                            "\"suikers_100g\": 0, \"eiwit_100g\": 0, \"vet_100g\": 0, "
+                                            "\"verzadigd_100g\": 0, \"vezels_100g\": 0, "
+                                            "\"natrium_100g\": 0, \"portie_g\": 0}. "
+                                            "Geen uitleg, enkel JSON."
+                                        )
+                                    }
+                                ]
+                            }]
+                        }).encode()
+
+                        req = urllib.request.Request(
+                            "https://api.anthropic.com/v1/messages",
+                            data=payload,
+                            headers={"Content-Type": "application/json"},
+                            method="POST"
+                        )
+                        with urllib.request.urlopen(req, timeout=30) as r:
+                            resp = _json.loads(r.read())
+
+                        tekst = resp["content"][0]["text"].strip()
+                        # Strip markdown fences indien aanwezig
+                        if tekst.startswith("```"):
+                            tekst = tekst.split("```")[1]
+                            if tekst.startswith("json"):
+                                tekst = tekst[4:]
+                        scan_data = _json.loads(tekst.strip())
+                        st.session_state["scan_result"] = scan_data
+                        st.success("✅ Etiket uitgelezen!")
+                    except Exception as e:
+                        st.error(f"Scan mislukt: {e}")
+
+        scan_result = st.session_state.get("scan_result", {})
+        if scan_result:
+            st.markdown("<br>", unsafe_allow_html=True)
+            _sectie("GESCANDE WAARDEN — controleer en pas aan", "#86efac")
+
+            s1, s2 = st.columns(2)
+            with s1:
+                scan_naam    = st.text_input("Productnaam", value=scan_result.get("naam",""), key="scan_naam")
+                scan_kcal    = st.number_input("Energie (kcal/100g)", 0.0, 900.0, float(scan_result.get("kcal_100g") or 0), 1.0, key="scan_kcal")
+                scan_kh      = st.number_input("Koolhydraten (g/100g)", 0.0, 100.0, float(scan_result.get("kh_100g") or 0), 0.1, key="scan_kh")
+                scan_suikers = st.number_input("Suikers (g/100g)", 0.0, 100.0, float(scan_result.get("suikers_100g") or 0), 0.1, key="scan_suikers")
+            with s2:
+                scan_eiwit   = st.number_input("Eiwit (g/100g)", 0.0, 100.0, float(scan_result.get("eiwit_100g") or 0), 0.1, key="scan_eiwit")
+                scan_vet     = st.number_input("Vet (g/100g)", 0.0, 100.0, float(scan_result.get("vet_100g") or 0), 0.1, key="scan_vet")
+                scan_verz    = st.number_input("Verzadigd vet (g/100g)", 0.0, 100.0, float(scan_result.get("verzadigd_100g") or 0), 0.1, key="scan_verz")
+                scan_vezels  = st.number_input("Vezels (g/100g)", 0.0, 100.0, float(scan_result.get("vezels_100g") or 0), 0.1, key="scan_vezels")
+
+            s3, s4 = st.columns(2)
+            with s3:
+                scan_natrium = st.number_input("Natrium (mg/100g)", 0.0, 5000.0, float(scan_result.get("natrium_100g") or 0), 1.0, key="scan_natrium")
+            with s4:
+                scan_portie  = st.number_input("Portiegrootte (g/ml)", 0.0, 2000.0, float(scan_result.get("portie_g") or 100), 5.0, key="scan_portie")
+
+            scan_cat = st.selectbox("Categorie", CATEGORIE_OPTIES, key="scan_cat")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            if scan_naam:
+                if st.button("💾 Opslaan in bibliotheek", key="scan_opslaan", use_container_width=True):
+                    product = {
+                        "naam":           scan_naam.strip(),
+                        "categorie":      scan_cat,
+                        "bron":           "etiketscan",
+                        "portie_g":       scan_portie if scan_portie > 0 else None,
+                        "kcal_100g":      scan_kcal,
+                        "kh_100g":        scan_kh,
+                        "suikers_100g":   scan_suikers,
+                        "eiwit_100g":     scan_eiwit,
+                        "vet_100g":       scan_vet,
+                        "verzadigd_100g": scan_verz,
+                        "vezels_100g":    scan_vezels,
+                        "natrium_100g":   scan_natrium,
+                        "favoriet":       False,
+                        "user_id":        user_id,
+                    }
+                    if _sla_product_op(user_id, product):
+                        st.success(f"✅ '{scan_naam}' opgeslagen!")
+                        st.session_state.pop("scan_result", None)
+                        st.session_state.pop("scan_foto", None)
+                        st.rerun()
+            else:
+                st.caption("Vul een productnaam in om op te slaan.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 4 — MIJN BIBLIOTHEEK
     # ══════════════════════════════════════════════════════════════════════════
     with tab_lijst:
         st.markdown("<br>", unsafe_allow_html=True)
