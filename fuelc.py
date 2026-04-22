@@ -1436,7 +1436,7 @@ def _stap_bibliotheek(user: dict):
                     try:
                         import requests as _req2, json as _json
                         payload = {
-                            "model": "claude-sonnet-4-20250514",
+                            "model": "claude-sonnet-4-5",
                             "max_tokens": 1000,
                             "messages": [{
                                 "role": "user",
@@ -2086,7 +2086,7 @@ def _stap_dagschema(user: dict):
                             resp = _req3.post(
                                 "https://api.anthropic.com/v1/messages",
                                 json={
-                                    "model": "claude-sonnet-4-20250514",
+                                    "model": "claude-sonnet-4-5",
                                     "max_tokens": 300,
                                     "messages": [{"role":"user","content": prompt}]
                                 },
