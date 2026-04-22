@@ -10,7 +10,7 @@ except ImportError:
 try:
     from fuelc import render_fuelc
 except Exception as _e:
-    def render_fuelc(user): st.error(f"FuelC fout: {_e}")
+    def render_fuelc(user): st.error("FuelC importfout - zie Render logs")
 try:
     from carbomax import render_carbomax
 except ImportError:
