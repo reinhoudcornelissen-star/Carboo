@@ -1136,6 +1136,44 @@ VOEDSEL_DB = [
 ]
 
 
+def _laad_gecombineerde_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    """Combineer eigen bibliotheek + ingebouwde databank."""
+    # Eigen bibliotheek
+    eigen = _laad_bibliotheek(user_id)
+    eigen_namen = {p["naam"].lower() for p in eigen}
+
+    # Ingebouwde databank — omzetten naar zelfde structuur
+    databank = []
+    for p in VOEDSEL_DB:
+        if p["naam"].lower() not in eigen_namen:
+            databank.append({
+                "id":            f"db_{p['naam']}",
+                "naam":          p["naam"],
+                "categorie":     p["cat"],
+                "bron":          "databank",
+                "portie_g":      p["portie"],
+                "kcal_100g":     p["kcal"],
+                "kh_100g":       p["kh"],
+                "suikers_100g":  p["suikers"],
+                "eiwit_100g":    p["eiwit"],
+                "vet_100g":      p["vet"],
+                "verzadigd_100g":p["verz"],
+                "vezels_100g":   p["vezels"],
+                "natrium_100g":  p["natrium"],
+                "favoriet":      False,
+            })
+
+    gecombineerd = eigen + databank
+
+    # Filter
+    if zoek:
+        zoek_l = zoek.lower()
+        gecombineerd = [p for p in gecombineerd if zoek_l in p["naam"].lower()]
+    if categorie and categorie != "Alle":
+        gecombineerd = [p for p in gecombineerd if p.get("categorie","") == categorie]
+
+    return gecombineerd
+
 def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
     try:
         sb = _get_supabase()
@@ -1741,32 +1779,58 @@ def _sla_dagschema_op(user_id, datum, schema):
 
 def _laad_dagboek_items(user_id, datum, moment):
     try:
-        r = _get_supabase().table("fuelc_dagboek").select("*").eq("user_id",user_id).eq("datum",datum).eq("moment",moment).execute()
-        return r.data or []
+        # Gebruik cache per dag om queries te beperken
+        cache_key = f"dagboek_cache_{datum}"
+        if cache_key not in st.session_state:
+            r = _get_supabase().table("fuelc_dagboek").select("*").eq("user_id",user_id).eq("datum",datum).execute()
+            st.session_state[cache_key] = r.data or []
+        return [i for i in st.session_state[cache_key] if i.get("moment") == moment]
     except: return []
 
-def _verwijder_dagboek_item(item_id):
+def _invalideer_dagboek_cache(datum):
+    """Verwijder cache na toevoegen/verwijderen."""
+    cache_key = f"dagboek_cache_{datum}"
+    if cache_key in st.session_state:
+        del st.session_state[cache_key]
+
+def _verwijder_dagboek_item(item_id, datum=None):
     try:
         _get_supabase().table("fuelc_dagboek").delete().eq("id",item_id).execute()
+        if datum:
+            _invalideer_dagboek_cache(datum)
         return True
     except: return False
 
 def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
     try:
         f = hoeveelheid / 100
+        # Zorg dat schema bestaat voor deze dag
+        schema = _laad_dagschema(user_id, datum)
+        if not schema:
+            sid = _sla_dagschema_op(user_id, datum, {
+                "energie_doel": 2000, "kh_doel_g": 250,
+                "eiwit_doel_g": 125, "vet_doel_g": 56,
+                "aantal_maaltijden": 3,
+                "momenten_json": "[]",
+                "training_timing": "Geen training",
+                "eet_patroon": "Klassiek",
+            })
         _get_supabase().table("fuelc_dagboek").insert({
-            "user_id":user_id,"datum":datum,"moment":moment,
-            "product_id":product["id"],"naam":product["naam"],
-            "hoeveelheid_g":hoeveelheid,
-            "kcal":  round((product.get("kcal_100g") or 0)*f, 1),
-            "kh_g":  round((product.get("kh_100g") or 0)*f, 1),
-            "eiwit_g":round((product.get("eiwit_100g") or 0)*f, 1),
-            "vet_g": round((product.get("vet_100g") or 0)*f, 1),
-            "vezels_g":round((product.get("vezels_100g") or 0)*f, 1),
+            "user_id":   user_id,
+            "datum":     datum,
+            "moment":    moment,
+            "product_id": product["id"],
+            "naam":      product["naam"],
+            "hoeveelheid_g": hoeveelheid,
+            "kcal":      round((product.get("kcal_100g") or 0)*f, 1),
+            "kh_g":      round((product.get("kh_100g") or 0)*f, 1),
+            "eiwit_g":   round((product.get("eiwit_100g") or 0)*f, 1),
+            "vet_g":     round((product.get("vet_100g") or 0)*f, 1),
+            "vezels_g":  round((product.get("vezels_100g") or 0)*f, 1),
         }).execute()
         return True
     except Exception as e:
-        st.error(f"Fout: {e}")
+        st.error(f"Fout opslaan: {e}")
         return False
 
 def _genereer_dagplan(momenten, training_timing, bibliotheek):
@@ -1833,7 +1897,7 @@ def _stap_dagschema(user: dict):
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Bibliotheek laden (1x)
-    bibliotheek = _laad_bibliotheek(user_id)
+    bibliotheek = _laad_gecombineerde_bibliotheek(user_id)
 
     # ── 7 dagen ───────────────────────────────────────────────────────────────
     for dag_idx in range(7):
@@ -2021,7 +2085,7 @@ def _stap_dagschema(user: dict):
                                 st.markdown(f'<div style="font-size:0.78rem;color:#3b82f6;padding:2px 0;">{round(item.get("eiwit_g",0))}g</div>', unsafe_allow_html=True)
                             with ic6:
                                 if st.button("✕", key=f"del_{item['id']}"):
-                                    _verwijder_dagboek_item(item["id"])
+                                    _verwijder_dagboek_item(item["id"], dag_str)
                                     st.rerun()
                         # Totaalrij
                         st.markdown(
@@ -2088,7 +2152,7 @@ def _stap_dagschema(user: dict):
                                                  key=f"add_{dag_str}_{mi}",
                                                  use_container_width=True):
                                         if _sla_dagboek_item(user_id, dag_str, mi, gekozen, hoev):
-                                            # Reset zoekveld
+                                            _invalideer_dagboek_cache(dag_str)
                                             for k in [f"zoek_{dag_str}_{mi}", f"pk_{dag_str}_{mi}"]:
                                                 st.session_state.pop(k, None)
                                             st.rerun()
@@ -2135,21 +2199,25 @@ def render_fuelc(user: dict):
         st.session_state.module = "menu"
         st.rerun()
 
-    # Navigatiebalk
-    stap  = st.session_state.get("fc_stap", 1)
-    namen = ["Profiel","Trainingen","Bibliotheek","Dagschema","Dashboard"]
-    cols  = st.columns(len(namen))
-    for i, (col, naam_stap) in enumerate(zip(cols, namen)):
-        actief = (i+1) == stap
-        gedaan = i+1 < stap
-        kleur  = "#22c55e" if actief else ("#86efac" if gedaan else "#334155")
-        col.markdown(
-            f'<div style="text-align:center;font-size:10px;font-weight:700;'
-            f'color:{kleur};border-bottom:2px solid {kleur};padding-bottom:4px;">'
-            f'{"✓ " if gedaan else ""}{naam_stap}</div>',
-            unsafe_allow_html=True)
+    # ── Navigatieknoppen ──────────────────────────────────────────────────────
+    stap   = st.session_state.get("fc_stap", 1)
+    namen  = ["Profiel","Trainingen","Bibliotheek","Weekschema","Dashboard"]
+    emojis = ["👤","🏃","🥦","📅","📊"]
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    nav_cols = st.columns(5)
+    for i, (col, naam_stap, emoji) in enumerate(zip(nav_cols, namen, emojis)):
+        with col:
+            actief = (i+1) == stap
+            if st.button(
+                f"{emoji}  {naam_stap}",
+                key=f"nav_stap_{i+1}",
+                use_container_width=True,
+                type="primary" if actief else "secondary"):
+                st.session_state.fc_stap = i+1
+                st.rerun()
+
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
 
     # Profiel geladen check
     if "fc_profiel" not in st.session_state:
