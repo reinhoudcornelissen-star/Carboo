@@ -550,10 +550,41 @@ def _stap_trainingen(user: dict):
         kern_notitie = ""
         kern_zone2 = ZONE_LABELS[3]
 
+        def _km_of_min_invoer(prefix, label_min, label_km, default_min, default_km, zone_idx, help_min="", help_km=""):
+            """Invoer in km of minuten afhankelijk van modus, geeft (minuten, km, zone) terug."""
+            if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                km = st.number_input(label_km, 0.0, 200.0, default_km, 0.1,
+                                     key=f"{prefix}_km", help=help_km)
+                zone = _zone_selectbox("Intensiteitszone", f"{prefix}_zone", zone_idx)
+                tempo = zones_data.get(f"{zone[:2].lower()}_tempo_van") or zones_data.get(f"{zone[:2].lower()}_tempo_tot")
+                if tempo and tempo > 0 and km > 0:
+                    minuten = round(km * tempo)
+                    st.markdown(
+                        f'<div style="font-size:0.7rem;color:#22c55e;margin-top:-8px;">'
+                        f'≈ {minuten}min op basis van gekalibreerd tempo</div>',
+                        unsafe_allow_html=True)
+                else:
+                    minuten = round(km * 6) if km > 0 else 0
+                return minuten, km, zone
+            else:
+                minuten = st.number_input(label_min, 0, 300, default_min,
+                                          key=f"{prefix}_min", help=help_min)
+                zone = _zone_selectbox("Intensiteitszone", f"{prefix}_zone", zone_idx)
+                km_auto = 0.0
+                if sport == "Lopen":
+                    tempo = zones_data.get(f"{zone[:2].lower()}_tempo_van") or zones_data.get(f"{zone[:2].lower()}_tempo_tot")
+                    if tempo and tempo > 0 and minuten > 0:
+                        km_auto = round(minuten / tempo, 2)
+                        st.markdown(
+                            f'<div style="font-size:0.7rem;color:#22c55e;margin-top:-8px;">'
+                            f'≈ {km_auto} km op basis van gekalibreerd tempo</div>',
+                            unsafe_allow_html=True)
+                return minuten, km_auto, zone
+
         if kern_type == "Doorlopend":
             k1, k2 = st.columns(2)
             with k1:
-                kern_min, kern_km, kern_zone = _invoer_blok(
+                kern_min, kern_km, kern_zone = _km_of_min_invoer(
                     "tr_kern", "Duur (minuten)", "Afstand (km)", 40, 8.0, 1)
             with k2:
                 kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
@@ -564,16 +595,33 @@ def _stap_trainingen(user: dict):
         elif kern_type == "Intervalblokken":
             ic1, ic2, ic3 = st.columns(3)
             with ic1:
-                int_herh   = st.number_input("Herhalingen", 1, 30, 5, key="tr_int_herh")
-                int_werk   = st.number_input("Werkblok (min)", 1, 60, 4, key="tr_int_werk")
-            with ic2:
-                int_rust   = st.number_input("Rustblok (min)", 1, 30, 2, key="tr_int_rust")
+                int_herh = st.number_input("Herhalingen", 1, 30, 5, key="tr_int_herh")
                 int_zone_w = _zone_selectbox("Zone werk", "tr_int_zone_w", 3)
-            with ic3:
+            with ic2:
                 int_zone_r = _zone_selectbox("Zone rust", "tr_int_zone_r", 0)
+                if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                    int_werk_km = st.number_input("Werkblok (km)", 0.1, 20.0, 1.0, 0.1, key="tr_int_werk_km")
+                    int_rust_km = st.number_input("Rustblok (km)", 0.1, 10.0, 0.4, 0.1, key="tr_int_rust_km")
+                    tempo_w = zones_data.get(f"{int_zone_w[:2].lower()}_tempo_van") or zones_data.get(f"{int_zone_w[:2].lower()}_tempo_tot") or 5.0
+                    tempo_r = zones_data.get(f"{int_zone_r[:2].lower()}_tempo_van") or zones_data.get(f"{int_zone_r[:2].lower()}_tempo_tot") or 6.5
+                    int_werk = round(int_werk_km * tempo_w)
+                    int_rust  = round(int_rust_km * tempo_r)
+                    kern_km   = int_herh * (int_werk_km + int_rust_km)
+                else:
+                    int_werk_km = 0.0
+                    int_rust_km = 0.0
+                    kern_km     = 0.0
+            with ic3:
+                if invoer_modus == "Tijd (minuten)" or sport != "Lopen":
+                    int_werk = st.number_input("Werkblok (min)", 1, 60, 4, key="tr_int_werk")
+                    int_rust = st.number_input("Rustblok (min)", 1, 30, 2, key="tr_int_rust")
+
             kern_min  = int_herh * (int_werk + int_rust)
             kern_zone = int_zone_w
-            kern_notitie = f"{int_herh}× {int_werk}min {int_zone_w[:2]} + {int_rust}min {int_zone_r[:2]}"
+            if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                kern_notitie = f"{int_herh}× {int_werk_km}km {int_zone_w[:2]} + {int_rust_km}km {int_zone_r[:2]}"
+            else:
+                kern_notitie = f"{int_herh}× {int_werk}min {int_zone_w[:2]} + {int_rust}min {int_zone_r[:2]}"
             st.markdown(
                 f'<div style="background:#0f172a;border-left:3px solid #22c55e;'
                 f'border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#22c55e;">'
@@ -583,7 +631,13 @@ def _stap_trainingen(user: dict):
         elif kern_type == "Ramp up":
             ru1, ru2, ru3 = st.columns(3)
             with ru1:
-                ramp_min  = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_ramp_min")
+                if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                    ramp_km  = st.number_input("Afstand (km)", 0.1, 50.0, 5.0, 0.1, key="tr_ramp_km")
+                    ramp_min = round(ramp_km * 5.5)
+                    kern_km  = ramp_km
+                else:
+                    ramp_min = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_ramp_min")
+                    kern_km  = 0.0
             with ru2:
                 ramp_van  = _zone_selectbox("Van zone", "tr_ramp_van", 1)
             with ru3:
@@ -599,7 +653,13 @@ def _stap_trainingen(user: dict):
         elif kern_type == "Ramp down":
             rd1, rd2, rd3 = st.columns(3)
             with rd1:
-                ramp_min  = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_rampd_min")
+                if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                    ramp_km  = st.number_input("Afstand (km)", 0.1, 50.0, 5.0, 0.1, key="tr_rampd_km")
+                    ramp_min = round(ramp_km * 5.5)
+                    kern_km  = ramp_km
+                else:
+                    ramp_min = st.number_input("Totale duur (min)", 5, 120, 20, key="tr_rampd_min")
+                    kern_km  = 0.0
             with rd2:
                 ramp_van  = _zone_selectbox("Van zone", "tr_rampd_van", 3)
             with rd3:
