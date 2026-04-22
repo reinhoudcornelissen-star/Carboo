@@ -983,6 +983,159 @@ CATEGORIE_OPTIES = [
     "Sportvoeding", "Dranken", "Sauzen & spreads", "Snacks", "Overige"
 ]
 
+VOEDSEL_DB = [
+    {"naam":'Wit brood',"cat":'Granen & brood',"kcal":265,"kh":49,"suikers":4,"eiwit":8,"vet":3,"verz":0.6,"vezels":2,"natrium":500,"portie":35},
+    {"naam":'Bruin brood',"cat":'Granen & brood',"kcal":245,"kh":44,"suikers":4,"eiwit":9,"vet":3,"verz":0.5,"vezels":5,"natrium":480,"portie":35},
+    {"naam":'Volkorenbrood',"cat":'Granen & brood',"kcal":240,"kh":41,"suikers":3,"eiwit":9,"vet":3,"verz":0.5,"vezels":7,"natrium":400,"portie":35},
+    {"naam":'Stokbrood',"cat":'Granen & brood',"kcal":270,"kh":55,"suikers":2,"eiwit":9,"vet":1,"verz":0.2,"vezels":2,"natrium":550,"portie":50},
+    {"naam":'Havermout',"cat":'Granen & brood',"kcal":370,"kh":60,"suikers":1,"eiwit":13,"vet":7,"verz":1.2,"vezels":10,"natrium":5,"portie":45},
+    {"naam":'Cornflakes',"cat":'Granen & brood',"kcal":375,"kh":84,"suikers":7,"eiwit":7,"vet":1,"verz":0.1,"vezels":3,"natrium":660,"portie":30},
+    {"naam":'Muesli',"cat":'Granen & brood',"kcal":360,"kh":65,"suikers":20,"eiwit":9,"vet":7,"verz":1.0,"vezels":8,"natrium":30,"portie":50},
+    {"naam":'Granola',"cat":'Granen & brood',"kcal":440,"kh":64,"suikers":22,"eiwit":9,"vet":17,"verz":2.0,"vezels":6,"natrium":80,"portie":45},
+    {"naam":'Rijst wit gekookt',"cat":'Granen & brood',"kcal":130,"kh":28,"suikers":0,"eiwit":3,"vet":0,"verz":0.0,"vezels":0,"natrium":0,"portie":180},
+    {"naam":'Rijst volkoren gekookt',"cat":'Granen & brood',"kcal":110,"kh":23,"suikers":0,"eiwit":3,"vet":1,"verz":0.1,"vezels":2,"natrium":0,"portie":180},
+    {"naam":'Pasta wit gekookt',"cat":'Granen & brood',"kcal":158,"kh":31,"suikers":1,"eiwit":6,"vet":1,"verz":0.1,"vezels":2,"natrium":0,"portie":180},
+    {"naam":'Pasta volkoren gekookt',"cat":'Granen & brood',"kcal":150,"kh":28,"suikers":1,"eiwit":6,"vet":1,"verz":0.1,"vezels":4,"natrium":0,"portie":180},
+    {"naam":'Quinoa gekookt',"cat":'Granen & brood',"kcal":120,"kh":21,"suikers":1,"eiwit":4,"vet":2,"verz":0.2,"vezels":3,"natrium":5,"portie":185},
+    {"naam":'Couscous gekookt',"cat":'Granen & brood',"kcal":112,"kh":23,"suikers":0,"eiwit":4,"vet":0,"verz":0.0,"vezels":1,"natrium":5,"portie":180},
+    {"naam":'Aardappel gekookt',"cat":'Granen & brood',"kcal":87,"kh":20,"suikers":1,"eiwit":2,"vet":0,"verz":0.0,"vezels":2,"natrium":5,"portie":175},
+    {"naam":'Zoete aardappel gekookt',"cat":'Granen & brood',"kcal":90,"kh":21,"suikers":4,"eiwit":2,"vet":0,"verz":0.0,"vezels":3,"natrium":36,"portie":175},
+    {"naam":'Rijstwafel naturel',"cat":'Granen & brood',"kcal":385,"kh":81,"suikers":1,"eiwit":8,"vet":3,"verz":0.5,"vezels":2,"natrium":10,"portie":9},
+    {"naam":'Cracker volkoren',"cat":'Granen & brood',"kcal":410,"kh":70,"suikers":2,"eiwit":10,"vet":10,"verz":2.0,"vezels":8,"natrium":600,"portie":10},
+    {"naam":'Roggebrood',"cat":'Granen & brood',"kcal":259,"kh":49,"suikers":2,"eiwit":9,"vet":2,"verz":0.2,"vezels":6,"natrium":450,"portie":40},
+    {"naam":'Wrap',"cat":'Granen & brood',"kcal":290,"kh":50,"suikers":3,"eiwit":8,"vet":6,"verz":2.0,"vezels":3,"natrium":600,"portie":60},
+    {"naam":'Pannenkoek',"cat":'Granen & brood',"kcal":230,"kh":35,"suikers":8,"eiwit":6,"vet":8,"verz":2.0,"vezels":1,"natrium":220,"portie":80},
+    {"naam":'Croissant',"cat":'Granen & brood',"kcal":406,"kh":46,"suikers":10,"eiwit":8,"vet":21,"verz":12.0,"vezels":2,"natrium":400,"portie":60},
+    {"naam":'Maïstortilla',"cat":'Granen & brood',"kcal":218,"kh":46,"suikers":1,"eiwit":5,"vet":3,"verz":0.3,"vezels":4,"natrium":400,"portie":45},
+    {"naam":'Bulgur gekookt',"cat":'Granen & brood',"kcal":83,"kh":19,"suikers":0,"eiwit":3,"vet":0,"verz":0.0,"vezels":5,"natrium":5,"portie":180},
+    {"naam":'Polenta',"cat":'Granen & brood',"kcal":372,"kh":78,"suikers":1,"eiwit":9,"vet":4,"verz":0.5,"vezels":7,"natrium":10,"portie":50},
+    {"naam":'Volle melk',"cat":'Zuivel',"kcal":64,"kh":5,"suikers":5,"eiwit":3,"vet":4,"verz":2.4,"vezels":0,"natrium":43,"portie":200},
+    {"naam":'Halfvolle melk',"cat":'Zuivel',"kcal":46,"kh":5,"suikers":5,"eiwit":3,"vet":2,"verz":1.1,"vezels":0,"natrium":43,"portie":200},
+    {"naam":'Magere melk',"cat":'Zuivel',"kcal":34,"kh":5,"suikers":5,"eiwit":3,"vet":0,"verz":0.0,"vezels":0,"natrium":43,"portie":200},
+    {"naam":'Sojadrank',"cat":'Zuivel',"kcal":40,"kh":3,"suikers":2,"eiwit":3,"vet":2,"verz":0.3,"vezels":0,"natrium":50,"portie":200},
+    {"naam":'Haverdrank',"cat":'Zuivel',"kcal":45,"kh":7,"suikers":4,"eiwit":1,"vet":1,"verz":0.2,"vezels":1,"natrium":60,"portie":200},
+    {"naam":'Amandelmelk',"cat":'Zuivel',"kcal":24,"kh":3,"suikers":2,"eiwit":1,"vet":1,"verz":0.1,"vezels":0,"natrium":70,"portie":200},
+    {"naam":'Griekse yoghurt vol',"cat":'Zuivel',"kcal":130,"kh":4,"suikers":4,"eiwit":9,"vet":8,"verz":5.0,"vezels":0,"natrium":40,"portie":150},
+    {"naam":'Yoghurt natuur mager',"cat":'Zuivel',"kcal":55,"kh":7,"suikers":7,"eiwit":5,"vet":1,"verz":0.5,"vezels":0,"natrium":65,"portie":125},
+    {"naam":'Kwark mager',"cat":'Zuivel',"kcal":57,"kh":4,"suikers":4,"eiwit":9,"vet":0,"verz":0.0,"vezels":0,"natrium":40,"portie":100},
+    {"naam":'Plattekaas',"cat":'Zuivel',"kcal":72,"kh":3,"suikers":3,"eiwit":8,"vet":3,"verz":2.0,"vezels":0,"natrium":55,"portie":100},
+    {"naam":'Edammer 30+',"cat":'Zuivel',"kcal":270,"kh":0,"suikers":0,"eiwit":27,"vet":18,"verz":11.0,"vezels":0,"natrium":800,"portie":30},
+    {"naam":'Gouda 48+',"cat":'Zuivel',"kcal":356,"kh":0,"suikers":0,"eiwit":25,"vet":28,"verz":18.0,"vezels":0,"natrium":820,"portie":30},
+    {"naam":'Mozzarella',"cat":'Zuivel',"kcal":280,"kh":2,"suikers":1,"eiwit":19,"vet":22,"verz":13.0,"vezels":0,"natrium":600,"portie":50},
+    {"naam":'Feta',"cat":'Zuivel',"kcal":264,"kh":4,"suikers":0,"eiwit":14,"vet":21,"verz":15.0,"vezels":0,"natrium":1120,"portie":30},
+    {"naam":'Skyr',"cat":'Zuivel',"kcal":63,"kh":4,"suikers":4,"eiwit":11,"vet":0,"verz":0.0,"vezels":0,"natrium":50,"portie":150},
+    {"naam":'Boter',"cat":'Zuivel',"kcal":717,"kh":1,"suikers":0,"eiwit":1,"vet":81,"verz":51.0,"vezels":0,"natrium":700,"portie":10},
+    {"naam":'Margarine',"cat":'Zuivel',"kcal":520,"kh":1,"suikers":0,"eiwit":0,"vet":58,"verz":15.0,"vezels":0,"natrium":600,"portie":10},
+    {"naam":'Kipfilet',"cat":'Vlees & vis',"kcal":165,"kh":0,"suikers":0,"eiwit":31,"vet":4,"verz":1.0,"vezels":0,"natrium":74,"portie":120},
+    {"naam":'Kalkoenfilet',"cat":'Vlees & vis',"kcal":157,"kh":0,"suikers":0,"eiwit":30,"vet":3,"verz":0.9,"vezels":0,"natrium":70,"portie":120},
+    {"naam":'Rundergehakt mager',"cat":'Vlees & vis',"kcal":200,"kh":0,"suikers":0,"eiwit":20,"vet":13,"verz":5.0,"vezels":0,"natrium":75,"portie":120},
+    {"naam":'Biefstuk',"cat":'Vlees & vis',"kcal":217,"kh":0,"suikers":0,"eiwit":26,"vet":12,"verz":4.0,"vezels":0,"natrium":66,"portie":150},
+    {"naam":'Varkenshaas',"cat":'Vlees & vis',"kcal":143,"kh":0,"suikers":0,"eiwit":22,"vet":6,"verz":2.0,"vezels":0,"natrium":63,"portie":120},
+    {"naam":'Zalm',"cat":'Vlees & vis',"kcal":208,"kh":0,"suikers":0,"eiwit":20,"vet":13,"verz":3.0,"vezels":0,"natrium":59,"portie":150},
+    {"naam":'Tonijn in water',"cat":'Vlees & vis',"kcal":108,"kh":0,"suikers":0,"eiwit":25,"vet":1,"verz":0.2,"vezels":0,"natrium":320,"portie":100},
+    {"naam":'Kabeljauw',"cat":'Vlees & vis',"kcal":82,"kh":0,"suikers":0,"eiwit":18,"vet":1,"verz":0.1,"vezels":0,"natrium":54,"portie":150},
+    {"naam":'Garnalen',"cat":'Vlees & vis',"kcal":99,"kh":0,"suikers":0,"eiwit":21,"vet":1,"verz":0.3,"vezels":0,"natrium":111,"portie":100},
+    {"naam":'Makreel',"cat":'Vlees & vis',"kcal":205,"kh":0,"suikers":0,"eiwit":19,"vet":14,"verz":3.0,"vezels":0,"natrium":90,"portie":120},
+    {"naam":'Haring',"cat":'Vlees & vis',"kcal":217,"kh":0,"suikers":0,"eiwit":18,"vet":15,"verz":3.0,"vezels":0,"natrium":100,"portie":100},
+    {"naam":'Ei groot',"cat":'Vlees & vis',"kcal":155,"kh":1,"suikers":1,"eiwit":13,"vet":11,"verz":3.0,"vezels":0,"natrium":124,"portie":60},
+    {"naam":'Kippenham',"cat":'Vlees & vis',"kcal":105,"kh":2,"suikers":1,"eiwit":18,"vet":3,"verz":1.0,"vezels":0,"natrium":900,"portie":30},
+    {"naam":'Spek',"cat":'Vlees & vis',"kcal":541,"kh":0,"suikers":0,"eiwit":37,"vet":42,"verz":14.0,"vezels":0,"natrium":1717,"portie":30},
+    {"naam":'Sardines in olie',"cat":'Vlees & vis',"kcal":208,"kh":0,"suikers":0,"eiwit":25,"vet":11,"verz":1.5,"vezels":0,"natrium":505,"portie":100},
+    {"naam":'Broccoli',"cat":'Groenten',"kcal":34,"kh":7,"suikers":2,"eiwit":3,"vet":0,"verz":0.0,"vezels":3,"natrium":33,"portie":150},
+    {"naam":'Spinazie',"cat":'Groenten',"kcal":23,"kh":4,"suikers":0,"eiwit":3,"vet":0,"verz":0.0,"vezels":2,"natrium":79,"portie":100},
+    {"naam":'Wortel',"cat":'Groenten',"kcal":41,"kh":10,"suikers":5,"eiwit":1,"vet":0,"verz":0.0,"vezels":3,"natrium":69,"portie":100},
+    {"naam":'Tomaat',"cat":'Groenten',"kcal":18,"kh":4,"suikers":3,"eiwit":1,"vet":0,"verz":0.0,"vezels":1,"natrium":5,"portie":100},
+    {"naam":'Komkommer',"cat":'Groenten',"kcal":15,"kh":3,"suikers":2,"eiwit":1,"vet":0,"verz":0.0,"vezels":1,"natrium":2,"portie":100},
+    {"naam":'Paprika rood',"cat":'Groenten',"kcal":31,"kh":7,"suikers":5,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":4,"portie":100},
+    {"naam":'Courgette',"cat":'Groenten',"kcal":17,"kh":3,"suikers":2,"eiwit":1,"vet":0,"verz":0.0,"vezels":1,"natrium":8,"portie":150},
+    {"naam":'Aubergine',"cat":'Groenten',"kcal":25,"kh":6,"suikers":4,"eiwit":1,"vet":0,"verz":0.0,"vezels":3,"natrium":2,"portie":150},
+    {"naam":'Bloemkool',"cat":'Groenten',"kcal":25,"kh":5,"suikers":2,"eiwit":2,"vet":0,"verz":0.0,"vezels":2,"natrium":30,"portie":150},
+    {"naam":'Sla gemengd',"cat":'Groenten',"kcal":15,"kh":3,"suikers":2,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":10,"portie":80},
+    {"naam":'Ui',"cat":'Groenten',"kcal":40,"kh":9,"suikers":4,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":4,"portie":80},
+    {"naam":'Champignon',"cat":'Groenten',"kcal":22,"kh":3,"suikers":2,"eiwit":3,"vet":0,"verz":0.0,"vezels":1,"natrium":5,"portie":100},
+    {"naam":'Erwten',"cat":'Groenten',"kcal":81,"kh":14,"suikers":6,"eiwit":5,"vet":0,"verz":0.0,"vezels":5,"natrium":5,"portie":100},
+    {"naam":'Witte bonen',"cat":'Groenten',"kcal":127,"kh":23,"suikers":1,"eiwit":8,"vet":1,"verz":0.0,"vezels":7,"natrium":290,"portie":120},
+    {"naam":'Linzen gekookt',"cat":'Groenten',"kcal":116,"kh":20,"suikers":2,"eiwit":9,"vet":0,"verz":0.0,"vezels":8,"natrium":238,"portie":150},
+    {"naam":'Kikkererwten',"cat":'Groenten',"kcal":164,"kh":27,"suikers":5,"eiwit":9,"vet":3,"verz":0.3,"vezels":8,"natrium":24,"portie":120},
+    {"naam":'Zoete mais',"cat":'Groenten',"kcal":86,"kh":19,"suikers":3,"eiwit":3,"vet":1,"verz":0.2,"vezels":2,"natrium":15,"portie":100},
+    {"naam":'Avocado',"cat":'Groenten',"kcal":160,"kh":9,"suikers":1,"eiwit":2,"vet":15,"verz":2.0,"vezels":7,"natrium":7,"portie":100},
+    {"naam":'Edamame',"cat":'Groenten',"kcal":121,"kh":9,"suikers":3,"eiwit":11,"vet":5,"verz":0.7,"vezels":5,"natrium":2,"portie":100},
+    {"naam":'Knoflook',"cat":'Groenten',"kcal":149,"kh":33,"suikers":1,"eiwit":6,"vet":1,"verz":0.0,"vezels":2,"natrium":17,"portie":5},
+    {"naam":'Banaan',"cat":'Fruit',"kcal":89,"kh":23,"suikers":12,"eiwit":1,"vet":0,"verz":0.0,"vezels":3,"natrium":1,"portie":120},
+    {"naam":'Appel',"cat":'Fruit',"kcal":52,"kh":14,"suikers":10,"eiwit":0,"vet":0,"verz":0.0,"vezels":2,"natrium":1,"portie":150},
+    {"naam":'Peer',"cat":'Fruit',"kcal":57,"kh":15,"suikers":10,"eiwit":0,"vet":0,"verz":0.0,"vezels":3,"natrium":1,"portie":150},
+    {"naam":'Sinaasappel',"cat":'Fruit',"kcal":47,"kh":12,"suikers":9,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":0,"portie":150},
+    {"naam":'Mandarijn',"cat":'Fruit',"kcal":53,"kh":13,"suikers":11,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":2,"portie":100},
+    {"naam":'Aardbei',"cat":'Fruit',"kcal":32,"kh":8,"suikers":5,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":1,"portie":150},
+    {"naam":'Bosbes',"cat":'Fruit',"kcal":57,"kh":14,"suikers":10,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":1,"portie":100},
+    {"naam":'Druiven',"cat":'Fruit',"kcal":67,"kh":17,"suikers":16,"eiwit":1,"vet":0,"verz":0.0,"vezels":1,"natrium":1,"portie":150},
+    {"naam":'Kiwi',"cat":'Fruit',"kcal":61,"kh":15,"suikers":9,"eiwit":1,"vet":1,"verz":0.0,"vezels":3,"natrium":3,"portie":100},
+    {"naam":'Mango',"cat":'Fruit',"kcal":60,"kh":15,"suikers":14,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":1,"portie":150},
+    {"naam":'Ananas',"cat":'Fruit',"kcal":50,"kh":13,"suikers":10,"eiwit":1,"vet":0,"verz":0.0,"vezels":1,"natrium":1,"portie":150},
+    {"naam":'Watermeloen',"cat":'Fruit',"kcal":30,"kh":8,"suikers":6,"eiwit":1,"vet":0,"verz":0.0,"vezels":0,"natrium":1,"portie":200},
+    {"naam":'Dadel gedroogd',"cat":'Fruit',"kcal":277,"kh":75,"suikers":66,"eiwit":2,"vet":0,"verz":0.0,"vezels":7,"natrium":1,"portie":30},
+    {"naam":'Rozijnen',"cat":'Fruit',"kcal":299,"kh":79,"suikers":59,"eiwit":3,"vet":0,"verz":0.0,"vezels":4,"natrium":11,"portie":30},
+    {"naam":'Abrikoos gedroogd',"cat":'Fruit',"kcal":241,"kh":63,"suikers":53,"eiwit":3,"vet":0,"verz":0.0,"vezels":7,"natrium":10,"portie":30},
+    {"naam":'Appelmoes',"cat":'Fruit',"kcal":68,"kh":18,"suikers":16,"eiwit":0,"vet":0,"verz":0.0,"vezels":1,"natrium":2,"portie":120},
+    {"naam":'Framboos',"cat":'Fruit',"kcal":52,"kh":12,"suikers":4,"eiwit":1,"vet":1,"verz":0.0,"vezels":7,"natrium":1,"portie":100},
+    {"naam":'Grapefruit',"cat":'Fruit',"kcal":42,"kh":11,"suikers":7,"eiwit":1,"vet":0,"verz":0.0,"vezels":2,"natrium":0,"portie":150},
+    {"naam":'Energiegel standaard',"cat":'Sportvoeding',"kcal":100,"kh":25,"suikers":17,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":55,"portie":40},
+    {"naam":'Energiegel cafeïne',"cat":'Sportvoeding',"kcal":100,"kh":25,"suikers":17,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":55,"portie":40},
+    {"naam":'Sportdrank poeder',"cat":'Sportvoeding',"kcal":390,"kh":96,"suikers":80,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":800,"portie":35},
+    {"naam":'Isotone sportdrank',"cat":'Sportvoeding',"kcal":28,"kh":7,"suikers":6,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":46,"portie":500},
+    {"naam":'Energiereep',"cat":'Sportvoeding',"kcal":380,"kh":60,"suikers":30,"eiwit":10,"vet":10,"verz":3.0,"vezels":3,"natrium":200,"portie":65},
+    {"naam":'Proteïnereep',"cat":'Sportvoeding',"kcal":350,"kh":30,"suikers":5,"eiwit":30,"vet":12,"verz":4.0,"vezels":5,"natrium":300,"portie":60},
+    {"naam":'Whey proteïne',"cat":'Sportvoeding',"kcal":380,"kh":6,"suikers":4,"eiwit":80,"vet":4,"verz":1.0,"vezels":0,"natrium":200,"portie":30},
+    {"naam":'Caseïne proteïne',"cat":'Sportvoeding',"kcal":360,"kh":5,"suikers":2,"eiwit":78,"vet":2,"verz":1.0,"vezels":0,"natrium":350,"portie":30},
+    {"naam":'Recovery shake',"cat":'Sportvoeding',"kcal":350,"kh":50,"suikers":20,"eiwit":25,"vet":5,"verz":1.0,"vezels":2,"natrium":300,"portie":80},
+    {"naam":'Elektrolyten tablet',"cat":'Sportvoeding',"kcal":5,"kh":1,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":250,"portie":5},
+    {"naam":'Maltodextrine',"cat":'Sportvoeding',"kcal":383,"kh":95,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":5,"portie":40},
+    {"naam":'Dextrose',"cat":'Sportvoeding',"kcal":393,"kh":99,"suikers":99,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":0,"portie":40},
+    {"naam":'ORS oplossing',"cat":'Sportvoeding',"kcal":18,"kh":5,"suikers":4,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":460,"portie":500},
+    {"naam":'Rijstwafel chocolate',"cat":'Sportvoeding',"kcal":410,"kh":75,"suikers":25,"eiwit":6,"vet":10,"verz":5.0,"vezels":2,"natrium":50,"portie":20},
+    {"naam":'Water',"cat":'Dranken',"kcal":0,"kh":0,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":0,"portie":500},
+    {"naam":'Koffie zwart',"cat":'Dranken',"kcal":2,"kh":0,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":2,"portie":150},
+    {"naam":'Thee zwart',"cat":'Dranken',"kcal":1,"kh":0,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":3,"portie":200},
+    {"naam":'Sinaasappelsap',"cat":'Dranken',"kcal":45,"kh":10,"suikers":9,"eiwit":1,"vet":0,"verz":0.0,"vezels":0,"natrium":1,"portie":200},
+    {"naam":'Appelsap',"cat":'Dranken',"kcal":46,"kh":11,"suikers":10,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":3,"portie":200},
+    {"naam":'Cola',"cat":'Dranken',"kcal":42,"kh":11,"suikers":11,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":4,"portie":330},
+    {"naam":'Cola Zero',"cat":'Dranken',"kcal":1,"kh":0,"suikers":0,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":14,"portie":330},
+    {"naam":'Energiedrank',"cat":'Dranken',"kcal":45,"kh":11,"suikers":11,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":50,"portie":250},
+    {"naam":'Kokoswater',"cat":'Dranken',"kcal":19,"kh":4,"suikers":4,"eiwit":1,"vet":0,"verz":0.0,"vezels":0,"natrium":105,"portie":250},
+    {"naam":'Sojamelk',"cat":'Dranken',"kcal":42,"kh":3,"suikers":2,"eiwit":3,"vet":2,"verz":0.3,"vezels":0,"natrium":40,"portie":200},
+    {"naam":'Olijfolie',"cat":'Sauzen & spreads',"kcal":884,"kh":0,"suikers":0,"eiwit":0,"vet":100,"verz":14.0,"vezels":0,"natrium":0,"portie":10},
+    {"naam":'Zonnebloemolie',"cat":'Sauzen & spreads',"kcal":884,"kh":0,"suikers":0,"eiwit":0,"vet":100,"verz":10.0,"vezels":0,"natrium":0,"portie":10},
+    {"naam":'Kokosolie',"cat":'Sauzen & spreads',"kcal":862,"kh":0,"suikers":0,"eiwit":0,"vet":100,"verz":87.0,"vezels":0,"natrium":0,"portie":10},
+    {"naam":'Tomatensaus',"cat":'Sauzen & spreads',"kcal":72,"kh":12,"suikers":9,"eiwit":2,"vet":2,"verz":0.3,"vezels":2,"natrium":590,"portie":100},
+    {"naam":'Pesto groen',"cat":'Sauzen & spreads',"kcal":490,"kh":5,"suikers":2,"eiwit":8,"vet":49,"verz":9.0,"vezels":2,"natrium":700,"portie":20},
+    {"naam":'Honing',"cat":'Sauzen & spreads',"kcal":304,"kh":82,"suikers":82,"eiwit":0,"vet":0,"verz":0.0,"vezels":0,"natrium":4,"portie":15},
+    {"naam":'Confituur',"cat":'Sauzen & spreads',"kcal":250,"kh":62,"suikers":60,"eiwit":0,"vet":0,"verz":0.0,"vezels":1,"natrium":10,"portie":20},
+    {"naam":'Pindakaas',"cat":'Sauzen & spreads',"kcal":594,"kh":20,"suikers":9,"eiwit":25,"vet":50,"verz":10.0,"vezels":6,"natrium":410,"portie":20},
+    {"naam":'Amandelboter',"cat":'Sauzen & spreads',"kcal":614,"kh":19,"suikers":5,"eiwit":21,"vet":56,"verz":4.0,"vezels":10,"natrium":5,"portie":20},
+    {"naam":'Tahini',"cat":'Sauzen & spreads',"kcal":595,"kh":21,"suikers":0,"eiwit":17,"vet":54,"verz":8.0,"vezels":9,"natrium":115,"portie":15},
+    {"naam":'Mayonaise',"cat":'Sauzen & spreads',"kcal":680,"kh":2,"suikers":2,"eiwit":1,"vet":75,"verz":11.0,"vezels":0,"natrium":640,"portie":15},
+    {"naam":'Mosterd',"cat":'Sauzen & spreads',"kcal":66,"kh":6,"suikers":4,"eiwit":4,"vet":4,"verz":0.3,"vezels":3,"natrium":1100,"portie":10},
+    {"naam":'Sojasaus',"cat":'Sauzen & spreads',"kcal":53,"kh":8,"suikers":2,"eiwit":8,"vet":0,"verz":0.0,"vezels":1,"natrium":5720,"portie":15},
+    {"naam":'Chocopasta',"cat":'Sauzen & spreads',"kcal":539,"kh":58,"suikers":56,"eiwit":6,"vet":31,"verz":11.0,"vezels":4,"natrium":41,"portie":20},
+    {"naam":'Hummus',"cat":'Sauzen & spreads',"kcal":177,"kh":14,"suikers":1,"eiwit":8,"vet":10,"verz":1.0,"vezels":6,"natrium":421,"portie":50},
+    {"naam":'Ketjap manis',"cat":'Sauzen & spreads',"kcal":220,"kh":55,"suikers":50,"eiwit":6,"vet":0,"verz":0.0,"vezels":0,"natrium":3600,"portie":15},
+    {"naam":'Walnoten',"cat":'Snacks',"kcal":654,"kh":14,"suikers":3,"eiwit":15,"vet":65,"verz":6.0,"vezels":7,"natrium":2,"portie":30},
+    {"naam":'Amandelen',"cat":'Snacks',"kcal":579,"kh":22,"suikers":4,"eiwit":21,"vet":50,"verz":4.0,"vezels":13,"natrium":1,"portie":30},
+    {"naam":'Cashewnoten',"cat":'Snacks',"kcal":553,"kh":33,"suikers":6,"eiwit":18,"vet":44,"verz":9.0,"vezels":3,"natrium":12,"portie":30},
+    {"naam":'Pindanoten',"cat":'Snacks',"kcal":567,"kh":16,"suikers":4,"eiwit":26,"vet":49,"verz":7.0,"vezels":9,"natrium":18,"portie":30},
+    {"naam":'Pistachenoten',"cat":'Snacks',"kcal":560,"kh":28,"suikers":8,"eiwit":20,"vet":45,"verz":6.0,"vezels":10,"natrium":1,"portie":30},
+    {"naam":'Pure chocolade 70%',"cat":'Snacks',"kcal":598,"kh":46,"suikers":28,"eiwit":8,"vet":43,"verz":25.0,"vezels":11,"natrium":8,"portie":20},
+    {"naam":'Melkchocolade',"cat":'Snacks',"kcal":535,"kh":60,"suikers":57,"eiwit":8,"vet":30,"verz":18.0,"vezels":2,"natrium":75,"portie":20},
+    {"naam":'Chips',"cat":'Snacks',"kcal":536,"kh":53,"suikers":0,"eiwit":7,"vet":33,"verz":10.0,"vezels":4,"natrium":600,"portie":30},
+    {"naam":'Popcorn naturel',"cat":'Snacks',"kcal":375,"kh":74,"suikers":1,"eiwit":11,"vet":5,"verz":1.0,"vezels":15,"natrium":8,"portie":30},
+    {"naam":'Speculoos',"cat":'Snacks',"kcal":479,"kh":71,"suikers":33,"eiwit":6,"vet":18,"verz":9.0,"vezels":2,"natrium":350,"portie":16},
+    {"naam":'Havermoutkoek',"cat":'Snacks',"kcal":430,"kh":66,"suikers":32,"eiwit":7,"vet":15,"verz":5.0,"vezels":4,"natrium":200,"portie":40},
+    {"naam":'Winegums',"cat":'Snacks',"kcal":320,"kh":77,"suikers":45,"eiwit":6,"vet":0,"verz":0.0,"vezels":0,"natrium":30,"portie":40},
+    {"naam":'Energiebal dadel-noot',"cat":'Snacks',"kcal":380,"kh":55,"suikers":45,"eiwit":7,"vet":15,"verz":2.0,"vezels":6,"natrium":20,"portie":30},
+    {"naam":'Rijstwafels mais',"cat":'Snacks',"kcal":380,"kh":82,"suikers":3,"eiwit":7,"vet":3,"verz":0.5,"vezels":2,"natrium":200,"portie":9},
+]
+
+
 def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
     try:
         sb = _get_supabase()
@@ -1068,9 +1221,9 @@ def _stap_bibliotheek(user: dict):
 
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
 
-    tab_add, tab_off, tab_scan, tab_lijst = st.tabs([
+    tab_add, tab_db, tab_scan, tab_lijst = st.tabs([
         "➕  Manueel toevoegen",
-        "🌐  Open Food Facts",
+        "🔍  Voedselbank zoeken",
         "📷  Etiketscan",
         "📋  Mijn bibliotheek",
     ])
@@ -1169,149 +1322,89 @@ def _stap_bibliotheek(user: dict):
             st.caption("Vul minstens naam en categorie in.")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # TAB 2 — OPEN FOOD FACTS
+    # TAB 2 — INGEBOUWDE VOEDSELBANK
     # ══════════════════════════════════════════════════════════════════════════
-    with tab_off:
+    with tab_db:
         st.markdown("<br>", unsafe_allow_html=True)
-        _sectie("ZOEKEN IN OPEN FOOD FACTS", "#22c55e")
+        _sectie("ZOEKEN IN VOEDSELBANK", "#22c55e")
         st.markdown(
             '<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:12px;">' +
-            'Zoek op productnaam of barcode in de Open Food Facts database ' +
-            'en importeer rechtstreeks naar je bibliotheek.</div>',
+            'Zoek in onze ingebouwde databank en importeer producten naar je bibliotheek.</div>',
             unsafe_allow_html=True)
 
-        off_zoek = st.text_input("Zoekterm of barcode",
-            placeholder="bijv. havermout, 5449000000996...",
-            key="off_zoek")
+        db_zoek = st.text_input("Zoeken op naam",
+            placeholder="bijv. havermout, banaan, kipfilet...",
+            key="db_zoek", label_visibility="collapsed")
 
-        if off_zoek and st.button("🔍 Zoeken", key="off_zoek_btn", use_container_width=True):
-            import requests as _req, json
-            with st.spinner("Zoeken in Open Food Facts..."):
-                try:
-                    # Check of het een barcode is (enkel cijfers)
-                    if off_zoek.strip().isdigit():
-                        url = f"https://world.openfoodfacts.org/api/v0/product/{off_zoek.strip()}.json"
-                        data = _req.get(url, timeout=8).json()
-                        if data.get("status") == 1:
-                            prod = data["product"]
-                            results = [{
-                                "naam":     prod.get("product_name", ""),
-                                "merk":     prod.get("brands", ""),
-                                "barcode":  off_zoek.strip(),
-                                "kcal":     prod.get("nutriments", {}).get("energy-kcal_100g", 0),
-                                "kh":       prod.get("nutriments", {}).get("carbohydrates_100g", 0),
-                                "suikers":  prod.get("nutriments", {}).get("sugars_100g", 0),
-                                "eiwit":    prod.get("nutriments", {}).get("proteins_100g", 0),
-                                "vet":      prod.get("nutriments", {}).get("fat_100g", 0),
-                                "verz":     prod.get("nutriments", {}).get("saturated-fat_100g", 0),
-                                "vezels":   prod.get("nutriments", {}).get("fiber_100g", 0),
-                                "natrium":  round((prod.get("nutriments", {}).get("sodium_100g", 0) or 0) * 1000),
-                                "portie":   prod.get("serving_size", "100"),
-                            }]
-                        else:
-                            results = []
-                    else:
-                        params = {"search_terms": off_zoek.strip(), "search_simple": 1, "action": "process", "json": 1, "page_size": 10, "lc": "nl,fr,en"}
-                        url = "https://world.openfoodfacts.org/cgi/search.pl"
-                        data = _req.get(url, params=params, timeout=10).json()
-                        results = []
-                        for prod in prods:
-                            naam = prod.get("product_name", "").strip()
-                            if not naam:
-                                continue
-                            nut = prod.get("nutriments", {})
-                            results.append({
-                                "naam":    naam,
-                                "merk":    prod.get("brands", ""),
-                                "barcode": prod.get("code", ""),
-                                "kcal":    nut.get("energy-kcal_100g", 0),
-                                "kh":      nut.get("carbohydrates_100g", 0),
-                                "suikers": nut.get("sugars_100g", 0),
-                                "eiwit":   nut.get("proteins_100g", 0),
-                                "vet":     nut.get("fat_100g", 0),
-                                "verz":    nut.get("saturated-fat_100g", 0),
-                                "vezels":  nut.get("fiber_100g", 0),
-                                "natrium": round((nut.get("sodium_100g", 0) or 0) * 1000),
-                                "portie":  prod.get("serving_size", "100"),
-                            })
-                    st.session_state["off_results"] = results
-                except Exception as e:
-                    st.error(f"Fout bij zoeken: {e}")
-                    st.session_state["off_results"] = []
+        db_cat_filter = st.selectbox("Categorie",
+            ["Alle"] + CATEGORIE_OPTIES, key="db_cat_filter",
+            label_visibility="collapsed")
 
-        results = st.session_state.get("off_results", [])
-        if results == []:
-            if off_zoek:
+        # Filter de databank
+        zoek_l = db_zoek.lower().strip() if db_zoek else ""
+        db_results = [
+            p for p in VOEDSEL_DB
+            if (not zoek_l or zoek_l in p["naam"].lower())
+            and (db_cat_filter == "Alle" or p["cat"] == db_cat_filter)
+        ]
+
+        st.markdown(
+            f'<div style="font-size:0.72rem;color:#64748b;margin:8px 0;">' +
+            f'{len(db_results)} product(en) gevonden</div>',
+            unsafe_allow_html=True)
+
+        for i, p in enumerate(db_results[:50]):
+            with st.expander(f"{p['naam']} — {p['cat']}", expanded=False):
                 st.markdown(
-                    '<div style="color:#64748b;font-size:0.8rem;padding:12px;">'
-                    'Geen resultaten gevonden.</div>',
+                    f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">' +
+                    f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">KCAL</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{p["kcal"]}</div></div>' +
+                    f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">KH</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{p["kh"]}g</div></div>' +
+                    f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">EIWIT</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#3b82f6;">{p["eiwit"]}g</div></div>' +
+                    f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">VET</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#8b5cf6;">{p["vet"]}g</div></div>' +
+                    f'</div>' +
+                    f'<div style="font-size:0.7rem;color:#64748b;margin-bottom:8px;">' +
+                    f'Standaard portie: {p["portie"]}g/ml · ' +
+                    f'Vezels: {p["vezels"]}g · Natrium: {p["natrium"]}mg</div>',
                     unsafe_allow_html=True)
-        elif results:
-            st.markdown(
-                f'<div style="font-size:0.72rem;color:#64748b;margin:8px 0;">' +
-                f'{len(results)} resultaat/resultaten gevonden</div>',
-                unsafe_allow_html=True)
-            for i, p in enumerate(results):
-                naam_merk = p["naam"] + (f" — {p['merk']}" if p.get("merk") else "")
-                with st.expander(naam_merk, expanded=i==0):
-                    # Macros tonen
-                    st.markdown(
-                        f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">' +
-                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
-                        f'<div style="font-size:0.6rem;color:#64748b;">KCAL</div>' +
-                        f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{round(p.get("kcal") or 0)}</div></div>' +
-                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
-                        f'<div style="font-size:0.6rem;color:#64748b;">KH</div>' +
-                        f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{round(p.get("kh") or 0)}g</div></div>' +
-                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
-                        f'<div style="font-size:0.6rem;color:#64748b;">EIWIT</div>' +
-                        f'<div style="font-size:0.9rem;font-weight:700;color:#3b82f6;">{round(p.get("eiwit") or 0)}g</div></div>' +
-                        f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;">' +
-                        f'<div style="font-size:0.6rem;color:#64748b;">VET</div>' +
-                        f'<div style="font-size:0.9rem;font-weight:700;color:#8b5cf6;">{round(p.get("vet") or 0)}g</div></div>' +
-                        f'</div>' +
-                        (f'<div style="font-size:0.7rem;color:#64748b;">Suikers: {round(p.get("suikers") or 0)}g · ' +
-                         f'Vezels: {round(p.get("vezels") or 0)}g · Natrium: {round(p.get("natrium") or 0)}mg</div>' if p.get("vezels") or p.get("natrium") else ""),
-                        unsafe_allow_html=True)
 
-                    # Categorie kiezen voor import
-                    cat_key = f"off_cat_{i}"
-                    import_cat = st.selectbox("Categorie", CATEGORIE_OPTIES,
-                        key=cat_key)
+                import_cat = st.selectbox("Categorie",
+                    CATEGORIE_OPTIES,
+                    index=CATEGORIE_OPTIES.index(p["cat"]) if p["cat"] in CATEGORIE_OPTIES else 0,
+                    key=f"db_cat_{i}")
+                import_portie = st.number_input("Portiegrootte (g/ml)",
+                    0.0, 2000.0, float(p["portie"]), 5.0,
+                    key=f"db_portie_{i}")
 
-                    # Portiegrootte
-                    portie_raw = str(p.get("portie", "100")).replace("g","").replace("ml","").strip()
-                    try:
-                        portie_default = float(portie_raw.split()[0]) if portie_raw else 100.0
-                    except:
-                        portie_default = 100.0
-                    import_portie = st.number_input("Portiegrootte (g/ml)",
-                        0.0, 2000.0, portie_default, 5.0,
-                        key=f"off_portie_{i}")
+                if st.button("📥 Toevoegen aan bibliotheek",
+                             key=f"db_import_{i}", use_container_width=True):
+                    product = {
+                        "naam":           p["naam"],
+                        "categorie":      import_cat,
+                        "bron":           "databank",
+                        "portie_g":       import_portie,
+                        "kcal_100g":      p["kcal"],
+                        "kh_100g":        p["kh"],
+                        "suikers_100g":   p["suikers"],
+                        "eiwit_100g":     p["eiwit"],
+                        "vet_100g":       p["vet"],
+                        "verzadigd_100g": p["verz"],
+                        "vezels_100g":    p["vezels"],
+                        "natrium_100g":   p["natrium"],
+                        "favoriet":       False,
+                        "user_id":        user_id,
+                    }
+                    if _sla_product_op(user_id, product):
+                        st.success(f"✅ '{p['naam']}' toegevoegd!")
+                        st.rerun()
 
-                    if st.button(f"📥 Importeer naar bibliotheek",
-                                 key=f"off_import_{i}", use_container_width=True):
-                        product = {
-                            "naam":           p["naam"],
-                            "categorie":      import_cat,
-                            "bron":           "openfoodfacts",
-                            "barcode":        p.get("barcode") or None,
-                            "portie_g":       import_portie if import_portie > 0 else None,
-                            "kcal_100g":      round(p.get("kcal") or 0, 1),
-                            "kh_100g":        round(p.get("kh") or 0, 1),
-                            "suikers_100g":   round(p.get("suikers") or 0, 1),
-                            "eiwit_100g":     round(p.get("eiwit") or 0, 1),
-                            "vet_100g":       round(p.get("vet") or 0, 1),
-                            "verzadigd_100g": round(p.get("verz") or 0, 1),
-                            "vezels_100g":    round(p.get("vezels") or 0, 1),
-                            "natrium_100g":   round(p.get("natrium") or 0, 1),
-                            "favoriet":       False,
-                            "user_id":        user_id,
-                        }
-                        if _sla_product_op(user_id, product):
-                            st.success(f"✅ '{p['naam']}' toegevoegd aan bibliotheek!")
-                            st.session_state.pop("off_results", None)
-                            st.rerun()
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 3 — ETIKETSCAN
@@ -1336,7 +1429,7 @@ def _stap_bibliotheek(user: dict):
             foto_b64   = base64.b64encode(foto_bytes).decode()
             foto_mime  = "image/jpeg" if scan_foto.name.lower().endswith((".jpg",".jpeg")) else "image/png"
 
-            st.image(scan_foto, caption="Geüpload etiket", use_column_width=False, width=300)
+            st.image(scan_foto, caption="Geüpload etiket", width=300)
 
             if st.button("🤖 Scan etiket", key="scan_btn", use_container_width=True):
                 with st.spinner("AI leest het etiket uit..."):
@@ -1371,12 +1464,15 @@ def _stap_bibliotheek(user: dict):
                                 ]
                             }]
                         }
-                        resp = _req2.post(
+                        resp_raw = _req2.post(
                             "https://api.anthropic.com/v1/messages",
                             json=payload,
                             timeout=30
-                        ).json()
+                        )
+                        resp = resp_raw.json()
 
+                        if "content" not in resp:
+                            raise Exception(resp.get("error", {}).get("message", str(resp)))
                         tekst = resp["content"][0]["text"].strip()
                         # Strip markdown fences indien aanwezig
                         if tekst.startswith("```"):
