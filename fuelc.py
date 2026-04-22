@@ -533,7 +533,6 @@ def _stap_trainingen(user: dict):
                     "duur_min":       totaal_min,
                     "afstand_km":     afstand_km if afstand_km > 0 else None,
                     "hartslag_gem":   hartslag_gem if hartslag_gem > 0 else None,
-                    "hoogte":         hoogtemeters if hoogtemeters > 0 else None,
                     "kcal_verbranding": totaal_kcal,
                     "hersteltijd_uur": herstel_uren,
                     "zone_verdeling": zone_verdeling,
