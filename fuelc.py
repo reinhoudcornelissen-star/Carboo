@@ -2973,11 +2973,166 @@ def _radio_kleur(label: str, opties: list, key: str, huidig: str = None) -> str:
 
 
 def _render_voedingsdagboek(user: dict):
-    tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
-    with tab_db:
-        _render_voedingsdagboek(user)
-    with tab_an:
-        _render_analyses(user)
+    from datetime import date as _date, timedelta as _td
+
+    user_id = user.get("id", "")
+    profiel = st.session_state.get("fc_profiel", {})
+
+    _sectie("VOEDINGSDAGBOEK", "#22c55e")
+
+    wi1, wi2 = st.columns([2,3])
+    with wi1:
+        week_ref = st.date_input("Week van", value=_date.today(), key="db_week_start")
+        maandag  = week_ref - _td(days=week_ref.weekday())
+    with wi2:
+        st.markdown(
+            f'<div style="padding-top:26px;font-size:0.8rem;color:#64748b;">'
+            f'{maandag.strftime("%d/%m")} — {(maandag+_td(days=6)).strftime("%d/%m/%Y")}</div>',
+            unsafe_allow_html=True)
+
+    welzijn_week  = _laad_welzijn_week(user_id, maandag)
+    schema_week   = {}
+    for _d in range(7):
+        _dd = str(maandag + _td(days=_d))
+        _s  = _laad_dagschema(user_id, _dd)
+        if _s: schema_week[_dd] = _s
+
+    # Week overzicht chips
+    chips_html = '<div style="display:flex;gap:6px;margin:8px 0 16px;flex-wrap:wrap;">'
+    for _d in range(7):
+        _dd     = str(maandag + _td(days=_d))
+        _naam   = DAGEN_NL_DB[_d][:2]
+        _num    = (maandag + _td(days=_d)).strftime("%d")
+        _w      = welzijn_week.get(_dd, {})
+        _vg     = _w.get("voeding_gevolgd","")
+        _kleur  = KLEUR_MAP.get(_vg, "#334155")
+        _vd     = _dd == str(_date.today())
+        chips_html += (
+            f'<div style="text-align:center;background:#1e293b;border-radius:8px;' +
+            f'padding:6px 10px;border:2px solid {_kleur};">' +
+            f'<div style="font-size:0.65rem;color:#64748b;">{_naam}</div>' +
+            f'<div style="font-size:0.85rem;font-weight:800;color:#f8fafc;">{_num}</div>' +
+            ('<div style="font-size:0.55rem;color:#f97316;font-weight:700;">VANDAAG</div>' if _vd else '') +
+            '</div>'
+        )
+    chips_html += '</div>'
+    st.markdown(chips_html, unsafe_allow_html=True)
+
+    for d in range(7):
+        dag_datum  = maandag + _td(days=d)
+        dag_str    = str(dag_datum)
+        dag_naam   = DAGEN_NL_DB[d]
+        dag_label  = f"{dag_naam} {dag_datum.strftime('%d/%m')}"
+        is_vandaag = dag_datum == _date.today()
+        is_toekomst = dag_datum > _date.today()
+
+        welzijn    = welzijn_week.get(dag_str, {})
+        schema_dag = schema_week.get(dag_str, {})
+        heeft_training = schema_dag.get("training_timing","Geen training") != "Geen training"
+        ingevuld   = bool(welzijn)
+
+        if is_toekomst:   border = "#1e293b"
+        elif ingevuld:    border = "#22c55e"
+        else:             border = "#f97316" if is_vandaag else "#334155"
+
+        dh1, dh2 = st.columns([4,1])
+        with dh1:
+            chips = ""
+            if welzijn.get("voeding_gevolgd"):
+                chips += _chip(welzijn["voeding_gevolgd"], KLEUR_MAP.get(welzijn["voeding_gevolgd"],"#64748b")) + " "
+            if welzijn.get("training_gevoel") and heeft_training:
+                chips += _chip(welzijn["training_gevoel"], KLEUR_MAP.get(welzijn["training_gevoel"],"#64748b")) + " "
+            if welzijn.get("hrv"):
+                chips += _chip(f"HRV {welzijn['hrv']}", KLEUR_MAP.get(welzijn["hrv"],"#64748b"))
+            st.markdown(
+                f'<div style="padding:6px 0;">' +
+                f'<span style="font-size:0.9rem;font-weight:800;color:#f8fafc;">{dag_label}</span>' +
+                ('<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;' +
+                 'font-weight:700;padding:1px 6px;margin-left:8px;">VANDAAG</span>' if is_vandaag else "") +
+                ('<span style="color:#475569;font-size:0.75rem;margin-left:8px;">— nog niet beschikbaar</span>' if is_toekomst else "") +
+                f'</div><div style="margin-top:2px;">{chips}</div>',
+                unsafe_allow_html=True)
+        with dh2:
+            if not is_toekomst:
+                dag_open_key = f"db_open_{dag_str}"
+                lbl = "▲ Dicht" if st.session_state.get(dag_open_key) else "▼ Invullen"
+                if st.button(lbl, key=f"db_toggle_{dag_str}", use_container_width=True):
+                    st.session_state[dag_open_key] = not st.session_state.get(dag_open_key, False)
+                    st.rerun()
+
+        if not is_toekomst and st.session_state.get(f"db_open_{dag_str}", False):
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:10px;border-left:3px solid {border};' +
+                f'padding:14px;margin-bottom:4px;">',
+                unsafe_allow_html=True)
+
+            st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin-bottom:8px;">🥦 VOEDING</div>', unsafe_allow_html=True)
+            vg_val = _radio_kleur("Voedingsschema gevolgd", VOEDING_OPTIES, f"db_vg_{dag_str}", welzijn.get("voeding_gevolgd"))
+
+            tr_val = None
+            if heeft_training:
+                st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin:10px 0 8px;">🏃 TRAINING</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:0.75rem;color:#64748b;margin-bottom:6px;">{schema_dag.get("training_timing","")}</div>', unsafe_allow_html=True)
+                tr_val = _radio_kleur("Hoe verliep de training", TRAINING_OPTIES, f"db_tr_{dag_str}", welzijn.get("training_gevoel"))
+
+            st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin:10px 0 8px;">💚 HERSTEL & WELZIJN</div>', unsafe_allow_html=True)
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                hrv_val      = _radio_kleur("HRV", HRV_OPTIES, f"db_hrv_{dag_str}", welzijn.get("hrv"))
+                fris_val     = _radio_kleur("Frisheid", KWALITEIT_OPTIES, f"db_fris_{dag_str}", welzijn.get("frisheid"))
+                spierpijn_val= _radio_kleur("Spierpijn", SPIERPIJN_OPTIES, f"db_sp_{dag_str}", welzijn.get("spierpijn"))
+            with rc2:
+                slaap_kwal_val = _radio_kleur("Slaapkwaliteit", KWALITEIT_OPTIES, f"db_sk_{dag_str}", welzijn.get("slaap_kwaliteit"))
+                stress_val     = _radio_kleur("Stress", STRESS_OPTIES, f"db_stress_{dag_str}", welzijn.get("stress"))
+
+            st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin:10px 0 8px;">📊 METINGEN</div>', unsafe_allow_html=True)
+            mc1, mc2, mc3 = st.columns(3)
+            with mc1:
+                slaap_val = st.number_input("Slaap (uur)", 0.0, 14.0, float(welzijn.get("slaap_uur") or 7.5), 0.5, key=f"db_slaap_{dag_str}")
+            with mc2:
+                rhr_val   = st.number_input("Rusthartslag (bpm)", 0, 120, int(welzijn.get("rusthartslag") or 0), 1, key=f"db_rhr_{dag_str}")
+            with mc3:
+                water_val = st.number_input("Water (liter)", 0.0, 8.0, float(welzijn.get("waterinname_l") or 0.0), 0.25, key=f"db_water_{dag_str}")
+
+            gewicht_val = welzijn.get("gewicht_kg")
+            if dag_datum.weekday() == 0:
+                st.markdown('<div style="font-size:0.7rem;font-weight:700;color:#22c55e;letter-spacing:1px;margin:10px 0 8px;">⚖️ GEWICHT (wekelijks)</div>', unsafe_allow_html=True)
+                gw1, _ = st.columns([1,2])
+                with gw1:
+                    gewicht_val = st.number_input("Gewicht (kg)", 30.0, 200.0,
+                        float(welzijn.get("gewicht_kg") or float(profiel.get("gewicht_kg") or 70)),
+                        0.1, key=f"db_gew_{dag_str}")
+
+            notitie_val = st.text_input("Notitie (optioneel)",
+                value=welzijn.get("notitie",""),
+                placeholder="bijv. zware benen, slecht geslapen...",
+                key=f"db_notitie_{dag_str}", label_visibility="collapsed")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("💾 Opslaan", key=f"db_ops_{dag_str}", use_container_width=True):
+                data = {
+                    "voeding_gevolgd":  vg_val,
+                    "training_gevoel":  tr_val,
+                    "hrv":              hrv_val,
+                    "slaap_uur":        slaap_val if slaap_val > 0 else None,
+                    "slaap_kwaliteit":  slaap_kwal_val,
+                    "frisheid":         fris_val,
+                    "rusthartslag":     rhr_val if rhr_val > 0 else None,
+                    "spierpijn":        spierpijn_val,
+                    "stress":           stress_val,
+                    "waterinname_l":    water_val if water_val > 0 else None,
+                    "gewicht_kg":       gewicht_val if dag_datum.weekday()==0 and gewicht_val else None,
+                    "notitie":          notitie_val if notitie_val else None,
+                }
+                if _sla_welzijn_op(user_id, dag_str, data):
+                    welzijn_week[dag_str] = {**data, "datum": dag_str}
+                    st.success("✅ Opgeslagen!")
+                    st.session_state[f"db_open_{dag_str}"] = False
+                    st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<hr style="border-color:#1e293b;margin:4px 0 10px;">', unsafe_allow_html=True)
 
 def _render_analyses(user: dict):
     import json as _json
