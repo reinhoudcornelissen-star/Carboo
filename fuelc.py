@@ -282,8 +282,17 @@ def _stap_profiel(user: dict):
         'font-weight:800!important;}</style>',
         unsafe_allow_html=True)
     if totaal_pct == 100:
-        if st.button("💾 Profiel opslaan →", key="fc_prof_opslaan",
-                     use_container_width=True):
+        c_ops, c_vol = st.columns(2)
+        with c_ops:
+            opslaan_klik = st.button("💾 Opslaan", key="fc_prof_opslaan",
+                         use_container_width=True)
+        with c_vol:
+            if st.session_state.fc_profiel.get("bmr"):
+                if st.button("Volgende →", key="fc_prof_volgende",
+                             use_container_width=True):
+                    st.session_state.fc_stap = 2
+                    st.rerun()
+        if opslaan_klik:
             profiel_data = {
                 "geslacht":       geslacht,
                 "leeftijd":       leeftijd,
@@ -313,9 +322,324 @@ def _stap_profiel(user: dict):
 # PLACEHOLDERS ANDERE BLOKKEN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLOK 2 — TRAININGEN (MANUELE INVOER)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SPORT_OPTIES = ["Lopen", "Fietsen", "Zwemmen", "Kracht", "Andere"]
+
+ZONE_OPTIES = ["Z1 — Herstel (zeer rustig)", "Z2 — Duurzaam (rustig)",
+               "Z3 — Tempo (matig)", "Z4 — Drempel (zwaar)",
+               "Z5 — VO2max (maximaal)"]
+
+ZONE_MET = {
+    "Z1 — Herstel (zeer rustig)":   4.0,
+    "Z2 — Duurzaam (rustig)":       6.0,
+    "Z3 — Tempo (matig)":           8.5,
+    "Z4 — Drempel (zwaar)":        10.5,
+    "Z5 — VO2max (maximaal)":      13.0,
+}
+
+ZONE_HERSTEL = {
+    "Z1 — Herstel (zeer rustig)":   8,
+    "Z2 — Duurzaam (rustig)":      16,
+    "Z3 — Tempo (matig)":          24,
+    "Z4 — Drempel (zwaar)":        36,
+    "Z5 — VO2max (maximaal)":      48,
+}
+
+def _bereken_kcal(gewicht_kg: float, minuten: float, zone: str) -> int:
+    """MET-gebaseerde kcalberekening."""
+    met = ZONE_MET.get(zone, 6.0)
+    return round((met * gewicht_kg * 3.5 / 200) * minuten)
+
+def _dominante_zone(opwarming_zone, kern_zone, kern_min, opw_min, cool_min) -> str:
+    """Bepaal dominante zone op basis van tijd in elke zone."""
+    zones = {}
+    zones[opwarming_zone] = zones.get(opwarming_zone, 0) + opw_min
+    zones[kern_zone]      = zones.get(kern_zone, 0) + kern_min
+    zones["Z1 — Herstel (zeer rustig)"] = zones.get("Z1 — Herstel (zeer rustig)", 0) + cool_min
+    return max(zones, key=zones.get)
+
+def _laad_trainingen(user_id: str) -> list:
+    try:
+        sb = _get_supabase()
+        r  = sb.table("fuelc_trainingen").select("*").eq("user_id", user_id).order("datum", desc=True).limit(30).execute()
+        return r.data or []
+    except Exception as e:
+        print(f"Fout laden trainingen: {e}")
+        return []
+
+def _sla_training_op(user_id: str, training: dict) -> bool:
+    try:
+        sb = _get_supabase()
+        training["user_id"] = user_id
+        training["bron"]    = "manueel"
+        sb.table("fuelc_trainingen").insert(training).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij opslaan training: {e}")
+        return False
+
+def _verwijder_training(training_id: str) -> bool:
+    try:
+        sb = _get_supabase()
+        sb.table("fuelc_trainingen").delete().eq("id", training_id).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout bij verwijderen: {e}")
+        return False
+
 def _stap_trainingen(user: dict):
-    _sectie("TRAININGSZONE", "#22c55e")
-    st.info("🚧 Blok 2 — Trainingen — wordt binnenkort gebouwd.")
+    user_id = user.get("id", "")
+
+    # Laad profiel voor gewicht
+    profiel = st.session_state.get("fc_profiel", {})
+    gewicht = float(profiel.get("gewicht_kg", 70) or 70)
+
+    _sectie("TRAININGEN TOEVOEGEN", "#22c55e")
+
+    # ── Tabs: Toevoegen / Overzicht ───────────────────────────────────────────
+    tab_add, tab_lijst = st.tabs(["➕  Training toevoegen", "📋  Mijn trainingen"])
+
+    with tab_add:
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Algemeen ─────────────────────────────────────────────────────────
+        _sectie("ALGEMEEN", "#22c55e")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            sport = st.selectbox("Sport", SPORT_OPTIES, key="tr_sport")
+        with c2:
+            datum = st.date_input("Datum", key="tr_datum")
+        with c3:
+            omschrijving = st.text_input("Naam / omschrijving (optioneel)",
+                                          placeholder="bijv. Lange duurloop",
+                                          key="tr_naam")
+
+        # ── Opwarming ─────────────────────────────────────────────────────────
+        _sectie("OPWARMING", "#22c55e")
+        ow1, ow2 = st.columns(2)
+        with ow1:
+            opw_min = st.number_input("Duur (minuten)", 0, 60, 10,
+                                       key="tr_opw_min")
+        with ow2:
+            opw_zone = st.selectbox("Intensiteitszone", ZONE_OPTIES,
+                                     index=0, key="tr_opw_zone")
+        opw_kcal = _bereken_kcal(gewicht, opw_min, opw_zone) if opw_min > 0 else 0
+        if opw_min > 0:
+            st.markdown(
+                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
+                f'≈ {opw_kcal} kcal</div>', unsafe_allow_html=True)
+
+        # ── Kern ──────────────────────────────────────────────────────────────
+        _sectie("KERN", "#22c55e")
+        k1, k2 = st.columns(2)
+        with k1:
+            kern_min = st.number_input("Duur (minuten)", 0, 300, 40,
+                                        key="tr_kern_min")
+        with k2:
+            kern_zone = st.selectbox("Intensiteitszone", ZONE_OPTIES,
+                                      index=1, key="tr_kern_zone")
+
+        # Intervalblokken
+        gebruik_interval = st.checkbox("Intervalblokken toevoegen", key="tr_interval_aan")
+        interval_tekst = ""
+        if gebruik_interval:
+            ic1, ic2, ic3, ic4 = st.columns(4)
+            with ic1:
+                int_herhalingen = st.number_input("Herhalingen", 1, 20, 5, key="tr_int_herh")
+            with ic2:
+                int_werk_min = st.number_input("Werkblok (min)", 1, 30, 4, key="tr_int_werk")
+            with ic3:
+                int_rust_min = st.number_input("Rustblok (min)", 1, 15, 2, key="tr_int_rust")
+            with ic4:
+                int_zone = st.selectbox("Zone werk", ZONE_OPTIES, index=3, key="tr_int_zone")
+            interval_tekst = f"{int_herhalingen}× {int_werk_min}min {int_zone.split(' ')[0]} + {int_rust_min}min herstel"
+            st.markdown(
+                f'<div style="background:#0f172a;border-left:3px solid #22c55e;'
+                f'border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#22c55e;">'
+                f'📋 {interval_tekst}</div>', unsafe_allow_html=True)
+
+        kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
+        if kern_min > 0:
+            st.markdown(
+                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
+                f'≈ {kern_kcal} kcal</div>', unsafe_allow_html=True)
+
+        # ── Cooling down ──────────────────────────────────────────────────────
+        _sectie("COOLING DOWN", "#22c55e")
+        cd1, cd2 = st.columns(2)
+        with cd1:
+            cool_min = st.number_input("Duur (minuten)", 0, 30, 10,
+                                        key="tr_cool_min")
+        with cd2:
+            st.selectbox("Intensiteitszone", ["Z1 — Herstel (zeer rustig)"],
+                         key="tr_cool_zone", disabled=True)
+        cool_kcal = _bereken_kcal(gewicht, cool_min, "Z1 — Herstel (zeer rustig)") if cool_min > 0 else 0
+        if cool_min > 0:
+            st.markdown(
+                f'<div style="font-size:0.75rem;color:#22c55e;margin-top:-8px;margin-bottom:4px;">'
+                f'≈ {cool_kcal} kcal</div>', unsafe_allow_html=True)
+
+        # ── Optioneel ─────────────────────────────────────────────────────────
+        _sectie("OPTIONEEL", "#86efac")
+        o1, o2, o3, o4 = st.columns(4)
+        with o1:
+            hartslag_gem = st.number_input("Hartslag gem (bpm)", 0, 220, 0, key="tr_hs_gem")
+        with o2:
+            afstand_km = st.number_input("Afstand (km)", 0.0, 300.0, 0.0, 0.1, key="tr_afstand")
+        with o3:
+            hoogtemeters = st.number_input("Hoogtemeters", 0, 5000, 0, key="tr_hoogte")
+        with o4:
+            notitie = st.text_input("Notitie", placeholder="bijv. Goed gevoel", key="tr_notitie")
+
+        # ── Totalen ───────────────────────────────────────────────────────────
+        totaal_min   = opw_min + kern_min + cool_min
+        totaal_kcal  = opw_kcal + kern_kcal + cool_kcal
+        dom_zone     = _dominante_zone(opw_zone, kern_zone, kern_min, opw_min, cool_min) if totaal_min > 0 else "—"
+        herstel_uren = ZONE_HERSTEL.get(dom_zone, 16) if totaal_min > 0 else 0
+
+        if totaal_min > 0:
+            st.markdown("<br>", unsafe_allow_html=True)
+            _sectie("SAMENVATTING", "#22c55e")
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                _metric_card("TOTALE DUUR", f"{totaal_min // 60}u{totaal_min % 60:02d}",
+                             "min", "#22c55e")
+            with m2:
+                _metric_card("KCAL VERBRANDING", str(totaal_kcal), "kcal", "#4ade80")
+            with m3:
+                dom_kort = dom_zone.split("—")[0].strip()
+                _metric_card("DOMINANTE ZONE", dom_kort, "", "#16a34a")
+            with m4:
+                _metric_card("HERSTELTIJD", str(herstel_uren), "uur", "#86efac")
+
+        # ── Opslaan ───────────────────────────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        if totaal_min > 0:
+            if st.button("💾 Training opslaan", key="tr_opslaan",
+                         use_container_width=True):
+                zone_verdeling = {
+                    "z1": opw_min + cool_min if "Z1" in opw_zone else cool_min,
+                    "z2": kern_min if "Z2" in kern_zone else (opw_min if "Z2" in opw_zone else 0),
+                    "z3": kern_min if "Z3" in kern_zone else (opw_min if "Z3" in opw_zone else 0),
+                    "z4": kern_min if "Z4" in kern_zone else (opw_min if "Z4" in opw_zone else 0),
+                    "z5": kern_min if "Z5" in kern_zone else (opw_min if "Z5" in opw_zone else 0),
+                }
+                training_data = {
+                    "datum":          str(datum),
+                    "sport":          sport,
+                    "duur_min":       totaal_min,
+                    "afstand_km":     afstand_km if afstand_km > 0 else None,
+                    "hartslag_gem":   hartslag_gem if hartslag_gem > 0 else None,
+                    "hoogte":         hoogtemeters if hoogtemeters > 0 else None,
+                    "kcal_verbranding": totaal_kcal,
+                    "hersteltijd_uur": herstel_uren,
+                    "zone_verdeling": zone_verdeling,
+                    "notitie":        f"{omschrijving} | OPW: {opw_min}min {opw_zone.split()[0]} | KERN: {kern_min}min {kern_zone.split()[0]}{' | ' + interval_tekst if interval_tekst else ''} | COOL: {cool_min}min Z1{' | HS: ' + str(hartslag_gem) + 'bpm' if hartslag_gem > 0 else ''}{' | ' + str(afstand_km) + 'km' if afstand_km > 0 else ''}{' | ' + notitie if notitie else ''}".strip(" | "),
+                }
+                if _sla_training_op(user_id, training_data):
+                    st.success("✅ Training opgeslagen!")
+                    # Reset formulier
+                    for k in ["tr_opw_min","tr_kern_min","tr_cool_min","tr_naam",
+                              "tr_notitie","tr_afstand","tr_hs_gem","tr_hoogte",
+                              "tr_interval_aan"]:
+                        if k in st.session_state:
+                            del st.session_state[k]
+                    st.rerun()
+        else:
+            st.button("💾 Training opslaan", key="tr_opslaan",
+                      use_container_width=True, disabled=True)
+            st.caption("Vul minstens één blok in om op te slaan.")
+
+    with tab_lijst:
+        st.markdown("<br>", unsafe_allow_html=True)
+        trainingen = _laad_trainingen(user_id)
+
+        if not trainingen:
+            st.markdown(
+                '<div style="text-align:center;color:#64748b;padding:30px;">'
+                'Nog geen trainingen toegevoegd.</div>',
+                unsafe_allow_html=True)
+        else:
+            # Weekoverzicht totalen
+            from datetime import date, timedelta
+            vandaag = date.today()
+            week_start = vandaag - timedelta(days=vandaag.weekday())
+            week_kcal = sum(
+                t.get("kcal_verbranding", 0) or 0
+                for t in trainingen
+                if t.get("datum", "") >= str(week_start)
+            )
+            week_min = sum(
+                t.get("duur_min", 0) or 0
+                for t in trainingen
+                if t.get("datum", "") >= str(week_start)
+            )
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:10px;'
+                f'padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;">'
+                f'<div><div style="font-size:0.65rem;color:#64748b;font-weight:700;">DEZE WEEK</div>'
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">'
+                f'{week_min // 60}u{week_min % 60:02d} · {week_kcal} kcal</div></div>'
+                f'<div><div style="font-size:0.65rem;color:#64748b;font-weight:700;">TRAININGEN</div>'
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">'
+                f'{len([t for t in trainingen if t.get("datum","") >= str(week_start)])}</div></div>'
+                f'</div>',
+                unsafe_allow_html=True)
+
+            # Lijst van trainingen
+            SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊",
+                           "Kracht":"💪","Andere":"⚡"}
+            ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24",
+                           "z4":"#f97316","z5":"#ef4444"}
+
+            for t in trainingen:
+                sport_em = SPORT_EMOJI.get(t.get("sport",""), "⚡")
+                datum_str = t.get("datum","")[:10]
+                duur_min  = t.get("duur_min", 0) or 0
+                duur_str  = f"{duur_min // 60}u{duur_min % 60:02d}"
+                kcal      = t.get("kcal_verbranding", 0) or 0
+                herstel   = t.get("hersteltijd_uur", 0) or 0
+                notitie   = t.get("notitie", "") or ""
+                notitie_kort = notitie[:60] + "..." if len(notitie) > 60 else notitie
+
+                # Zone balken
+                zv = t.get("zone_verdeling") or {}
+                if isinstance(zv, str):
+                    import json
+                    try: zv = json.loads(zv)
+                    except: zv = {}
+                totaal_zv = sum(zv.values()) if zv else duur_min or 1
+                zone_balken = ""
+                for z, kleur in ZONE_KLEUR.items():
+                    pct = round((zv.get(z, 0) / totaal_zv) * 100) if totaal_zv > 0 else 0
+                    if pct > 0:
+                        zone_balken += (
+                            f'<div style="display:inline-block;width:{pct}%;height:6px;'
+                            f'background:{kleur};"></div>'
+                        )
+
+                with st.expander(
+                    f"{sport_em} {t.get('sport','')} — {datum_str} — {duur_str} — {kcal} kcal",
+                    expanded=False):
+                    st.markdown(
+                        f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">'
+                        f'{notitie_kort}</div>'
+                        f'<div style="background:#1e293b;border-radius:4px;height:8px;'
+                        f'overflow:hidden;margin-bottom:8px;">{zone_balken}</div>'
+                        f'<div style="font-size:0.72rem;color:#64748b;">'
+                        f'Hersteltijd: {herstel}u'
+                        f'{" · " + str(t.get("afstand_km")) + "km" if t.get("afstand_km") else ""}'
+                        f'{" · " + str(t.get("hartslag_gem")) + " bpm" if t.get("hartslag_gem") else ""}'
+                        f'</div>',
+                        unsafe_allow_html=True)
+                    if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}",
+                                 use_container_width=False):
+                        if _verwijder_training(t["id"]):
+                            st.success("Verwijderd.")
+                            st.rerun()
 
 
 def _stap_bibliotheek(user: dict):
