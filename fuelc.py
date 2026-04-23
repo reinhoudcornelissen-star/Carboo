@@ -2572,6 +2572,8 @@ def _stap_dagschema(user: dict):
     week_schemas = _laad_week_schemas(user_id, str(maandag), zondag_str)
 
     # ── 7 dagen ───────────────────────────────────────────────────────────────
+    alle_trainingen = _laad_trainingen(user_id)  # 1x laden voor alle dagen
+
     for dag_idx in range(7):
         dag_datum  = maandag + _td(days=dag_idx)
         dag_naam   = DAGEN_NL[dag_idx]
@@ -2591,7 +2593,7 @@ def _stap_dagschema(user: dict):
         # Bouw momenten voor deze dag
         basis = _bouw_basis(eet_patroon)
         training_dag = st.session_state.get(f"training_{dag_str}", "Geen training")
-        momenten = _bereken_moment_doelen(energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag, basis, training_dag, profiel, training_kcal_dag if "training_kcal_dag" in dir() else 0)
+        momenten = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel, 0)
 
         if schema_dag.get("momenten_json"):
             try:
@@ -2627,14 +2629,10 @@ def _stap_dagschema(user: dict):
                 key=f"training_{dag_str}",
                 label_visibility="collapsed")
 
-        # Laad trainingskcal voor deze dag
-        try:
-            trainingen_dag = [t for t in _laad_trainingen(user_id)
-                             if t.get("datum","")[:10] == dag_str]
-            training_kcal_dag = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen_dag)
-        except:
-            training_kcal_dag = 0
-
+        # Trainingskcal voor deze dag
+        training_kcal_dag  = sum(t.get("kcal_verbranding",0) or 0
+                                 for t in alle_trainingen
+                                 if t.get("datum","")[:10] == dag_str)
         energie_dag_totaal = energie_dag + training_kcal_dag
 
         with h3:
@@ -2689,7 +2687,7 @@ def _stap_dagschema(user: dict):
                     mom = _bereken_moment_doelen(energie_dag, _bouw_basis(eet_patroon),
                         st.session_state.get(f"training_{dag_str}","Geen training"), profiel)
                     sid = _sla_dagschema_op(user_id, dag_str, {
-                        "energie_doel": energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag, "kh_doel_g": round((energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag)*(profiel.get("kh_doel_pct",50) or 50)/100/4),
+                        "energie_doel": energie_dag, "kh_doel_g": round((energie_dag)*(profiel.get("kh_doel_pct",50) or 50)/100/4),
                         "eiwit_doel_g": eiwit_dag, "vet_doel_g": vet_dag,
                         "aantal_maaltijden": len(mom),
                         "momenten_json": _json.dumps(mom),
@@ -2720,7 +2718,7 @@ def _stap_dagschema(user: dict):
                              help="AI genereert een persoonlijk voorstel (kost krediet)"):
                     with st.spinner("AI aan het werk..."):
                         try:
-                            mom_ai = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
+                            mom_ai = _bereken_moment_doelen(energie_dag_totaal, basis, training_dag, profiel, training_kcal_dag)
                             ai_plan = _genereer_dagplan_ai(mom_ai, training_dag, bibliotheek)
                             st.session_state[ai_plan_key] = ai_plan
                             st.rerun()
