@@ -2607,6 +2607,12 @@ def _stap_dagschema(user: dict):
         for _mi in range(max(n_mom, 5)):
             alle_items_dag += _laad_dagboek_items(user_id, dag_str, _mi)
         tot_kcal  = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
+        # Trainingskcal voor deze dag
+        training_kcal_dag  = sum(t.get("kcal_verbranding",0) or 0
+                                 for t in alle_trainingen
+                                 if t.get("datum","")[:10] == dag_str)
+        energie_dag_totaal = energie_dag + training_kcal_dag
+
         pct_dag   = min(100, round(tot_kcal/energie_dag_totaal*100)) if energie_dag_totaal > 0 else 0
         kleur_dag = "#22c55e" if pct_dag >= 80 else ("#fbbf24" if pct_dag >= 40 else "#334155")
 
@@ -2628,12 +2634,6 @@ def _stap_dagschema(user: dict):
                 ["Geen training","Ochtend (voor 11u)","Middag (11u-15u)","Avond (na 15u)"],
                 key=f"training_{dag_str}",
                 label_visibility="collapsed")
-
-        # Trainingskcal voor deze dag
-        training_kcal_dag  = sum(t.get("kcal_verbranding",0) or 0
-                                 for t in alle_trainingen
-                                 if t.get("datum","")[:10] == dag_str)
-        energie_dag_totaal = energie_dag + training_kcal_dag
 
         with h3:
             if st.button("📋 Dagplan", key=f"gen_{dag_str}", use_container_width=True):
