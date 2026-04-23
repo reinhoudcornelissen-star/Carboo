@@ -277,6 +277,82 @@ def _stap_profiel(user: dict):
             f'FuelC past dit automatisch aan op basis van je trainingen.</div>',
             unsafe_allow_html=True)
 
+    # ── Maaltijdmomenten instelling ──────────────────────────────────────────
+    _sectie("EETPATROON & MAALTIJDMOMENTEN")
+    st.markdown(
+        '<div style="font-size:0.78rem;color:#64748b;margin-bottom:12px;">' +
+        'Stel je eetpatroon in en pas de tijdstippen aan. Wordt toegepast op het weekschema.</div>',
+        unsafe_allow_html=True)
+
+    ep1, ep2 = st.columns(2)
+    with ep1:
+        patroon_keuze = st.selectbox("Eetpatroon",
+            ["Klassiek (3 maaltijden)","Intermittent 16:8","Intermittent 18:6"],
+            index=["Klassiek (3 maaltijden)","Intermittent 16:8","Intermittent 18:6"].index(
+                p.get("eet_patroon","Klassiek (3 maaltijden)"))
+            if p.get("eet_patroon") in ["Klassiek (3 maaltijden)","Intermittent 16:8","Intermittent 18:6"] else 0,
+            key="prof_patroon")
+
+    MAALTIJD_DEFAULTS = {
+        "Klassiek (3 maaltijden)": [
+            {"naam":"Ontbijt","tijdstip":"07:30","type":"ontbijt"},
+            {"naam":"Lunch","tijdstip":"12:30","type":"lunch"},
+            {"naam":"Avondmaal","tijdstip":"18:30","type":"avond"},
+        ],
+        "Intermittent 16:8": [
+            {"naam":"Eerste maaltijd","tijdstip":"12:00","type":"ontbijt"},
+            {"naam":"Tweede maaltijd","tijdstip":"16:00","type":"lunch"},
+            {"naam":"Derde maaltijd","tijdstip":"19:30","type":"avond"},
+        ],
+        "Intermittent 18:6": [
+            {"naam":"Eerste maaltijd","tijdstip":"13:00","type":"ontbijt"},
+            {"naam":"Tweede maaltijd","tijdstip":"18:30","type":"avond"},
+        ],
+    }
+
+    with ep2:
+        if patroon_keuze == "Klassiek (3 maaltijden)":
+            st.markdown('<div style="font-size:0.72rem;color:#64748b;padding-top:28px;">Tussendoor momenten:</div>', unsafe_allow_html=True)
+
+    # Tussendoor (enkel bij klassiek)
+    tussendoor_aan = []
+    if patroon_keuze == "Klassiek (3 maaltijden)":
+        td_cols = st.columns(3)
+        td_namen = ["Tussendoor voormiddag","Tussendoor namiddag","Avondsnack"]
+        td_tijden = ["10:00","15:00","21:00"]
+        for ti in range(3):
+            with td_cols[ti]:
+                if st.checkbox(td_namen[ti], key=f"prof_td_{ti}",
+                    value=bool(p.get(f"td_{ti}", False))):
+                    tussendoor_aan.append(ti)
+
+    # Tijdstippen aanpassen
+    import json as _json_prof
+    momenten_prof = MAALTIJD_DEFAULTS.get(patroon_keuze, MAALTIJD_DEFAULTS["Klassiek (3 maaltijden)"])
+    opgeslagen_mom = p.get("momenten_tijden")
+    if opgeslagen_mom:
+        try: opgeslagen_mom = _json_prof.loads(opgeslagen_mom) if isinstance(opgeslagen_mom, str) else opgeslagen_mom
+        except: opgeslagen_mom = None
+
+    st.markdown('<div style="font-size:0.72rem;color:#64748b;margin:10px 0 6px;">Tijdstippen aanpassen:</div>', unsafe_allow_html=True)
+    tijd_cols = st.columns(len(momenten_prof))
+    nieuwe_tijden = {}
+    for i, m in enumerate(momenten_prof):
+        with tijd_cols[i]:
+            huidig = (opgeslagen_mom or {}).get(str(i), m["tijdstip"]) if opgeslagen_mom else m["tijdstip"]
+            nieuwe_tijden[str(i)] = st.text_input(
+                m["naam"], value=huidig,
+                key=f"prof_tijd_{i}", placeholder="HH:MM")
+
+    if patroon_keuze == "Klassiek (3 maaltijden)":
+        td_cols2 = st.columns(3)
+        for ti in tussendoor_aan:
+            with td_cols2[ti]:
+                huidig_td = (opgeslagen_mom or {}).get(f"td_{ti}", td_tijden[ti])
+                nieuwe_tijden[f"td_{ti}"] = st.text_input(
+                    td_namen[ti], value=huidig_td,
+                    key=f"prof_tdtijd_{ti}", placeholder="HH:MM")
+
     # ── Opslaan ───────────────────────────────────────────────────────────────
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown(
@@ -296,6 +372,7 @@ def _stap_profiel(user: dict):
                     st.session_state.fc_stap = 2
                     st.rerun()
         if opslaan_klik:
+            import json as _json_save
             profiel_data = {
                 "geslacht":       geslacht,
                 "leeftijd":       leeftijd,
@@ -310,6 +387,13 @@ def _stap_profiel(user: dict):
                 "kh_doel_pct":    kh_pct,
                 "eiwit_doel_pct": eiwit_pct,
                 "vet_doel_pct":   vet_pct,
+                "eet_patroon":    st.session_state.get("prof_patroon","Klassiek (3 maaltijden)"),
+                "momenten_tijden":_json_save.dumps(st.session_state.get("prof_tijd_0") and {
+                    str(i): st.session_state.get(f"prof_tijd_{i}", "") for i in range(3)
+                } or {}),
+                "td_0": 0 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
+                "td_1": 1 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
+                "td_2": 2 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
             }
             if _sla_profiel_op(user_id, profiel_data):
                 st.session_state.fc_profiel = profiel_data
@@ -1313,6 +1397,210 @@ def _laad_alle_recepten(user_id: str) -> list:
         })
     return RECEPT_DB + eigen_conv
 
+# ─── COMMUNITY FUNCTIES ───────────────────────────────────────────────────────
+
+def _laad_community_recepten() -> list:
+    """Laad alle gedeelde recepten met scores en reacties."""
+    try:
+        r = _get_supabase().table("fuelc_recepten_eigen").select("*")\
+            .eq("is_globaal", True).order("naam").execute()
+        recepten = r.data or []
+
+        # Laad scores
+        if recepten:
+            rec_ids = [r["id"] for r in recepten]
+            scores_r = _get_supabase().table("fuelc_recept_scores").select("*")\
+                .in_("recept_id", rec_ids).execute()
+            scores = scores_r.data or []
+
+            reacties_r = _get_supabase().table("fuelc_recept_reacties").select("*")\
+                .in_("recept_id", rec_ids).order("created_at", desc=True).execute()
+            reacties = reacties_r.data or []
+
+            for rec in recepten:
+                rec_scores = [s["score"] for s in scores if s["recept_id"] == rec["id"]]
+                rec["gem_score"]   = round(sum(rec_scores)/len(rec_scores), 1) if rec_scores else 0
+                rec["n_scores"]    = len(rec_scores)
+                rec["reacties"]    = [rt for rt in reacties if rt["recept_id"] == rec["id"]]
+                rec["n_reacties"]  = len(rec["reacties"])
+
+        return recepten
+    except Exception as e:
+        print(f"Fout laden community: {e}")
+        return []
+
+def _sla_score_op(recept_id: str, user_id: str, score: int) -> bool:
+    try:
+        _get_supabase().table("fuelc_recept_scores").upsert({
+            "recept_id": recept_id,
+            "user_id":   user_id,
+            "score":     score,
+        }, on_conflict="recept_id,user_id").execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout score: {e}")
+        return False
+
+def _sla_reactie_op(recept_id: str, user_id: str, naam: str, bericht: str) -> bool:
+    try:
+        if not bericht.strip(): return False
+        _get_supabase().table("fuelc_recept_reacties").insert({
+            "recept_id": recept_id,
+            "user_id":   user_id,
+            "naam":      naam,
+            "bericht":   bericht[:200],
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout reactie: {e}")
+        return False
+
+def _verwijder_reactie(reactie_id: str) -> bool:
+    try:
+        _get_supabase().table("fuelc_recept_reacties").delete().eq("id", reactie_id).execute()
+        return True
+    except: return False
+
+def _render_community_tab(user: dict):
+    """Community tab in bibliotheek."""
+    import json as _j
+    user_id  = user.get("id","")
+    user_naam = user.get("name","Gebruiker")
+    is_admin  = user_id == "22019eac-30b9-471e-88f3-58c7e80a4876"
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    _sectie("COMMUNITY RECEPTEN", "#22c55e")
+    st.markdown(
+        '<div style="font-size:0.8rem;color:#64748b;margin-bottom:16px;">'
+        'Gedeelde recepten van de community — scoor en laat een reactie achter.</div>',
+        unsafe_allow_html=True)
+
+    recepten = _laad_community_recepten()
+
+    if not recepten:
+        st.markdown(
+            '<div style="text-align:center;color:#64748b;padding:40px;">'
+            '🌍 Nog geen gedeelde recepten. Deel jouw eerste recept via de tab "📋 Mijn recepten"!</div>',
+            unsafe_allow_html=True)
+        return
+
+    # Sorteer op score
+    recepten = sorted(recepten, key=lambda r: r.get("gem_score",0), reverse=True)
+
+    TYPE_EMOJI = {"ontbijt":"🌅","tussendoor":"🍎","lunch":"🥗","avond":"🍽️"}
+
+    for rec in recepten:
+        gem   = rec.get("gem_score", 0)
+        n_sc  = rec.get("n_scores", 0)
+        n_rt  = rec.get("n_reacties", 0)
+        sterren = "⭐" * round(gem) + "☆" * (5 - round(gem)) if gem > 0 else "☆☆☆☆☆"
+        emoji = TYPE_EMOJI.get(rec.get("type",""), "🍴")
+
+        with st.expander(
+            f"{emoji} {rec['naam']}  {sterren}  "
+            f"({gem}/5 · {n_sc} scores · {n_rt} reacties)",
+            expanded=False):
+
+            # Macro info
+            mc1,mc2,mc3,mc4 = st.columns(4)
+            for col, label, val, kleur in [
+                (mc1,"KCAL",rec.get("kcal",0),"#f97316"),
+                (mc2,"KH g",rec.get("kh",0),"#22c55e"),
+                (mc3,"EIWIT g",rec.get("eiwit",0),"#3b82f6"),
+                (mc4,"VET g",rec.get("vet",0),"#8b5cf6"),
+            ]:
+                with col:
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:6px;padding:8px;text-align:center;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">{label}</div>'
+                        f'<div style="font-size:0.95rem;font-weight:800;color:{kleur};">{val}</div>'
+                        f'</div>', unsafe_allow_html=True)
+
+            # Ingrediënten
+            ing = rec.get("ingredienten") or []
+            if isinstance(ing, str):
+                try: ing = _j.loads(ing)
+                except: ing = []
+            if ing:
+                ing_txt = " · ".join([f"{i.get('naam','')} {i.get('gram',0)}g" for i in ing])
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:#94a3b8;margin:8px 0 4px;">🥗 {ing_txt}</div>',
+                    unsafe_allow_html=True)
+            if rec.get("bereiding"):
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:#64748b;margin-bottom:8px;">'
+                    f'👨‍🍳 {rec["bereiding"]}</div>', unsafe_allow_html=True)
+
+            st.markdown('<hr style="border-color:#1e293b;margin:8px 0;">', unsafe_allow_html=True)
+
+            # Score geven
+            sc1, sc2 = st.columns([3,2])
+            with sc1:
+                st.markdown(
+                    '<div style="font-size:0.72rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">'
+                    '⭐ Jouw score</div>', unsafe_allow_html=True)
+                mijn_score = st.select_slider(
+                    "Score", options=[1,2,3,4,5],
+                    key=f"score_{rec['id']}", label_visibility="collapsed")
+            with sc2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("Score opslaan", key=f"score_ops_{rec['id']}",
+                             use_container_width=True):
+                    if _sla_score_op(rec["id"], user_id, mijn_score):
+                        st.success(f"✅ Score {mijn_score}/5 opgeslagen!")
+                        st.rerun()
+
+            # Reacties tonen
+            reacties = rec.get("reacties", [])
+            if reacties:
+                st.markdown(
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#f8fafc;margin:8px 0 6px;">'
+                    f'💬 Reacties ({len(reacties)})</div>', unsafe_allow_html=True)
+                for rt in reacties[-5:]:  # max 5 tonen
+                    datum = rt.get("created_at","")[:10]
+                    rt_naam = rt.get("naam","Gebruiker")
+                    can_del = is_admin or rt.get("user_id") == user_id
+                    rd1, rd2 = st.columns([5,0.5]) if can_del else st.columns([5,0.1])
+                    with rd1:
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:8px;padding:8px 12px;margin-bottom:4px;">'
+                            f'<div style="font-size:0.65rem;color:#64748b;">{rt_naam} · {datum}</div>'
+                            f'<div style="font-size:0.8rem;color:#f1f5f9;">{rt.get("bericht","")}</div>'
+                            f'</div>', unsafe_allow_html=True)
+                    if can_del:
+                        with rd2:
+                            if st.button("✕", key=f"del_rt_{rt['id']}"):
+                                _verwijder_reactie(rt["id"])
+                                st.rerun()
+
+            # Reactie toevoegen
+            st.markdown(
+                '<div style="font-size:0.72rem;font-weight:700;color:#f8fafc;margin:8px 0 4px;">'
+                '✍️ Reactie achterlaten</div>', unsafe_allow_html=True)
+            ra1, ra2 = st.columns([4,1])
+            with ra1:
+                bericht = st.text_input("Bericht", max_chars=200,
+                    placeholder="Wat vind je van dit recept? (max 200 tekens)",
+                    key=f"bericht_{rec['id']}", label_visibility="collapsed")
+            with ra2:
+                if st.button("Stuur", key=f"reactie_ops_{rec['id']}",
+                             use_container_width=True):
+                    if bericht.strip():
+                        if _sla_reactie_op(rec["id"], user_id, user_naam, bericht):
+                            st.success("✅ Reactie geplaatst!")
+                            st.session_state.pop(f"bericht_{rec['id']}", None)
+                            st.rerun()
+                    else:
+                        st.warning("Typ een bericht.")
+
+            # Admin: verwijder recept
+            if is_admin:
+                if st.button("🗑 Recept verwijderen (admin)", key=f"del_rec_{rec['id']}"):
+                    _verwijder_eigen_recept(rec["id"])
+                    st.rerun()
+
+
+
 def _render_receptenbeheer(user_id: str):
     """Tab voor receptenbeheer in bibliotheek."""
     import json as _j
@@ -1371,8 +1659,8 @@ def _render_receptenbeheer(user_id: str):
 
         st.markdown("<br>", unsafe_allow_html=True)
         if r_naam:
-            if user_id == "22019eac-30b9-471e-88f3-58c7e80a4876":  # admin check
-                r_globaal = st.checkbox("🌍 Globaal recept (zichtbaar voor alle gebruikers)", key="r_globaal")
+            r_globaal = st.checkbox("🌍 Deel met community", key="r_globaal",
+                help="Zichtbaar voor alle gebruikers — anderen kunnen scoren en reageren")
             if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
                 recept = {
                     "naam":         r_naam.strip() if r_naam else "",
@@ -1432,12 +1720,13 @@ def _stap_bibliotheek(user: dict):
 
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
 
-    tab_add, tab_db, tab_scan, tab_lijst, tab_recepten = st.tabs([
+    tab_add, tab_db, tab_scan, tab_lijst, tab_recepten, tab_community = st.tabs([
         "➕  Manueel toevoegen",
         "🔍  Voedselbank zoeken",
         "📷  Etiketscan",
         "📋  Mijn bibliotheek",
         "🍴  Recepten",
+        "🌍  Community",
     ])
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -1591,17 +1880,41 @@ def _stap_bibliotheek(user: dict):
                     CATEGORIE_OPTIES,
                     index=CATEGORIE_OPTIES.index(p["cat"]) if p["cat"] in CATEGORIE_OPTIES else 0,
                     key=f"db_cat_{i}")
-                import_portie = st.number_input("Portiegrootte (g/ml)",
-                    0.0, 2000.0, float(p["portie"]), 5.0,
-                    key=f"db_portie_{i}")
+                # Eenheid instelling
+                ui1, ui2, ui3 = st.columns(3)
+                with ui1:
+                    eenheid = st.selectbox("Eenheid",
+                        ["gram (g)","stuk","snede","eetlepel (15ml)","koffielepel (5ml)",
+                         "kopje (150ml)","glas (200ml)","portie","ml"],
+                        key=f"db_eenheid_{i}")
+                EENHEID_GRAM = {
+                    "gram (g)":1.0,"stuk":1.0,"snede":1.0,
+                    "eetlepel (15ml)":15.0,"koffielepel (5ml)":5.0,
+                    "kopje (150ml)":150.0,"glas (200ml)":200.0,
+                    "portie":float(p["portie"]),"ml":1.0
+                }
+                with ui2:
+                    import_hoev = st.number_input("Hoeveelheid",
+                        0.1, 500.0,
+                        1.0 if eenheid not in ("gram (g)","ml") else float(p["portie"]),
+                        0.5, key=f"db_hoev_{i}")
+                with ui3:
+                    gram_per_eenheid = EENHEID_GRAM.get(eenheid, 1.0)
+                    import_portie = round(import_hoev * gram_per_eenheid, 1)
+                    st.markdown(
+                        f'<div style="font-size:0.75rem;color:#22c55e;padding-top:28px;">' +
+                        f'= {import_portie}g · {round(p["kcal"]*import_portie/100)}kcal</div>',
+                        unsafe_allow_html=True)
 
                 if st.button("📥 Toevoegen aan bibliotheek",
                              key=f"db_import_{i}", use_container_width=True):
+                    portie_label = f"{import_hoev} {eenheid}" if eenheid != "gram (g)" else f"{import_portie}g"
                     product = {
                         "naam":           p["naam"],
                         "categorie":      import_cat,
                         "bron":           "databank",
                         "portie_g":       import_portie,
+                        "portie_label":   portie_label,
                         "kcal_100g":      p["kcal"],
                         "kh_100g":        p["kh"],
                         "suikers_100g":   p["suikers"],
@@ -1614,7 +1927,7 @@ def _stap_bibliotheek(user: dict):
                         "user_id":        user_id,
                     }
                     if _sla_product_op(user_id, product):
-                        st.success(f"✅ '{p['naam']}' toegevoegd!")
+                        st.success(f"✅ '{p['naam']}' toegevoegd als {portie_label}!")
                         st.rerun()
 
 
@@ -1820,7 +2133,7 @@ def _stap_bibliotheek(user: dict):
                         f'<div style="font-size:0.95rem;font-weight:700;color:#8b5cf6;">{vet}g</div></div>'
                         f'</div>'
                         + (f'<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">'
-                           f'Per portie ({portie}g): '
+                           f'Per portie ({p.get("portie_label") or str(portie)+"g"}): '
                            f'{round(kcal*portie/100)}kcal · '
                            f'{round(kh*portie/100)}g KH · '
                            f'{round(eiwit*portie/100)}g eiwit · '
@@ -1845,6 +2158,8 @@ def _stap_bibliotheek(user: dict):
                         if st.button(fav_label, key=f"bib_fav_{p['id']}",
                                      use_container_width=True):
                             if _update_product(p["id"], {"favoriet": not p.get("favoriet")}):
+                                _laad_bibliotheek_raw.clear()
+                                _laad_gecombineerde_bibliotheek_raw.clear()
                                 st.rerun()
                     with ba2:
                         if st.button("🗑 Verwijderen", key=f"bib_del_{p['id']}",
@@ -1856,6 +2171,9 @@ def _stap_bibliotheek(user: dict):
     with tab_recepten:
         st.markdown("<br>", unsafe_allow_html=True)
         _render_receptenbeheer(user_id)
+
+    with tab_community:
+        _render_community_tab(user)
 
 
 
@@ -2579,44 +2897,28 @@ def _stap_dagschema(user: dict):
     profiel     = st.session_state.get("fc_profiel", {})
     energie_dag = int(profiel.get("energie_doel", 2000) or 2000)
 
+    # SECTIE 1 — EETPATROON UIT PROFIEL
     # ══════════════════════════════════════════════════════════════════════════
-    # SECTIE 1 — EETPATROON INSTELLINGEN
-    # ══════════════════════════════════════════════════════════════════════════
-    _sectie("EETPATROON & VERDELING", "#22c55e")
-    st.markdown(
-        '<div style="font-size:0.78rem;color:#64748b;margin-bottom:12px;">'
-        'Stel je eetpatroon in — wordt opgeslagen en toegepast op alle dagen.</div>',
-        unsafe_allow_html=True)
+    patroon = profiel.get("eet_patroon", "Klassiek (3 maaltijden)")
+    if patroon not in MAALTIJD_TEMPLATES:
+        patroon = "Klassiek (3 maaltijden)"
 
-    ep1, ep2 = st.columns(2)
-    with ep1:
-        patroon = st.selectbox("Eetpatroon",
-            list(MAALTIJD_TEMPLATES.keys()),
-            index=list(MAALTIJD_TEMPLATES.keys()).index(profiel.get("eet_patroon","Klassiek (3 maaltijden)"))
-                  if profiel.get("eet_patroon") in MAALTIJD_TEMPLATES else 0,
-            key="ep_patroon")
-    with ep2:
-        st.markdown('<div style="font-size:0.72rem;color:#64748b;padding-top:28px;">Tussendoor momenten:</div>', unsafe_allow_html=True)
-
-    # Tussendoor alleen bij Klassiek patroon
     tussendoor_aan = []
     if patroon == "Klassiek (3 maaltijden)":
-        td_cols = st.columns(3)
-        for ti, td in enumerate(TUSSENDOOR_OPTIES):
-            with td_cols[ti]:
-                aan = st.checkbox(td["naam"], key=f"ep_td_{ti}",
-                    value=bool(profiel.get(f"td_{ti}", False)))
-                if aan: tussendoor_aan.append(ti)
-    else:
-        # Wis tussendoor checkboxes voor andere patronen
         for ti in range(3):
-            st.session_state.pop(f"ep_td_{ti}", None)
+            if profiel.get(f"td_{ti}", False):
+                tussendoor_aan.append(ti)
+
+    if not profiel.get("eet_patroon"):
+        st.info("💡 Stel je eetpatroon in via Blok 1 Profiel → onderaan bij Maaltijdmomenten.")
+
 
     # Bouw momenten
     def _bouw_momenten(patroon_naam, td_aan):
         basis = [m.copy() for m in MAALTIJD_TEMPLATES.get(patroon_naam, MAALTIJD_TEMPLATES["Klassiek (3 maaltijden)"])]
-        for ti in td_aan:
-            basis.append(TUSSENDOOR_OPTIES[ti].copy())
+        if patroon_naam == "Klassiek (3 maaltijden)":
+            for ti in td_aan:
+                basis.append(TUSSENDOOR_OPTIES[ti].copy())
         return sorted(basis, key=lambda x: x.get("tijdstip","00:00"))
 
     momenten_basis = _bouw_momenten(patroon, tussendoor_aan)
@@ -2624,75 +2926,16 @@ def _stap_dagschema(user: dict):
     # Energieverdeling per moment
     _sectie("ENERGIEVERDELING", "#22c55e")
 
-    # Standaard % per type
+    # Automatische energieverdeling (niet aanpasbaar door gebruiker)
     n_hoofd = len([m for m in momenten_basis if m["type"] != "tussendoor"])
-
-    def _std_pct(m_type):
+    def _auto_pct(m_type):
         if m_type == "tussendoor": return 8
         if n_hoofd == 3: return {"ontbijt":25,"lunch":35,"avond":32}.get(m_type,25)
         if n_hoofd == 2: return {"ontbijt":48,"avond":48,"lunch":48}.get(m_type,48)
         return 50
+    verdeling_pct = {i: _auto_pct(m["type"]) for i, m in enumerate(momenten_basis)}
 
-    verdeling_pct = {}
-    totaal_v = 0
-
-    # Header labels
-    header_html = '<div style="display:grid;grid-template-columns:' +         ";".join(["1fr"]*len(momenten_basis)) +         ';gap:6px;margin-bottom:6px;">'
-    for m in momenten_basis:
-        kleur_h = "#f8fafc" if m["type"] != "tussendoor" else "#f97316"
-        header_html += (
-            f'<div style="text-align:center;">'
-            f'<div style="font-size:0.72rem;font-weight:700;color:{kleur_h};">{m["naam"]}</div>'
-            f'<div style="font-size:0.63rem;color:#64748b;">{m["tijdstip"]}</div>'
-            f'<div style="font-size:0.63rem;color:#475569;">std: {_std_pct(m["type"])}%</div>'
-            f'</div>'
-        )
-    header_html += "</div>"
-    st.markdown(header_html, unsafe_allow_html=True)
-
-    vd_cols = st.columns(len(momenten_basis))
-    for i, m in enumerate(momenten_basis):
-        with vd_cols[i]:
-            std = _std_pct(m["type"])
-            opg = int(profiel.get(f"vd_{i}", std) or std)
-            kleur_t = "#22c55e" if m["type"] != "tussendoor" else "#f97316"
-            v = st.number_input(f"vd{i}", 1, 60, opg, 1,
-                key=f"ep_vd_{i}", label_visibility="collapsed")
-            verdeling_pct[i] = v
-            totaal_v += v
-            st.markdown(
-                f'<div style="background:#1e293b;border-radius:3px;height:4px;margin-top:2px;">'
-                f'<div style="width:{round(v/60*100)}%;height:100%;background:{kleur_t};border-radius:3px;"></div>'
-                f'</div>', unsafe_allow_html=True)
-
-    k_tot = "#22c55e" if totaal_v == 100 else ("#fbbf24" if 95<=totaal_v<=105 else "#ef4444")
-    rest  = 100 - totaal_v
-    rest_txt = "✓ Perfect" if rest==0 else (f"+{abs(rest)}% te veel" if rest<0 else f"{rest}% tekort")
-    st.markdown(
-        f'<div style="display:flex;align-items:center;gap:12px;margin:8px 0 12px;">'
-        f'<div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">'
-        f'<div style="width:{min(100,totaal_v)}%;height:100%;background:{k_tot};border-radius:4px;"></div></div>'
-        f'<div style="font-size:0.8rem;font-weight:700;color:{k_tot};">'
-        f'Totaal: {totaal_v}% &nbsp; {rest_txt}</div></div>',
-        unsafe_allow_html=True)
-
-    # Opslaan eetpatroon
-    if st.button("💾 Eetpatroon opslaan", key="ep_opslaan"):
-        updates = {
-            "eet_patroon": patroon,
-        }
-        for ti in range(3):
-            updates[f"td_{ti}"] = ti in tussendoor_aan
-        for i, v in verdeling_pct.items():
-            updates[f"vd_{i}"] = v
-        if _sla_profiel_op(user_id, updates):
-            st.session_state.fc_profiel.update(updates)
-            st.success("✅ Eetpatroon opgeslagen!")
-            st.rerun()
-
-    st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════════════════════
+        # ══════════════════════════════════════════════════════════════════════════
     # SECTIE 2 — WEEKSCHEMA
     # ══════════════════════════════════════════════════════════════════════════
     _sectie("WEEKSCHEMA", "#22c55e")
@@ -2752,9 +2995,8 @@ def _stap_dagschema(user: dict):
             training_kcal_dag, verdeling_pct)
 
         schema_dag = week_schemas.get(dag_str, {})
-        if schema_dag.get("momenten_json"):
-            try: momenten = _json.loads(schema_dag["momenten_json"])
-            except: pass
+        # Herbereken altijd op basis van huidig eetpatroon (niet opgeslagen versie)
+        # zodat tussendoors consistent zijn voor alle dagen
 
         # Dag totaal
         alle_items = []
@@ -2765,13 +3007,29 @@ def _stap_dagschema(user: dict):
         k_dag     = "#22c55e" if pct_dag >= 80 else ("#fbbf24" if pct_dag >= 40 else "#334155")
 
         # ── Dag header ────────────────────────────────────────────────────────
-        h0, h1, h2, h3, h4 = st.columns([0.4, 3, 2, 1, 1])
+        h0, h1, h2, h4 = st.columns([0.4, 3, 2, 1])
         with h0:
-            # Open/dicht pijltjes links naast datum
             dag_open = f"dag_open_{dag_str}"
             lbl = "▲" if st.session_state.get(dag_open) else "▼"
             if st.button(lbl, key=f"tog_{dag_str}", use_container_width=True):
-                st.session_state[dag_open] = not st.session_state.get(dag_open, False)
+                nieuw_staat = not st.session_state.get(dag_open, False)
+                st.session_state[dag_open] = nieuw_staat
+                # Auto-sla schema op bij eerste opening
+                if nieuw_staat and not schema_dag:
+                    mom = _bereken_moment_doelen(
+                        energie_dag, momenten_basis, training_dag, profiel,
+                        training_kcal_dag, verdeling_pct)
+                    _sla_dagschema_op(user_id, dag_str, {
+                        "energie_doel":    energie_totaal,
+                        "kh_doel_g":       round(energie_totaal*(profiel.get("kh_doel_pct",50) or 50)/100/4),
+                        "eiwit_doel_g":    round(energie_totaal*(profiel.get("eiwit_doel_pct",25) or 25)/100/4),
+                        "vet_doel_g":      round(energie_totaal*(profiel.get("vet_doel_pct",25) or 25)/100/9),
+                        "aantal_maaltijden": len(mom),
+                        "momenten_json":   _json.dumps(mom),
+                        "training_timing": training_dag,
+                        "eet_patroon":     patroon,
+                    })
+                    _laad_week_schemas.clear()
                 st.rerun()
         with h1:
             tr_b = f'<span style="font-size:0.65rem;color:#22c55e;margin-left:6px;">🏃 +{training_kcal_dag}kcal</span>' if training_kcal_dag > 0 else ""
@@ -2783,25 +3041,6 @@ def _stap_dagschema(user: dict):
             training_dag = st.selectbox("Training",
                 ["Geen training","Ochtend (voor 11u)","Middag (11u-15u)","Avond (na 15u)"],
                 key=f"tr_{dag_str}", label_visibility="collapsed")
-        with h3:
-            # Auto-sla schema op als dag geopend wordt
-            if st.button("📅 Schema", key=f"gen_{dag_str}", use_container_width=True):
-                mom = _bereken_moment_doelen(
-                    energie_dag, momenten_basis, training_dag, profiel,
-                    training_kcal_dag, verdeling_pct)
-                _sla_dagschema_op(user_id, dag_str, {
-                    "energie_doel":    energie_totaal,
-                    "kh_doel_g":       round(energie_totaal*(profiel.get("kh_doel_pct",50) or 50)/100/4),
-                    "eiwit_doel_g":    round(energie_totaal*(profiel.get("eiwit_doel_pct",25) or 25)/100/4),
-                    "vet_doel_g":      round(energie_totaal*(profiel.get("vet_doel_pct",25) or 25)/100/9),
-                    "aantal_maaltijden": len(mom),
-                    "momenten_json":   _json.dumps(mom),
-                    "training_timing": training_dag,
-                    "eet_patroon":     patroon,
-                })
-                st.session_state[f"dag_open_{dag_str}"] = True
-                _laad_week_schemas.clear()
-                st.rerun()
         with h4:
             dag_menu_key = f"dag_menu_open_{dag_str}"
             if st.button("📁 Dagmenu", key=f"ops_{dag_str}", use_container_width=True,
@@ -2986,17 +3225,20 @@ def _stap_dagschema(user: dict):
                                 st.rerun()
 
                 else:
-                    # Product toevoegen — zonder apart zoekveld, categorie + dropdown
-                    az1, az2 = st.columns([2, 3])
+                    # Product toevoegen
+                    az1, az2, az3 = st.columns([2, 1, 3])
                     with az1:
                         cat_f = st.selectbox("Categorie",
                             ["Alle"] + CATEGORIE_OPTIES,
                             key=f"c_{dag_str}_{mi}", label_visibility="collapsed")
-                        fav_f = st.checkbox("⭐ fav", key=f"f_{dag_str}_{mi}")
                     with az2:
+                        fav_f = st.selectbox("Filter",
+                            ["Alle","⭐ Fav"],
+                            key=f"f_{dag_str}_{mi}", label_visibility="collapsed")
+                    with az3:
                         gefilterd = [p for p in bibliotheek
                                      if (cat_f=="Alle" or p.get("categorie","")==cat_f)
-                                     and (not fav_f or p.get("favoriet",False))]
+                                     and (fav_f=="Alle" or p.get("favoriet",False))]
                         keuze = st.selectbox("Product",
                             ["— kies product —"] + [p["naam"] for p in gefilterd],
                             key=f"pk_{dag_str}_{mi}", label_visibility="collapsed")
