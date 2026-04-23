@@ -2329,7 +2329,9 @@ AI_SYSTEEM_PROMPT = """Je bent een Belgische sportdiëtist. Je stelt maaltijden 
 - Een korte bereidingswijze bevatten (max 3 stappen)
 Je antwoordt altijd in het Nederlands."""
 
-def _bereken_moment_doelen(energie_dag, momenten, training_timing, profiel):
+def _bereken_moment_doelen(energie_dag, momenten, training_timing, profiel, training_kcal=0):
+    # Voeg trainingsenergie toe aan dagdoel
+    energie_dag = energie_dag + int(training_kcal or 0)
     kh_pct    = profiel.get("kh_doel_pct", 50) or 50
     eiwit_pct = profiel.get("eiwit_doel_pct", 25) or 25
     vet_pct   = profiel.get("vet_doel_pct", 25) or 25
@@ -2589,7 +2591,7 @@ def _stap_dagschema(user: dict):
         # Bouw momenten voor deze dag
         basis = _bouw_basis(eet_patroon)
         training_dag = st.session_state.get(f"training_{dag_str}", "Geen training")
-        momenten = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
+        momenten = _bereken_moment_doelen(energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag, basis, training_dag, profiel, training_kcal_dag if "training_kcal_dag" in dir() else 0)
 
         if schema_dag.get("momenten_json"):
             try:
@@ -2603,7 +2605,7 @@ def _stap_dagschema(user: dict):
         for _mi in range(max(n_mom, 5)):
             alle_items_dag += _laad_dagboek_items(user_id, dag_str, _mi)
         tot_kcal  = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
-        pct_dag   = min(100, round(tot_kcal/energie_dag*100)) if energie_dag > 0 else 0
+        pct_dag   = min(100, round(tot_kcal/energie_dag_totaal*100)) if energie_dag_totaal > 0 else 0
         kleur_dag = "#22c55e" if pct_dag >= 80 else ("#fbbf24" if pct_dag >= 40 else "#334155")
 
         # ── Dag blok ─────────────────────────────────────────────────────────
@@ -2624,9 +2626,20 @@ def _stap_dagschema(user: dict):
                 ["Geen training","Ochtend (voor 11u)","Middag (11u-15u)","Avond (na 15u)"],
                 key=f"training_{dag_str}",
                 label_visibility="collapsed")
+
+        # Laad trainingskcal voor deze dag
+        try:
+            trainingen_dag = [t for t in _laad_trainingen(user_id)
+                             if t.get("datum","")[:10] == dag_str]
+            training_kcal_dag = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen_dag)
+        except:
+            training_kcal_dag = 0
+
+        energie_dag_totaal = energie_dag + training_kcal_dag
+
         with h3:
             if st.button("📋 Dagplan", key=f"gen_{dag_str}", use_container_width=True):
-                mom = _bereken_moment_doelen(energie_dag, basis, training_dag, profiel)
+                mom = _bereken_moment_doelen(energie_dag_totaal, basis, training_dag, profiel, training_kcal_dag)
                 plan = _genereer_dagplan(mom, training_dag, bibliotheek, user_id)
                 st.session_state[plan_key] = plan
                 sid = _sla_dagschema_op(user_id, dag_str, {
@@ -2647,12 +2660,13 @@ def _stap_dagschema(user: dict):
                 st.rerun()
 
         # Voortgangsbalk dag
+        training_info = f" · 🏃 +{training_kcal_dag}kcal training" if training_kcal_dag > 0 else ""
         st.markdown(
             f'<div style="background:#1e293b;border-radius:3px;height:4px;margin-bottom:4px;">'
             f'<div style="width:{pct_dag}%;height:100%;background:{kleur_dag};border-radius:3px;"></div>'
             f'</div>'
             f'<div style="font-size:0.65rem;color:#64748b;margin-bottom:8px;">'
-            f'{round(tot_kcal)} / {energie_dag} kcal · {len(alle_items_dag)} producten</div>',
+            f'{round(tot_kcal)} / {energie_dag_totaal} kcal{training_info} · {len(alle_items_dag)} producten</div>',
             unsafe_allow_html=True)
 
         # ── Dag detail (inklapbaar) ───────────────────────────────────────────
@@ -2675,7 +2689,7 @@ def _stap_dagschema(user: dict):
                     mom = _bereken_moment_doelen(energie_dag, _bouw_basis(eet_patroon),
                         st.session_state.get(f"training_{dag_str}","Geen training"), profiel)
                     sid = _sla_dagschema_op(user_id, dag_str, {
-                        "energie_doel": energie_dag, "kh_doel_g": kh_dag,
+                        "energie_doel": energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag, "kh_doel_g": round((energie_dag_totaal if "energie_dag_totaal" in dir() else energie_dag)*(profiel.get("kh_doel_pct",50) or 50)/100/4),
                         "eiwit_doel_g": eiwit_dag, "vet_doel_g": vet_dag,
                         "aantal_maaltijden": len(mom),
                         "momenten_json": _json.dumps(mom),
