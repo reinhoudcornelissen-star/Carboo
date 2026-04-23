@@ -2461,6 +2461,24 @@ def _update_dagboek_item(item_id, datum, hoeveelheid, product):
         return True
     except: return False
 
+
+def _kies_recept(moment_type: str, energie_doel: int, alle_recepten: list = None) -> dict:
+    pool = alle_recepten if alle_recepten else RECEPT_DB
+    kandidaten = [r for r in pool if r.get("type") == moment_type]
+    if not kandidaten: kandidaten = pool
+    return min(kandidaten, key=lambda r: abs((r.get("kcal") or 0) - energie_doel))
+
+def _formatteer_recept(recept: dict, moment_naam: str, tijdstip: str) -> str:
+    ingredienten = "\n".join([f"- {naam} — {gram}g" for naam, gram in recept.get("ingredienten",[])])
+    return (
+        f"## {moment_naam} — {tijdstip}\n"
+        f"**{recept['naam']}**\n"
+        f"Ingrediënten:\n{ingredienten}\n\n"
+        f"Bereiding: {recept.get('bereiding','')}\n\n"
+        f"Macro\'s: {recept.get('kcal',0)}kcal · {recept.get('kh',0)}g KH · "
+        f"{recept.get('eiwit',0)}g eiwit · {recept.get('vet',0)}g vet\n\n---"
+    )
+
 def _genereer_dagplan(momenten, training_timing, bibliotheek, user_id=""):
     alle = _laad_alle_recepten(user_id) if user_id else RECEPT_DB
     secties = []
