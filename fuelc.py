@@ -1375,7 +1375,7 @@ def _render_receptenbeheer(user_id: str):
                 r_globaal = st.checkbox("🌍 Globaal recept (zichtbaar voor alle gebruikers)", key="r_globaal")
             if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
                 recept = {
-                    "naam":         r_naam.strip(),
+                    "naam":         r_naam.strip() if r_naam else "",
                     "type":         r_type,
                     "kcal":         r_kcal,
                     "kh":           r_kh,
@@ -2598,13 +2598,19 @@ def _stap_dagschema(user: dict):
     with ep2:
         st.markdown('<div style="font-size:0.72rem;color:#64748b;padding-top:28px;">Tussendoor momenten:</div>', unsafe_allow_html=True)
 
-    td_cols = st.columns(3)
+    # Tussendoor alleen bij Klassiek patroon
     tussendoor_aan = []
-    for ti, td in enumerate(TUSSENDOOR_OPTIES):
-        with td_cols[ti]:
-            aan = st.checkbox(td["naam"], key=f"ep_td_{ti}",
-                value=bool(profiel.get(f"td_{ti}", False)))
-            if aan: tussendoor_aan.append(ti)
+    if patroon == "Klassiek (3 maaltijden)":
+        td_cols = st.columns(3)
+        for ti, td in enumerate(TUSSENDOOR_OPTIES):
+            with td_cols[ti]:
+                aan = st.checkbox(td["naam"], key=f"ep_td_{ti}",
+                    value=bool(profiel.get(f"td_{ti}", False)))
+                if aan: tussendoor_aan.append(ti)
+    else:
+        # Wis tussendoor checkboxes voor andere patronen
+        for ti in range(3):
+            st.session_state.pop(f"ep_td_{ti}", None)
 
     # Bouw momenten
     def _bouw_momenten(patroon_naam, td_aan):
@@ -2778,17 +2784,11 @@ def _stap_dagschema(user: dict):
                 ["Geen training","Ochtend (voor 11u)","Middag (11u-15u)","Avond (na 15u)"],
                 key=f"tr_{dag_str}", label_visibility="collapsed")
         with h3:
-            if st.button("📋 Dagplan", key=f"gen_{dag_str}", use_container_width=True):
+            # Auto-sla schema op als dag geopend wordt
+            if st.button("📅 Schema", key=f"gen_{dag_str}", use_container_width=True):
                 mom = _bereken_moment_doelen(
                     energie_dag, momenten_basis, training_dag, profiel,
                     training_kcal_dag, verdeling_pct)
-                for mi, m in enumerate(mom):
-                    bestaande = _laad_dagboek_items(user_id, dag_str, mi)
-                    if not bestaande:
-                        recept = _kies_recept(m["type"], m["energie_doel"],
-                                              alle_recepten, gebruikte_recept_namen)
-                        gebruikte_recept_namen.add(recept.get("naam",""))
-                        _sla_recept_items(user_id, dag_str, mi, recept, bibliotheek)
                 _sla_dagschema_op(user_id, dag_str, {
                     "energie_doel":    energie_totaal,
                     "kh_doel_g":       round(energie_totaal*(profiel.get("kh_doel_pct",50) or 50)/100/4),
@@ -2804,7 +2804,7 @@ def _stap_dagschema(user: dict):
                 st.rerun()
         with h4:
             dag_menu_key = f"dag_menu_open_{dag_str}"
-            if st.button("📁 Menu", key=f"ops_{dag_str}", use_container_width=True,
+            if st.button("📁 Dagmenu", key=f"ops_{dag_str}", use_container_width=True,
                          help="Dagmenu opslaan of laden"):
                 st.session_state[dag_menu_key] = not st.session_state.get(dag_menu_key, False)
                 st.rerun()
@@ -2943,24 +2943,25 @@ def _stap_dagschema(user: dict):
                     if not recepten_type:
                         recepten_type = alle_recepten
 
-                    rf1, rf2, rf3 = st.columns([2, 2, 3])
+                    rf1, rf2 = st.columns([2, 4])
                     with rf1:
                         rec_filter = st.selectbox("Filter",
-                            ["Alle recepten","Eigen recepten","Favorieten"],
+                            ["Alle recepten","Eigen recepten","Favorieten","Gedeelde recepten"],
                             key=f"rf_{dag_str}_{mi}", label_visibility="collapsed")
-                    with rf2:
-                        rec_type_f = st.selectbox("Type",
-                            ["Dit moment","Alle types"],
-                            key=f"rt_{dag_str}_{mi}", label_visibility="collapsed")
 
                     # Filter recepten
-                    rec_pool = alle_recepten if rec_type_f == "Alle types" else recepten_type
                     if rec_filter == "Eigen recepten":
-                        rec_pool = [r for r in rec_pool if r.get("eigen")]
+                        rec_pool = [r for r in alle_recepten if r.get("eigen")]
                     elif rec_filter == "Favorieten":
-                        rec_pool = [r for r in rec_pool if r.get("favoriet") or r.get("eigen")]
+                        rec_pool = [r for r in alle_recepten if r.get("favoriet")]
+                    elif rec_filter == "Gedeelde recepten":
+                        rec_pool = [r for r in alle_recepten if r.get("is_globaal")]
+                    else:
+                        rec_pool = alle_recepten
+                    if not rec_pool:
+                        rec_pool = alle_recepten
 
-                    with rf3:
+                    with rf2:
                         if rec_pool:
                             rec_namen = [f"{r['naam']} ({r.get('kcal',0)}kcal)" for r in rec_pool]
                             rec_keuze = st.selectbox("Recept",
