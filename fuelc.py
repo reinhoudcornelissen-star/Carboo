@@ -413,7 +413,7 @@ def _stap_profiel(user: dict):
 # BLOK 2 — TRAININGEN (MANUELE INVOER)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-SPORT_OPTIES = ["Lopen", "Fietsen", "Zwemmen", "Kracht", "Andere"]
+SPORT_OPTIES = ["Lopen", "Fietsen", "Zwemmen", "Roeien", "Crosstrainer", "Indoor lopen", "Kracht", "Andere"]
 
 ZONE_LABELS = [
     "Z1 — Herstel",
@@ -431,10 +431,23 @@ ZONE_MET = {
     "Z5 — VO2max":    13.0,
 }
 
-def _bereken_kcal(gewicht_kg: float, minuten: float, zone: str) -> int:
-    """MET-gebaseerde kcalberekening."""
-    key = next((k for k in ZONE_MET if zone.startswith(k[:2])), None)
-    met = ZONE_MET.get(key, 6.0) if key else 6.0
+# MET per sport voor nauwkeurigere kcal berekening
+SPORT_MET_FACTOR = {
+    "Lopen":          {"Z1":6.0,"Z2":8.5,"Z3":11.0,"Z4":13.0,"Z5":16.0},
+    "Fietsen":        {"Z1":4.0,"Z2":6.0,"Z3":8.0,"Z4":10.0,"Z5":12.0},
+    "Zwemmen":        {"Z1":5.0,"Z2":7.0,"Z3":9.0,"Z4":11.0,"Z5":13.0},
+    "Roeien":         {"Z1":4.5,"Z2":7.0,"Z3":9.5,"Z4":11.5,"Z5":14.0},
+    "Crosstrainer":   {"Z1":4.0,"Z2":6.0,"Z3":8.0,"Z4":10.0,"Z5":12.0},
+    "Indoor lopen":   {"Z1":6.0,"Z2":8.5,"Z3":11.0,"Z4":13.0,"Z5":16.0},
+    "Kracht":         {"Z1":3.5,"Z2":5.0,"Z3":6.0,"Z4":7.0,"Z5":8.0},
+    "Andere":         {"Z1":4.0,"Z2":6.0,"Z3":8.5,"Z4":10.5,"Z5":13.0},
+}
+
+def _bereken_kcal(gewicht_kg: float, minuten: float, zone: str, sport: str = "") -> int:
+    """MET-gebaseerde kcalberekening per sport."""
+    z_key = zone[:2].upper() if zone else "Z2"
+    sport_mets = SPORT_MET_FACTOR.get(sport, SPORT_MET_FACTOR["Andere"])
+    met = sport_mets.get(z_key, 6.0)
     return round((met * gewicht_kg * 3.5 / 200) * minuten)
 
 def _dominante_zone(blokken: list) -> str:
@@ -594,7 +607,7 @@ def _stap_trainingen(user: dict):
         with ow1:
             opw_min, opw_km, opw_zone = _invoer_blok("tr_opw","Duur (min)","Afstand (km)",10,2.0,0)
         with ow2:
-            opw_kcal = _bereken_kcal(gewicht, opw_min, opw_zone) if opw_min > 0 else 0
+            opw_kcal = _bereken_kcal(gewicht, opw_min, opw_zone, sport) if opw_min > 0 else 0
             if opw_min > 0:
                 st.markdown("<br>", unsafe_allow_html=True)
                 _metric_card("KCAL", str(opw_kcal), "kcal", "#22c55e")
@@ -611,7 +624,7 @@ def _stap_trainingen(user: dict):
             with k1:
                 kern_min, kern_km, kern_zone = _invoer_blok("tr_kern","Duur (min)","Afstand (km)",40,8.0,1)
             with k2:
-                kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
+                kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone, sport) if kern_min > 0 else 0
                 if kern_min > 0:
                     st.markdown("<br>", unsafe_allow_html=True)
                     _metric_card("KCAL", str(kern_kcal), "kcal", "#22c55e")
@@ -644,14 +657,14 @@ def _stap_trainingen(user: dict):
             kern_min = ramp_min; kern_zone = ramp_van
             kern_notitie = f"Ramp: {ramp_van[:2]} → {ramp_naar[:2]}"
 
-        kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone) if kern_min > 0 else 0
+        kern_kcal = _bereken_kcal(gewicht, kern_min, kern_zone, sport) if kern_min > 0 else 0
 
         _sectie("COOLING DOWN", "#22c55e")
         cd1, cd2 = st.columns(2)
         with cd1:
             cool_min, cool_km, cool_zone = _invoer_blok("tr_cool","Duur (min)","Afstand (km)",10,2.0,0)
         with cd2:
-            cool_kcal = _bereken_kcal(gewicht, cool_min, cool_zone) if cool_min > 0 else 0
+            cool_kcal = _bereken_kcal(gewicht, cool_min, cool_zone, sport) if cool_min > 0 else 0
             if cool_min > 0:
                 st.markdown("<br>", unsafe_allow_html=True)
                 _metric_card("KCAL", str(cool_kcal), "kcal", "#22c55e")
@@ -680,14 +693,20 @@ def _stap_trainingen(user: dict):
                     f"OPW: {opw_min}min {opw_zone[:2]} | KERN: {kern_min}min {kern_zone[:2]}"
                     f"{chr(32)+kern_notitie if kern_notitie else ''} | COOL: {cool_min}min {cool_zone[:2]}"
                 ).strip(" | ")
+                import json as _jtr
                 training_data = {
-                    "datum": str(datum), "sport": sport,
-                    "duur_min": totaal_min, "kcal_verbranding": totaal_kcal,
-                    "zone_verdeling": zone_verdeling, "notitie": notitie_vol,
+                    "datum":           str(datum),
+                    "sport":           sport,
+                    "duur_min":        totaal_min,
+                    "kcal_verbranding":totaal_kcal,
+                    "zone_verdeling":  _jtr.dumps(zone_verdeling),
+                    "notitie":         notitie_vol,
                 }
                 if _sla_training_op(user_id, training_data):
                     st.success("✅ Training opgeslagen!")
-                    for k in ["tr_opw_min","tr_kern_min","tr_cool_min","tr_naam"]:
+                    _laad_trainingen.clear()
+                    for k in ["tr_opw_min","tr_kern_min","tr_cool_min","tr_naam",
+                              "tr_kern_type","tr_int_herh","tr_int_werk","tr_int_rust"]:
                         st.session_state.pop(k, None)
                     st.rerun()
         else:
@@ -713,16 +732,33 @@ def _stap_trainingen(user: dict):
             kal_eenheid = st.radio("Koppelen aan",
                 ["Tempo (min/km)", "Hartslag (bpm)", "Beide"],
                 horizontal=True, key="kal_eenheid")
+        elif kal_sport == "Indoor lopen":
+            kal_eenheid = st.radio("Koppelen aan",
+                ["Tempo (min/km)", "Hartslag (bpm)", "Beide"],
+                horizontal=True, key="kal_eenheid")
         elif kal_sport == "Fietsen":
+            kal_eenheid = st.radio("Koppelen aan",
+                ["Watt", "Hartslag (bpm)", "Beide"],
+                horizontal=True, key="kal_eenheid")
+        elif kal_sport == "Roeien":
+            kal_eenheid = st.radio("Koppelen aan",
+                ["Tempo (min/500m)", "Hartslag (bpm)", "Beide"],
+                horizontal=True, key="kal_eenheid")
+        elif kal_sport == "Crosstrainer":
             kal_eenheid = st.radio("Koppelen aan",
                 ["Watt", "Hartslag (bpm)", "Beide"],
                 horizontal=True, key="kal_eenheid")
         else:
             kal_eenheid = "Hartslag (bpm)"
 
-        toon_tempo = kal_eenheid in ["Tempo (min/km)", "Watt", "Beide"]
+        toon_tempo = kal_eenheid in ["Tempo (min/km)", "Tempo (min/500m)", "Watt", "Beide"]
         toon_hs    = kal_eenheid in ["Hartslag (bpm)", "Beide"]
-        tempo_label = "Tempo (min/km)" if kal_sport == "Lopen" else "Watt"
+        if kal_sport in ("Lopen", "Indoor lopen"):
+            tempo_label = "Tempo (min/km)"
+        elif kal_sport == "Roeien":
+            tempo_label = "Tempo (min/500m)"
+        else:
+            tempo_label = "Watt"
 
         nieuwe_zones = {"eenheid": "tempo" if toon_tempo and not toon_hs else "hartslag"}
 
@@ -1324,6 +1360,94 @@ def _product_formulier(prefix: str, defaults: dict = None) -> dict:
         "notitie":        notitie.strip() if notitie else None,
         "favoriet":       favoriet,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BIBLIOTHEEK SUPABASE FUNCTIES
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=30)
+def _laad_bibliotheek_raw(user_id: str) -> list:
+    try:
+        r = _get_supabase().table("fuelc_bibliotheek").select("*")            .eq("user_id", user_id).order("naam").execute()
+        return r.data or []
+    except Exception as e:
+        print(f"Fout bibliotheek: {e}")
+        return []
+
+def _laad_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    data = _laad_bibliotheek_raw(user_id)
+    if zoek:
+        zoek_l = zoek.lower()
+        data = [p for p in data if zoek_l in (p.get("naam") or "").lower()]
+    if categorie and categorie != "Alle":
+        data = [p for p in data if p.get("categorie","") == categorie]
+    return data
+
+@st.cache_data(ttl=30)
+def _laad_gecombineerde_bibliotheek_raw(user_id: str) -> list:
+    eigen = _laad_bibliotheek_raw(user_id)
+    eigen_namen = {p["naam"].lower() for p in eigen}
+    databank = []
+    for p in VOEDSEL_DB:
+        if p["naam"].lower() not in eigen_namen:
+            databank.append({
+                "id": f"db_{p['naam']}", "naam": p["naam"],
+                "categorie": p["cat"], "bron": "databank",
+                "portie_g": p["portie"], "portie_label": p.get("portie_label", f"{p['portie']}g"),
+                "kcal_100g": p["kcal"], "kh_100g": p["kh"],
+                "suikers_100g": p["suikers"], "eiwit_100g": p["eiwit"],
+                "vet_100g": p["vet"], "verzadigd_100g": p["verz"],
+                "vezels_100g": p["vezels"], "natrium_100g": p["natrium"],
+                "kalium_100g": p.get("kalium"), "calcium_100g": p.get("calcium"),
+                "ijzer_100g": p.get("ijzer"), "magnesium_100g": p.get("magnesium"),
+                "vitc_100g": p.get("vitc"), "vitd_100g": p.get("vitd"),
+                "vitb12_100g": p.get("vitb12"), "omega3_100g": p.get("omega3"),
+                "gi": p.get("gi"), "favoriet": False,
+            })
+    return eigen + databank
+
+def _laad_gecombineerde_bibliotheek(user_id: str, zoek: str = "", categorie: str = "") -> list:
+    data = _laad_gecombineerde_bibliotheek_raw(user_id)
+    if zoek:
+        zoek_l = zoek.lower()
+        data = [p for p in data if zoek_l in p["naam"].lower()]
+    if categorie and categorie != "Alle":
+        data = [p for p in data if p.get("categorie","") == categorie]
+    return data
+
+def _sla_product_op(user_id: str, product: dict) -> bool:
+    try:
+        product["user_id"] = user_id
+        if "bron" not in product:
+            product["bron"] = "manueel"
+        _get_supabase().table("fuelc_bibliotheek").insert(product).execute()
+        _laad_bibliotheek_raw.clear()
+        _laad_gecombineerde_bibliotheek_raw.clear()
+        return True
+    except Exception as e:
+        st.error(f"Fout opslaan: {e}")
+        return False
+
+def _update_product(product_id: str, data: dict) -> bool:
+    try:
+        _get_supabase().table("fuelc_bibliotheek").update(data).eq("id", product_id).execute()
+        _laad_bibliotheek_raw.clear()
+        _laad_gecombineerde_bibliotheek_raw.clear()
+        return True
+    except Exception as e:
+        st.error(f"Fout updaten: {e}")
+        return False
+
+def _verwijder_product(product_id: str) -> bool:
+    try:
+        _get_supabase().table("fuelc_bibliotheek").delete().eq("id", product_id).execute()
+        _laad_bibliotheek_raw.clear()
+        _laad_gecombineerde_bibliotheek_raw.clear()
+        return True
+    except Exception as e:
+        st.error(f"Fout verwijderen: {e}")
+        return False
 
 
 # ─── COMMUNITY FUNCTIES ───────────────────────────────────────────────────────
