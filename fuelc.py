@@ -843,6 +843,85 @@ def _stap_trainingen(user: dict):
                 st.success(f"✅ Zones opgeslagen voor {kal_sport}!")
                 st.rerun()
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — MIJN TRAININGEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_lijst:
+        st.markdown("<br>", unsafe_allow_html=True)
+        trainingen = _laad_trainingen(user_id)
+
+        if not trainingen:
+            st.markdown(
+                '<div style="text-align:center;color:#64748b;padding:30px;">' +
+                'Nog geen trainingen toegevoegd.</div>',
+                unsafe_allow_html=True)
+        else:
+            from datetime import date as _dt2, timedelta as _td2
+            vandaag    = _dt2.today()
+            week_start = vandaag - _td2(days=vandaag.weekday())
+            week_kcal  = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
+            week_min   = sum(t.get("duur_min",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:10px;' +
+                f'padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;">' +
+                f'<div><div style="font-size:0.65rem;color:#64748b;">DEZE WEEK</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{week_min//60}u{week_min%60:02d} · {week_kcal} kcal</div></div>' +
+                f'<div><div style="font-size:0.65rem;color:#64748b;">TRAININGEN</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">' +
+                f'{len([t for t in trainingen if t.get("datum","") >= str(week_start)])}</div></div></div>',
+                unsafe_allow_html=True)
+
+            SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊","Kracht":"💪","Andere":"⚡"}
+            ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24","z4":"#f97316","z5":"#ef4444"}
+
+            for t in trainingen:
+                import json as _jt
+                sport_em = SPORT_EMOJI.get(t.get("sport",""),"⚡")
+                duur_min = t.get("duur_min",0) or 0
+                kcal     = t.get("kcal_verbranding",0) or 0
+                notitie  = t.get("notitie","") or ""
+                zv = t.get("zone_verdeling") or {}
+                if isinstance(zv,str):
+                    try: zv = _jt.loads(zv)
+                    except: zv = {}
+                totaal_zv = sum(zv.values()) if zv else max(duur_min,1)
+                zone_balken = "".join([
+                    f'<div style="display:inline-block;width:{round(zv.get(z,0)/totaal_zv*100)}%;' +
+                    f'height:6px;background:{kleur};"></div>'
+                    for z,kleur in ZONE_KLEUR.items() if zv.get(z,0) > 0
+                ])
+
+                with st.expander(
+                    f"{sport_em} {t.get('sport','')} — {t.get('datum','')[:10]} — "
+                    f"{duur_min//60}u{duur_min%60:02d} — {kcal}kcal",
+                    expanded=False):
+                    if notitie:
+                        st.markdown(f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">{notitie[:100]}</div>', unsafe_allow_html=True)
+                    if zone_balken:
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">{zone_balken}</div>',
+                            unsafe_allow_html=True)
+
+                    # Bevestiging verwijder
+                    confirm_key = f"confirm_del_{t['id']}"
+                    if not st.session_state.get(confirm_key, False):
+                        if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+                    else:
+                        st.warning("Ben je zeker dat je deze training wilt verwijderen?")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("✅ Ja, verwijderen", key=f"tr_del_ja_{t['id']}", use_container_width=True):
+                                if _verwijder_training(t["id"]):
+                                    _laad_trainingen.clear()
+                                    st.session_state.pop(confirm_key, None)
+                                    st.rerun()
+                        with c2:
+                            if st.button("❌ Annuleren", key=f"tr_del_nee_{t['id']}", use_container_width=True):
+                                st.session_state.pop(confirm_key, None)
+                                st.rerun()
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1205,6 +1284,7 @@ EENHEID_OPTIES = [
     ("ml", 1.0),
 ]
 
+
 def _product_formulier(prefix: str, defaults: dict = None) -> dict:
     """Universeel product invoerformulier — zelfde voor manueel en scan."""
     d = defaults or {}
@@ -1456,85 +1536,6 @@ def _verwijder_product(product_id: str) -> bool:
 
 
 # ─── COMMUNITY FUNCTIES ───────────────────────────────────────────────────────
-    # ══════════════════════════════════════════════════════════════════════════
-    # TAB 3 — MIJN TRAININGEN
-    # ══════════════════════════════════════════════════════════════════════════
-    with tab_lijst:
-        st.markdown("<br>", unsafe_allow_html=True)
-        trainingen = _laad_trainingen(user_id)
-
-        if not trainingen:
-            st.markdown(
-                '<div style="text-align:center;color:#64748b;padding:30px;">' +
-                'Nog geen trainingen toegevoegd.</div>',
-                unsafe_allow_html=True)
-        else:
-            from datetime import date as _dt2, timedelta as _td2
-            vandaag    = _dt2.today()
-            week_start = vandaag - _td2(days=vandaag.weekday())
-            week_kcal  = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
-            week_min   = sum(t.get("duur_min",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
-            st.markdown(
-                f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:10px;' +
-                f'padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;">' +
-                f'<div><div style="font-size:0.65rem;color:#64748b;">DEZE WEEK</div>' +
-                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{week_min//60}u{week_min%60:02d} · {week_kcal} kcal</div></div>' +
-                f'<div><div style="font-size:0.65rem;color:#64748b;">TRAININGEN</div>' +
-                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">' +
-                f'{len([t for t in trainingen if t.get("datum","") >= str(week_start)])}</div></div></div>',
-                unsafe_allow_html=True)
-
-            SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊","Kracht":"💪","Andere":"⚡"}
-            ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24","z4":"#f97316","z5":"#ef4444"}
-
-            for t in trainingen:
-                import json as _jt
-                sport_em = SPORT_EMOJI.get(t.get("sport",""),"⚡")
-                duur_min = t.get("duur_min",0) or 0
-                kcal     = t.get("kcal_verbranding",0) or 0
-                notitie  = t.get("notitie","") or ""
-                zv = t.get("zone_verdeling") or {}
-                if isinstance(zv,str):
-                    try: zv = _jt.loads(zv)
-                    except: zv = {}
-                totaal_zv = sum(zv.values()) if zv else max(duur_min,1)
-                zone_balken = "".join([
-                    f'<div style="display:inline-block;width:{round(zv.get(z,0)/totaal_zv*100)}%;' +
-                    f'height:6px;background:{kleur};"></div>'
-                    for z,kleur in ZONE_KLEUR.items() if zv.get(z,0) > 0
-                ])
-
-                with st.expander(
-                    f"{sport_em} {t.get('sport','')} — {t.get('datum','')[:10]} — "
-                    f"{duur_min//60}u{duur_min%60:02d} — {kcal}kcal",
-                    expanded=False):
-                    if notitie:
-                        st.markdown(f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">{notitie[:100]}</div>', unsafe_allow_html=True)
-                    if zone_balken:
-                        st.markdown(
-                            f'<div style="background:#1e293b;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">{zone_balken}</div>',
-                            unsafe_allow_html=True)
-
-                    # Bevestiging verwijder
-                    confirm_key = f"confirm_del_{t['id']}"
-                    if not st.session_state.get(confirm_key, False):
-                        if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}"):
-                            st.session_state[confirm_key] = True
-                            st.rerun()
-                    else:
-                        st.warning("Ben je zeker dat je deze training wilt verwijderen?")
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            if st.button("✅ Ja, verwijderen", key=f"tr_del_ja_{t['id']}", use_container_width=True):
-                                if _verwijder_training(t["id"]):
-                                    _laad_trainingen.clear()
-                                    st.session_state.pop(confirm_key, None)
-                                    st.rerun()
-                        with c2:
-                            if st.button("❌ Annuleren", key=f"tr_del_nee_{t['id']}", use_container_width=True):
-                                st.session_state.pop(confirm_key, None)
-                                st.rerun()
-
 
 
 def _laad_community_recepten() -> list:
@@ -1917,7 +1918,23 @@ def _stap_bibliotheek(user: dict):
                 for col,lbl,val,kl in [(mc1,"KCAL",p["kcal"],"#f97316"),(mc2,"KH",f'{p["kh"]}g',"#22c55e"),(mc3,"EIWIT",f'{p["eiwit"]}g',"#3b82f6"),(mc4,"VET",f'{p["vet"]}g',"#8b5cf6")]:
                     with col:
                         st.markdown(f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;"><div style="font-size:0.6rem;color:#64748b;">{lbl}</div><div style="font-size:0.9rem;font-weight:700;color:{kl};">{val}</div></div>', unsafe_allow_html=True)
-                st.markdown(f'<div style="font-size:0.7rem;color:#64748b;margin:6px 0;">Vezels: {p["vezels"]}g · Natrium: {p["natrium"]}mg · GI: {p.get("gi","?")}</div>', unsafe_allow_html=True)
+                extra_db = [
+                    f'Vezels: {p["vezels"]}g',
+                    f'Natrium: {p["natrium"]}mg',
+                ]
+                if p.get("kalium"):    extra_db.append(f'Kalium: {p["kalium"]}mg')
+                if p.get("calcium"):   extra_db.append(f'Calcium: {p["calcium"]}mg')
+                if p.get("ijzer"):     extra_db.append(f'IJzer: {p["ijzer"]}mg')
+                if p.get("magnesium"): extra_db.append(f'Magnesium: {p["magnesium"]}mg')
+                if p.get("vitc"):      extra_db.append(f'Vit C: {p["vitc"]}mg')
+                if p.get("vitd"):      extra_db.append(f'Vit D: {p["vitd"]}µg')
+                if p.get("vitb12"):    extra_db.append(f'Vit B12: {p["vitb12"]}µg')
+                if p.get("omega3"):    extra_db.append(f'Omega-3: {p["omega3"]}g')
+                if p.get("gi"):        extra_db.append(f'GI: {p["gi"]}')
+                st.markdown(
+                    f'<div style="font-size:0.7rem;color:#64748b;margin:6px 0;">' +
+                    ' · '.join(extra_db) + '</div>',
+                    unsafe_allow_html=True)
                 eenheid_db = st.selectbox("Eenheid", ["gram (g)","stuk","snede","eetlepel (15ml)","kopje (150ml)","glas (200ml)","portie","ml"], key=f"db_e_{i}")
                 EG = {"gram (g)":1.0,"stuk":1.0,"snede":1.0,"eetlepel (15ml)":15.0,"kopje (150ml)":150.0,"glas (200ml)":200.0,"portie":float(p["portie"]),"ml":1.0}
                 hoev_db = st.number_input("Hoeveelheid", 0.1, 500.0, 1.0 if eenheid_db not in ("gram (g)","ml") else float(p["portie"]), 0.5, key=f"db_h_{i}")
@@ -2003,7 +2020,31 @@ def _stap_bibliotheek(user: dict):
                     with col:
                         st.markdown(f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;"><div style="font-size:0.6rem;color:#64748b;">{lbl}</div><div style="font-size:0.9rem;font-weight:700;color:{kl};">{val}</div></div>', unsafe_allow_html=True)
                 if portie > 0:
-                    st.markdown(f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">Per portie ({p.get("portie_label") or str(portie)+"g"}): {round(kcal*portie/100)}kcal · {round(kh*portie/100,1)}g KH · {round(eiwit*portie/100,1)}g eiwit</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">' +
+                        f'Per portie ({p.get("portie_label") or str(portie)+"g"}): ' +
+                        f'{round(kcal*portie/100)}kcal · {round(kh*portie/100,1)}g KH · ' +
+                        f'{round(eiwit*portie/100,1)}g eiwit · {round(vet*portie/100,1)}g vet</div>',
+                        unsafe_allow_html=True)
+
+                # Extra voedingsstoffen
+                extra = []
+                if p.get("vezels_100g"):    extra.append(f'Vezels: {p["vezels_100g"]}g')
+                if p.get("natrium_100g"):   extra.append(f'Natrium: {round(p["natrium_100g"])}mg')
+                if p.get("kalium_100g"):    extra.append(f'Kalium: {round(p["kalium_100g"])}mg')
+                if p.get("calcium_100g"):   extra.append(f'Calcium: {round(p["calcium_100g"])}mg')
+                if p.get("ijzer_100g"):     extra.append(f'IJzer: {p["ijzer_100g"]}mg')
+                if p.get("magnesium_100g"): extra.append(f'Magnesium: {round(p["magnesium_100g"])}mg')
+                if p.get("vitc_100g"):      extra.append(f'Vit C: {p["vitc_100g"]}mg')
+                if p.get("vitd_100g"):      extra.append(f'Vit D: {p["vitd_100g"]}µg')
+                if p.get("vitb12_100g"):    extra.append(f'Vit B12: {p["vitb12_100g"]}µg')
+                if p.get("omega3_100g"):    extra.append(f'Omega-3: {p["omega3_100g"]}g')
+                if p.get("gi"):             extra.append(f'GI: {p["gi"]}')
+                if extra:
+                    st.markdown(
+                        f'<div style="font-size:0.7rem;color:#64748b;margin-top:4px;">' +
+                        ' · '.join(extra) + '</div>',
+                        unsafe_allow_html=True)
                 ba1, ba2 = st.columns(2)
                 with ba1:
                     fav_lbl = "★ Verwijder favoriet" if p.get("favoriet") else "☆ Favoriet"
