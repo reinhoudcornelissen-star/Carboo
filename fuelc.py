@@ -3284,6 +3284,212 @@ def _stap_dagschema(user: dict):
 
 
 
+def _render_voedingsdagboek(user: dict):
+    """Dagboek tab — log voeding per dag."""
+    import json as _jdb
+    from datetime import date as _ddb, timedelta as _tddb
+
+    user_id = user.get("id","")
+    profiel = st.session_state.get("fc_profiel",{})
+
+    _sectie("VOEDINGSDAGBOEK", "#22c55e")
+
+    # Week selector
+    w1, w2 = st.columns([2,3])
+    with w1:
+        week_start = st.date_input("Week van", value=_ddb.today(), key="db_week")
+        maandag = week_start - _tddb(days=week_start.weekday())
+    with w2:
+        st.markdown(
+            f'<div style="padding-top:28px;font-size:0.8rem;color:#64748b;">' +
+            f'{maandag.strftime("%d/%m/%Y")} — {(maandag+_tddb(days=6)).strftime("%d/%m/%Y")}</div>',
+            unsafe_allow_html=True)
+
+    DAGEN = ["Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag"]
+    energie_doel = int(profiel.get("energie_doel",2000) or 2000)
+
+    for dag_idx in range(7):
+        dag_datum = maandag + _tddb(days=dag_idx)
+        dag_str   = str(dag_datum)
+        is_vandaag = dag_datum == _ddb.today()
+        vd_b = " 🟢" if is_vandaag else ""
+
+        alle_items = []
+        for mi in range(6):
+            alle_items += _laad_dagboek_items(user_id, dag_str, mi)
+        tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items)
+        pct = min(100, round(tot_kcal/energie_doel*100)) if energie_doel > 0 else 0
+        k = "#22c55e" if pct>=80 else ("#fbbf24" if pct>=40 else "#334155")
+
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">' +
+            f'<div style="min-width:90px;font-size:0.82rem;font-weight:700;color:#f8fafc;">{DAGEN[dag_idx]}{vd_b}</div>' +
+            f'<div style="flex:1;background:#1e293b;border-radius:4px;height:8px;">' +
+            f'<div style="width:{pct}%;height:100%;background:{k};border-radius:4px;"></div></div>' +
+            f'<div style="font-size:0.78rem;color:{k};min-width:80px;text-align:right;">{round(tot_kcal)} kcal</div>' +
+            f'</div>',
+            unsafe_allow_html=True)
+
+        # Welzijn input op donderdag
+        if dag_datum.weekday() == 3:
+            welzijn = {}
+            try:
+                r = _get_supabase().table("fuelc_dagboek_welzijn")                    .select("*").eq("user_id",user_id).eq("datum",dag_str).execute()
+                welzijn = r.data[0] if r.data else {}
+            except: pass
+            with st.expander(f"⚖️ Gewicht & welzijn — {dag_datum.strftime('%d/%m')}", expanded=is_vandaag):
+                wc1, wc2, wc3 = st.columns(3)
+                with wc1:
+                    gew = st.number_input("Gewicht (kg)", 30.0, 250.0,
+                        float(welzijn.get("gewicht_kg") or profiel.get("gewicht_kg") or 70),
+                        0.1, key=f"db_gew_{dag_str}")
+                with wc2:
+                    energie_score = st.slider("Energieniveau", 1, 10,
+                        int(welzijn.get("energie_score") or 5), key=f"db_en_{dag_str}")
+                with wc3:
+                    slaap_uur = st.number_input("Slaap (uur)", 0.0, 12.0,
+                        float(welzijn.get("slaap_uur") or 7.5), 0.5, key=f"db_sl_{dag_str}")
+                if st.button("💾 Opslaan", key=f"db_ops_{dag_str}", use_container_width=True):
+                    try:
+                        _get_supabase().table("fuelc_dagboek_welzijn").upsert({
+                            "user_id":user_id,"datum":dag_str,
+                            "gewicht_kg":gew,"energie_score":energie_score,"slaap_uur":slaap_uur
+                        }, on_conflict="user_id,datum").execute()
+                        st.success("✅ Opgeslagen!")
+                        st.cache_data.clear()
+                    except Exception as e: st.error(str(e))
+
+
+def _render_analyses(user: dict):
+    """Analyses tab."""
+    from datetime import date as _da, timedelta as _ta
+    user_id = user.get("id","")
+    profiel = st.session_state.get("fc_profiel",{})
+    energie_doel = int(profiel.get("energie_doel",2000) or 2000)
+    lengte_prof  = float(profiel.get("lengte_cm",175) or 175)
+
+    _sectie("ANALYSES", "#22c55e")
+
+    periode = st.radio("Periode", ["Laatste 7 dagen","Laatste 30 dagen","Laatste 90 dagen"],
+        horizontal=True, key="an_periode")
+    dagen_map = {"Laatste 7 dagen":7,"Laatste 30 dagen":30,"Laatste 90 dagen":90}
+    n_dagen = dagen_map[periode]
+    einde = _da.today()
+    start = einde - _ta(days=n_dagen-1)
+
+    @st.cache_data(ttl=300)
+    def _laad_welzijn_periode(uid, s, e):
+        try:
+            r = _get_supabase().table("fuelc_dagboek_welzijn").select("*")                .eq("user_id",uid).gte("datum",str(s)).lte("datum",str(e))                .order("datum").execute()
+            return r.data or []
+        except: return []
+
+    @st.cache_data(ttl=300)
+    def _laad_gewicht_all(uid):
+        try:
+            r = _get_supabase().table("fuelc_dagboek_welzijn")                .select("datum,gewicht_kg").eq("user_id",uid)                .order("datum").execute()
+            return [(row["datum"][:10], float(row["gewicht_kg"]))
+                    for row in (r.data or []) if row.get("gewicht_kg")]
+        except: return []
+
+    welzijn_data = _laad_welzijn_periode(user_id, start, einde)
+
+    # Dagboek per dag ophalen
+    dagen_lijst = []
+    for i in range(n_dagen):
+        dag = start + _ta(days=i)
+        dag_str = str(dag)
+        items = []
+        for mi in range(6):
+            items += _laad_dagboek_items(user_id, dag_str, mi)
+        welzijn = next((w for w in welzijn_data if w.get("datum","")[:10]==dag_str), {})
+        dagen_lijst.append({
+            "datum": dag_str,
+            "kcal":  sum(i.get("kcal",0) or 0 for i in items),
+            "kh":    sum(i.get("kh_g",0) or 0 for i in items),
+            "eiwit": sum(i.get("eiwit_g",0) or 0 for i in items),
+            "vet":   sum(i.get("vet_g",0) or 0 for i in items),
+            "gewicht": float(welzijn.get("gewicht_kg") or 0),
+            "energie_score": int(welzijn.get("energie_score") or 0),
+        })
+
+    # Gewicht apart laden
+    gewicht_punten = _laad_gewicht_all(user_id)
+
+    # ── Gewicht ──────────────────────────────────────────────────────────────
+    gew_col1, gew_col2 = st.columns(2)
+
+    with gew_col1:
+        st.markdown('<div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">⚖️ GEWICHT</div>', unsafe_allow_html=True)
+        vandaag_str = str(_da.today())
+        st.markdown('<div style="font-size:0.72rem;color:#64748b;margin-bottom:4px;">Nieuw gewicht invoeren:</div>', unsafe_allow_html=True)
+        nw_col1, nw_col2 = st.columns([2,1])
+        with nw_col1:
+            nieuw_gewicht = st.number_input("kg", 30.0, 250.0,
+                float(gewicht_punten[-1][1] if gewicht_punten else profiel.get("gewicht_kg") or 70),
+                0.1, key="an_nieuw_gew", label_visibility="collapsed")
+        with nw_col2:
+            if st.button("💾", key="an_gew_ops", use_container_width=True):
+                try:
+                    _get_supabase().table("fuelc_dagboek_welzijn").upsert({
+                        "user_id":user_id,"datum":vandaag_str,"gewicht_kg":nieuw_gewicht
+                    }, on_conflict="user_id,datum").execute()
+                    st.success("✅")
+                    st.cache_data.clear()
+                    st.rerun()
+                except Exception as e: st.error(str(e))
+
+        if gewicht_punten:
+            laatste = gewicht_punten[-1][1]
+            bmi = round(laatste/((lengte_prof/100)**2),1) if lengte_prof > 0 else 0
+            bmi_k = "#22c55e" if bmi<25 else ("#fbbf24" if bmi<30 else "#ef4444")
+            trend = gewicht_punten[-1][1]-gewicht_punten[0][1] if len(gewicht_punten)>1 else 0
+            trend_txt = "→ Eerste meting" if len(gewicht_punten)==1 else (f"▲ +{round(trend,1)}kg" if trend>0.1 else (f"▼ {round(trend,1)}kg" if trend<-0.1 else "→ Stabiel"))
+            trend_k = "#64748b" if len(gewicht_punten)==1 else ("#ef4444" if trend>0.5 else ("#22c55e" if trend<-0.5 else "#fbbf24"))
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:10px;margin-top:8px;">' +
+                f'<div style="display:flex;gap:16px;">' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">HUIDIG</div><div style="font-size:1rem;font-weight:800;color:#f8fafc;">{round(laatste,1)} kg</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">BMI</div><div style="font-size:1rem;font-weight:800;color:{bmi_k};">{bmi}</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">TREND</div><div style="font-size:0.85rem;font-weight:700;color:{trend_k};">{trend_txt}</div></div>' +
+                f'</div></div>',
+                unsafe_allow_html=True)
+
+            # Grafiek
+            max_g = max(p[1] for p in gewicht_punten)
+            min_g = min(p[1] for p in gewicht_punten)
+            bereik = max(max_g - min_g, 1)
+            grafiek = '<div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-top:8px;">' 
+            for datum, gew in gewicht_punten[-14:]:
+                h = max(4, round((gew-min_g+0.5)/bereik*56))
+                grafiek += f'<div title="{datum}: {gew}kg" style="flex:1;height:{h}px;background:#22c55e;border-radius:2px 2px 0 0;"></div>'
+            grafiek += '</div>'
+            st.markdown(grafiek, unsafe_allow_html=True)
+
+    with gew_col2:
+        st.markdown('<div style="font-size:0.8rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">⚡ ENERGIE</div>', unsafe_allow_html=True)
+        dagen_met_data = [d for d in dagen_lijst if d["kcal"] > 0]
+        if dagen_met_data:
+            gem_kcal = round(sum(d["kcal"] for d in dagen_met_data)/len(dagen_met_data))
+            gem_kh   = round(sum(d["kh"]   for d in dagen_met_data)/len(dagen_met_data),1)
+            gem_ei   = round(sum(d["eiwit"] for d in dagen_met_data)/len(dagen_met_data),1)
+            gem_vt   = round(sum(d["vet"]  for d in dagen_met_data)/len(dagen_met_data),1)
+            pct_doel = round(gem_kcal/energie_doel*100) if energie_doel>0 else 0
+            k_e = "#22c55e" if 85<=pct_doel<=115 else ("#fbbf24" if 70<=pct_doel<=130 else "#ef4444")
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:10px;">' +
+                f'<div style="display:flex;gap:12px;flex-wrap:wrap;">' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">GEM KCAL</div><div style="font-size:1rem;font-weight:800;color:{k_e};">{gem_kcal}</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">DOEL</div><div style="font-size:1rem;font-weight:800;color:#f8fafc;">{energie_doel}</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">KH</div><div style="font-size:0.9rem;font-weight:700;color:#22c55e;">{gem_kh}g</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">EIWIT</div><div style="font-size:0.9rem;font-weight:700;color:#3b82f6;">{gem_ei}g</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#64748b;">VET</div><div style="font-size:0.9rem;font-weight:700;color:#8b5cf6;">{gem_vt}g</div></div>' +
+                f'</div></div>',
+                unsafe_allow_html=True)
+        else:
+            st.info("Nog geen voedingsdata voor deze periode.")
+
+
 def _stap_dashboard(user: dict):
     tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
     with tab_db:
