@@ -3279,3 +3279,62 @@ def _stap_dagschema(user: dict):
                             st.rerun()
 
         st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+
+
+
+
+
+def _stap_dashboard(user: dict):
+    tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
+    with tab_db:
+        _render_voedingsdagboek(user)
+    with tab_an:
+        _render_analyses(user)
+
+
+def render_fuelc(user: dict):
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">'
+        '<div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">'
+        'FUEL<span style="color:#22c55e;">C</span></div>'
+        '<div style="font-size:0.85rem;font-weight:700;color:#22c55e;letter-spacing:2px;'
+        'border:1px solid #22c55e;border-radius:6px;padding:3px 10px;">'
+        'ENERGIE COACH</div></div>',
+        unsafe_allow_html=True)
+
+    if st.button("← Terug naar modules", key="fc_terug_top"):
+        st.session_state.module = "menu"
+        st.rerun()
+
+    stap   = st.session_state.get("fc_stap", 1)
+    namen  = ["Profiel","Trainingen","Bibliotheek","Dagschema","Analyses"]
+    emojis = ["👤","🏃","🥦","📅","📊"]
+
+    nav_cols = st.columns(5)
+    for i, (col, naam_stap, emoji) in enumerate(zip(nav_cols, namen, emojis)):
+        with col:
+            actief = (i+1) == stap
+            if st.button(f"{emoji}  {naam_stap}", key=f"nav_stap_{i+1}",
+                         use_container_width=True,
+                         type="primary" if actief else "secondary"):
+                st.session_state.fc_stap = i+1
+                st.rerun()
+
+    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+
+    if "fc_profiel" not in st.session_state:
+        st.session_state.fc_profiel = _laad_profiel(user.get("id",""))
+
+    profiel_ingevuld = bool(st.session_state.fc_profiel.get("bmr"))
+
+    if   stap == 1: _stap_profiel(user)
+    elif stap == 2:
+        if not profiel_ingevuld:
+            st.warning("Vul eerst je profiel in.")
+            if st.button("← Naar profiel", key="fc_naar_prof"):
+                st.session_state.fc_stap = 1
+                st.rerun()
+        else: _stap_trainingen(user)
+    elif stap == 3: _stap_bibliotheek(user)
+    elif stap == 4: _stap_dagschema(user)
+    elif stap == 5: _stap_dashboard(user)
