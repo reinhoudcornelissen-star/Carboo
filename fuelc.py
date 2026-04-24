@@ -1790,7 +1790,8 @@ def _render_receptenbeheer(user_id: str):
 
         # Bereken totalen
         def _som(veld):
-            return sum((i.get(veld,0) or 0)*(i.get("gram",100)/100) for i in ingredienten_data)
+            def _gram(i): return float(i.get("gram") or i.get("g") or i.get("hoeveelheid_g") or 100)
+            return sum((i.get(veld,0) or 0)*(_gram(i)/100) for i in ingredienten_data)
         totaal_kcal  = _som("kcal_100g")
         totaal_kh    = _som("kh_100g")
         totaal_eiwit = _som("eiwit_100g")
@@ -1799,23 +1800,26 @@ def _render_receptenbeheer(user_id: str):
         totaal_natrium=_som("natrium_100g")
 
         # Toon toegevoegde ingrediënten
+        # Toon toegevoegde ingrediënten
         for ii, ing in enumerate(ingredienten_data):
+            gram_val = float(ing.get("gram") or ing.get("g") or ing.get("hoeveelheid_g") or 100)
+            naam_val = ing.get("naam") or ing.get("name") or "?"
             ic1, ic2, ic3, ic4 = st.columns([4, 1.5, 2, 0.5])
             with ic1:
                 st.markdown(
                     f'<div style="font-size:0.82rem;color:#f1f5f9;padding:5px 0;">' +
-                    f'<b>{ing["naam"]}</b></div>',
+                    f'<b>{naam_val}</b></div>',
                     unsafe_allow_html=True)
             with ic2:
-                nieuwe_gram = st.number_input("g", 1.0, 2000.0, float(ing["gram"]), 5.0,
+                nieuwe_gram = st.number_input("g", 1.0, 2000.0, gram_val, 5.0,
                     key=f"r_gram_{ii}", label_visibility="collapsed")
-                if nieuwe_gram != ing["gram"]:
+                if nieuwe_gram != gram_val:
                     st.session_state["r_ingredienten"][ii]["gram"] = nieuwe_gram
                     st.rerun()
             with ic3:
-                kcal_ing = round((ing.get("kcal_100g",0) or 0)*ing["gram"]/100)
-                kh_ing   = round((ing.get("kh_100g",0) or 0)*ing["gram"]/100,1)
-                ei_ing   = round((ing.get("eiwit_100g",0) or 0)*ing["gram"]/100,1)
+                kcal_ing = round((ing.get("kcal_100g",0) or 0)*gram_val/100)
+                kh_ing   = round((ing.get("kh_100g",0) or 0)*gram_val/100,1)
+                ei_ing   = round((ing.get("eiwit_100g",0) or 0)*gram_val/100,1)
                 st.markdown(
                     f'<div style="font-size:0.7rem;color:#22c55e;padding-top:6px;">' +
                     f'{kcal_ing}kcal · {kh_ing}g KH · {ei_ing}g ei</div>',
@@ -1840,12 +1844,8 @@ def _render_receptenbeheer(user_id: str):
                 db_cat = st.selectbox("Categorie",
                     ["Alle"] + CATEGORIE_OPTIES,
                     key="r_db_cat", label_visibility="collapsed")
-                zoek_db = st.text_input("Zoeken",
-                    placeholder="typ om te filteren...",
-                    key="r_db_zoek", label_visibility="collapsed")
             resultaten = [p for p in VOEDSEL_DB
-                         if (db_cat == "Alle" or p["cat"] == db_cat)
-                         and (not zoek_db or zoek_db.lower() in p["naam"].lower())]
+                         if db_cat == "Alle" or p["cat"] == db_cat]
             with db_c2:
                 keuze_db = st.selectbox("Product kiezen",
                     ["— kies product —"] + [p["naam"] for p in resultaten],
@@ -1884,22 +1884,21 @@ def _render_receptenbeheer(user_id: str):
                             st.rerun()
 
         elif bron == "📋 Mijn bibliotheek":
+            # Laad enkel eigen bibliotheek (niet databank)
+            eigen_bib = _laad_bibliotheek_raw(user_id)
+
             bib_c1, bib_c2 = st.columns([2, 3])
-            bib_alle = _laad_gecombineerde_bibliotheek(user_id)
             with bib_c1:
                 bib_cat = st.selectbox("Categorie",
                     ["Alle"] + CATEGORIE_OPTIES,
                     key="r_bib_cat", label_visibility="collapsed")
-                zoek_bib = st.text_input("Zoeken",
-                    placeholder="typ om te filteren...",
-                    key="r_bib_zoek", label_visibility="collapsed")
-            bib_res = [p for p in bib_alle
-                      if (bib_cat == "Alle" or p.get("categorie","") == bib_cat)
-                      and (not zoek_bib or zoek_bib.lower() in p["naam"].lower())]
+            bib_res = [p for p in eigen_bib
+                      if bib_cat == "Alle" or p.get("categorie","") == bib_cat]
             with bib_c2:
                 keuze_bib = st.selectbox("Product kiezen",
                     ["— kies product —"] + [p["naam"] for p in bib_res],
                     key="r_bib_keuze", label_visibility="collapsed")
+
             if keuze_bib != "— kies product —":
                 prod_bib = next((p for p in bib_res if p["naam"]==keuze_bib), None)
                 if prod_bib:
@@ -1907,27 +1906,28 @@ def _render_receptenbeheer(user_id: str):
                     gb1, gb2 = st.columns([3,1])
                     with gb1:
                         gram_bib = st.number_input(
-                            f"Hoeveelheid (portie = {portie_bib}g | {prod_bib.get('portie_label','')})",
+                            f"Hoeveelheid ({prod_bib.get('portie_label','') or str(portie_bib)+'g'})",
                             1.0, 2000.0, portie_bib, 5.0, key="r_bib_gram")
-                        kcal_prev = round((prod_bib.get("kcal_100g",0) or 0)*gram_bib/100)
-                        kh_prev   = round((prod_bib.get("kh_100g",0) or 0)*gram_bib/100,1)
-                        ei_prev   = round((prod_bib.get("eiwit_100g",0) or 0)*gram_bib/100,1)
+                        kcal_p = round((prod_bib.get("kcal_100g",0) or 0)*gram_bib/100)
+                        kh_p   = round((prod_bib.get("kh_100g",0) or 0)*gram_bib/100,1)
+                        ei_p   = round((prod_bib.get("eiwit_100g",0) or 0)*gram_bib/100,1)
                         st.markdown(
                             f'<div style="font-size:0.7rem;color:#22c55e;">' +
-                            f'{kcal_prev}kcal · {kh_prev}g KH · {ei_prev}g eiwit</div>',
+                            f'{kcal_p}kcal · {kh_p}g KH · {ei_p}g eiwit</div>',
                             unsafe_allow_html=True)
                     with gb2:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("➕ Toevoegen", key="r_bib_add", use_container_width=True):
                             st.session_state["r_ingredienten"].append({
-                                "naam":prod_bib["naam"],"gram":gram_bib,"label":f"{gram_bib}g",
+                                "naam":prod_bib["naam"],"gram":gram_bib,
+                                "label":prod_bib.get("portie_label","") or f"{gram_bib}g",
                                 **{k: prod_bib.get(k) or 0
                                    for k in ["kcal_100g","kh_100g","suikers_100g","eiwit_100g",
                                              "vet_100g","verzadigd_100g","vezels_100g","natrium_100g",
                                              "kalium_100g","calcium_100g","ijzer_100g","magnesium_100g",
                                              "vitc_100g","vitd_100g","vitb12_100g","omega3_100g","gi"]}
                             })
-                            for k in ["r_bib_keuze","r_bib_zoek"]:
+                            for k in ["r_bib_keuze"]:
                                 st.session_state.pop(k,None)
                             st.rerun()
 
@@ -1973,8 +1973,8 @@ def _render_receptenbeheer(user_id: str):
         if r_naam and ingredienten_data:
             if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
                 def _tot(veld):
-                    return round(sum((i.get(veld,0) or 0)*(i.get("gram",100)/100)
-                                     for i in ingredienten_data), 1)
+                    def _g(i): return float(i.get("gram") or i.get("g") or i.get("hoeveelheid_g") or 100)
+                    return round(sum((i.get(veld,0) or 0)*(_g(i)/100) for i in ingredienten_data), 1)
                 # Sla enkel naam/gram/label op als ingrediëntenlijst
                 ing_lijst = [{"naam":i["naam"],"gram":i["gram"],"label":i.get("label","")}
                              for i in ingredienten_data]
