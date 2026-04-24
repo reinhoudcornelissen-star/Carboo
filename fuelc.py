@@ -1863,11 +1863,16 @@ def _render_receptenbeheer(user_id: str):
                     with ga2:
                         if st.button("➕ Toevoegen", key="r_db_add", use_container_width=True):
                             st.session_state["r_ingredienten"].append({
-                                "naam":prod_sel["naam"],"gram":gram_db,
-                                "label":f"{gram_db}g",
+                                "naam":prod_sel["naam"],"gram":gram_db,"label":f"{gram_db}g",
                                 "kcal_100g":prod_sel["kcal"],"kh_100g":prod_sel["kh"],
-                                "eiwit_100g":prod_sel["eiwit"],"vet_100g":prod_sel["vet"],
+                                "suikers_100g":prod_sel.get("suikers",0),"eiwit_100g":prod_sel["eiwit"],
+                                "vet_100g":prod_sel["vet"],"verzadigd_100g":prod_sel.get("verz",0),
                                 "vezels_100g":prod_sel["vezels"],"natrium_100g":prod_sel["natrium"],
+                                "kalium_100g":prod_sel.get("kalium",0),"calcium_100g":prod_sel.get("calcium",0),
+                                "ijzer_100g":prod_sel.get("ijzer",0),"magnesium_100g":prod_sel.get("magnesium",0),
+                                "vitc_100g":prod_sel.get("vitc",0),"vitd_100g":prod_sel.get("vitd",0),
+                                "vitb12_100g":prod_sel.get("vitb12",0),"omega3_100g":prod_sel.get("omega3",0),
+                                "gi":prod_sel.get("gi",0),
                             })
                             st.session_state.pop("r_db_keuze",None)
                             st.rerun()
@@ -1895,14 +1900,12 @@ def _render_receptenbeheer(user_id: str):
                     with gb2:
                         if st.button("➕ Toevoegen", key="r_bib_add", use_container_width=True):
                             st.session_state["r_ingredienten"].append({
-                                "naam":prod_bib["naam"],"gram":gram_bib,
-                                "label":f"{gram_bib}g",
-                                "kcal_100g":prod_bib.get("kcal_100g",0) or 0,
-                                "kh_100g":prod_bib.get("kh_100g",0) or 0,
-                                "eiwit_100g":prod_bib.get("eiwit_100g",0) or 0,
-                                "vet_100g":prod_bib.get("vet_100g",0) or 0,
-                                "vezels_100g":prod_bib.get("vezels_100g",0) or 0,
-                                "natrium_100g":prod_bib.get("natrium_100g",0) or 0,
+                                "naam":prod_bib["naam"],"gram":gram_bib,"label":f"{gram_bib}g",
+                                **{k: prod_bib.get(k) or 0
+                                   for k in ["kcal_100g","kh_100g","suikers_100g","eiwit_100g",
+                                             "vet_100g","verzadigd_100g","vezels_100g","natrium_100g",
+                                             "kalium_100g","calcium_100g","ijzer_100g","magnesium_100g",
+                                             "vitc_100g","vitd_100g","vitb12_100g","omega3_100g","gi"]}
                             })
                             st.session_state.pop("r_bib_keuze",None)
                             st.rerun()
@@ -1927,12 +1930,18 @@ def _render_receptenbeheer(user_id: str):
         st.markdown("<br>", unsafe_allow_html=True)
         if r_naam and ingredienten_data:
             if st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True):
+                def _tot(veld):
+                    return round(sum((i.get(veld,0) or 0)*(i.get("gram",100)/100)
+                                     for i in ingredienten_data), 1)
+                # Sla enkel naam/gram/label op als ingrediëntenlijst
+                ing_lijst = [{"naam":i["naam"],"gram":i["gram"],"label":i.get("label","")}
+                             for i in ingredienten_data]
                 recept = {
                     "naam":r_naam.strip(),"type":r_type,
-                    "kcal":round(totaal_kcal),"kh":round(totaal_kh,1),
-                    "eiwit":round(totaal_eiwit,1),"vet":round(totaal_vet,1),
-                    "vezels":round(totaal_vezels,1),"natrium":round(totaal_natrium),
-                    "ingredienten":_j.dumps(ingredienten_data),
+                    "kcal":round(_tot("kcal_100g")),"kh":_tot("kh_100g"),
+                    "eiwit":_tot("eiwit_100g"),"vet":_tot("vet_100g"),
+                    "vezels":_tot("vezels_100g"),"natrium":round(_tot("natrium_100g")),
+                    "ingredienten":_j.dumps(ing_lijst),
                     "bereiding":r_bereiding.strip() if r_bereiding else "",
                     "is_globaal":st.session_state.get("r_globaal",False),
                     "user_id":user_id,
@@ -1947,6 +1956,7 @@ def _render_receptenbeheer(user_id: str):
                     st.error(f"Fout: {e}")
         else:
             st.button("💾 Recept opslaan", key="r_opslaan", use_container_width=True, disabled=True)
+            st.caption("Voeg minstens één ingrediënt toe.")
 
     with tab_lijst:
         st.markdown("<br>", unsafe_allow_html=True)
