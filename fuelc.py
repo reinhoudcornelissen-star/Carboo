@@ -1827,40 +1827,45 @@ def _render_receptenbeheer(user_id: str):
 
         st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
 
-        # Zoek en voeg toe
-        z1, z2, z3 = st.columns([1.5, 2, 3])
-        with z1:
-            bron = st.selectbox("Bron",
-                ["🔍 Voedselbank","📋 Mijn bibliotheek","✏️ Manueel"],
-                key="r_bron", label_visibility="collapsed")
+        # ── Ingrediënt toevoegen ──────────────────────────────────────────────
+        _sectie("INGREDIËNT TOEVOEGEN", "#22c55e")
 
-        if bron == "✏️ Manueel":
-            with st.expander("Manueel invoeren", expanded=False):
-                ing_man = _product_formulier("r_man")
-                if ing_man["naam"]:
-                    if st.button("➕ Toevoegen", key="r_man_add", use_container_width=True):
-                        st.session_state["r_ingredienten"].append(ing_man)
-                        st.rerun()
+        bron = st.radio("Bron kiezen",
+            ["🔍 Voedselbank", "📋 Mijn bibliotheek", "✏️ Manueel"],
+            horizontal=True, key="r_bron")
 
-        elif bron == "🔍 Voedselbank":
-            with z2:
-                zoek_db = st.text_input("Zoeken", placeholder="zoek product...",
+        if bron == "🔍 Voedselbank":
+            db_c1, db_c2 = st.columns([2, 3])
+            with db_c1:
+                db_cat = st.selectbox("Categorie",
+                    ["Alle"] + CATEGORIE_OPTIES,
+                    key="r_db_cat", label_visibility="collapsed")
+                zoek_db = st.text_input("Zoeken",
+                    placeholder="typ om te filteren...",
                     key="r_db_zoek", label_visibility="collapsed")
             resultaten = [p for p in VOEDSEL_DB
-                         if not zoek_db or zoek_db.lower() in p["naam"].lower()][:30]
-            with z3:
-                keuze_db = st.selectbox("Product",
-                    ["— kies —"] + [f"{p['naam']} ({p['kcal']}kcal/100g)" for p in resultaten],
+                         if (db_cat == "Alle" or p["cat"] == db_cat)
+                         and (not zoek_db or zoek_db.lower() in p["naam"].lower())]
+            with db_c2:
+                keuze_db = st.selectbox("Product kiezen",
+                    ["— kies product —"] + [p["naam"] for p in resultaten],
                     key="r_db_keuze", label_visibility="collapsed")
-            if keuze_db != "— kies —" and resultaten:
-                idx_k = ["— kies —"] + [f"{p['naam']} ({p['kcal']}kcal/100g)" for p in resultaten]
-                prod_sel = resultaten[idx_k.index(keuze_db)-1] if keuze_db in idx_k else None
+            if keuze_db != "— kies product —":
+                prod_sel = next((p for p in resultaten if p["naam"]==keuze_db), None)
                 if prod_sel:
                     ga1, ga2 = st.columns([3,1])
                     with ga1:
-                        gram_db = st.number_input(f"Hoeveelheid (g) — standaard {prod_sel['portie']}g",
+                        gram_db = st.number_input(
+                            f"Hoeveelheid (portie = {prod_sel['portie']}g | {prod_sel.get('portie_label','')})",
                             1.0, 2000.0, float(prod_sel["portie"]), 5.0, key="r_db_gram")
+                        st.markdown(
+                            f'<div style="font-size:0.7rem;color:#22c55e;">' +
+                            f'{round(prod_sel["kcal"]*gram_db/100)}kcal · ' +
+                            f'{round(prod_sel["kh"]*gram_db/100,1)}g KH · ' +
+                            f'{round(prod_sel["eiwit"]*gram_db/100,1)}g eiwit</div>',
+                            unsafe_allow_html=True)
                     with ga2:
+                        st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("➕ Toevoegen", key="r_db_add", use_container_width=True):
                             st.session_state["r_ingredienten"].append({
                                 "naam":prod_sel["naam"],"gram":gram_db,"label":f"{gram_db}g",
@@ -1874,30 +1879,45 @@ def _render_receptenbeheer(user_id: str):
                                 "vitb12_100g":prod_sel.get("vitb12",0),"omega3_100g":prod_sel.get("omega3",0),
                                 "gi":prod_sel.get("gi",0),
                             })
-                            st.session_state.pop("r_db_keuze",None)
+                            for k in ["r_db_keuze","r_db_zoek"]:
+                                st.session_state.pop(k,None)
                             st.rerun()
 
-        else:  # Mijn bibliotheek
+        elif bron == "📋 Mijn bibliotheek":
+            bib_c1, bib_c2 = st.columns([2, 3])
             bib_alle = _laad_gecombineerde_bibliotheek(user_id)
-            with z2:
-                zoek_bib = st.text_input("Zoeken", placeholder="zoek product...",
+            with bib_c1:
+                bib_cat = st.selectbox("Categorie",
+                    ["Alle"] + CATEGORIE_OPTIES,
+                    key="r_bib_cat", label_visibility="collapsed")
+                zoek_bib = st.text_input("Zoeken",
+                    placeholder="typ om te filteren...",
                     key="r_bib_zoek", label_visibility="collapsed")
             bib_res = [p for p in bib_alle
-                      if not zoek_bib or zoek_bib.lower() in p["naam"].lower()][:30]
-            with z3:
-                keuze_bib = st.selectbox("Product",
-                    ["— kies —"] + [p["naam"] for p in bib_res],
+                      if (bib_cat == "Alle" or p.get("categorie","") == bib_cat)
+                      and (not zoek_bib or zoek_bib.lower() in p["naam"].lower())]
+            with bib_c2:
+                keuze_bib = st.selectbox("Product kiezen",
+                    ["— kies product —"] + [p["naam"] for p in bib_res],
                     key="r_bib_keuze", label_visibility="collapsed")
-            if keuze_bib != "— kies —" and bib_res:
+            if keuze_bib != "— kies product —":
                 prod_bib = next((p for p in bib_res if p["naam"]==keuze_bib), None)
                 if prod_bib:
+                    portie_bib = float(prod_bib.get("portie_g",100) or 100)
                     gb1, gb2 = st.columns([3,1])
                     with gb1:
-                        portie_bib = float(prod_bib.get("portie_g",100) or 100)
                         gram_bib = st.number_input(
-                            f"Hoeveelheid (g) — {prod_bib.get('portie_label','')}",
+                            f"Hoeveelheid (portie = {portie_bib}g | {prod_bib.get('portie_label','')})",
                             1.0, 2000.0, portie_bib, 5.0, key="r_bib_gram")
+                        kcal_prev = round((prod_bib.get("kcal_100g",0) or 0)*gram_bib/100)
+                        kh_prev   = round((prod_bib.get("kh_100g",0) or 0)*gram_bib/100,1)
+                        ei_prev   = round((prod_bib.get("eiwit_100g",0) or 0)*gram_bib/100,1)
+                        st.markdown(
+                            f'<div style="font-size:0.7rem;color:#22c55e;">' +
+                            f'{kcal_prev}kcal · {kh_prev}g KH · {ei_prev}g eiwit</div>',
+                            unsafe_allow_html=True)
                     with gb2:
+                        st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("➕ Toevoegen", key="r_bib_add", use_container_width=True):
                             st.session_state["r_ingredienten"].append({
                                 "naam":prod_bib["naam"],"gram":gram_bib,"label":f"{gram_bib}g",
@@ -1907,8 +1927,30 @@ def _render_receptenbeheer(user_id: str):
                                              "kalium_100g","calcium_100g","ijzer_100g","magnesium_100g",
                                              "vitc_100g","vitd_100g","vitb12_100g","omega3_100g","gi"]}
                             })
-                            st.session_state.pop("r_bib_keuze",None)
+                            for k in ["r_bib_keuze","r_bib_zoek"]:
+                                st.session_state.pop(k,None)
                             st.rerun()
+
+        else:  # ✏️ Manueel
+            st.markdown(
+                '<div style="font-size:0.75rem;color:#64748b;margin-bottom:8px;">' +
+                'Voer het product manueel in. Je kan meerdere manuele ingrediënten toevoegen.</div>',
+                unsafe_allow_html=True)
+            # Gebruik unieke key per teller zodat je meerdere kunt toevoegen
+            man_teller = st.session_state.get("r_man_teller", 0)
+            ing_man = _product_formulier(f"r_man_{man_teller}")
+            if ing_man["naam"]:
+                if st.button("➕ Toevoegen", key=f"r_man_add_{man_teller}", use_container_width=True):
+                    st.session_state["r_ingredienten"].append(ing_man)
+                    st.session_state["r_man_teller"] = man_teller + 1
+                    # Wis manueel formulier
+                    for k in [k for k in st.session_state if k.startswith(f"r_man_{man_teller}")]:
+                        st.session_state.pop(k, None)
+                    st.rerun()
+            else:
+                st.button("➕ Toevoegen", key=f"r_man_add_{man_teller}",
+                          use_container_width=True, disabled=True)
+                st.caption("Vul minstens een naam in.")
 
 
         _sectie("BEREIDING", "#22c55e")
@@ -1972,16 +2014,37 @@ def _render_receptenbeheer(user_id: str):
                 except: ing = []
             globaal_badge = " 🌍" if rec.get("is_globaal") else ""
             with st.expander(
-                f"{TYPE_LABEL.get(rec.get('type',''),'🍴')} {rec.get('naam','')}{globaal_badge} — "
-                f"{rec.get('kcal',0)}kcal · {rec.get('kh',0)}g KH · {rec.get('eiwit',0)}g eiwit",
+                f"{TYPE_LABEL.get(rec.get('type',''),'🍴')}  "
+                f"{rec.get('naam','')}{globaal_badge}  ·  "
+                f"{rec.get('kcal',0)} kcal  ·  {rec.get('kh',0)}g KH  ·  {rec.get('eiwit',0)}g eiwit",
                 expanded=False):
-                for item in ing:
-                    naam_i = item.get("naam","") if isinstance(item,dict) else ""
-                    gram_i = item.get("gram",0) if isinstance(item,dict) else 0
-                    label_i = item.get("label","") if isinstance(item,dict) else ""
-                    st.markdown(f'<div style="font-size:0.78rem;color:#94a3b8;">· {naam_i} — {label_i or str(gram_i)+"g"}</div>', unsafe_allow_html=True)
+                rm1,rm2,rm3,rm4 = st.columns(4)
+                for col,lbl,val,kl in [
+                    (rm1,"KCAL",rec.get("kcal",0),"#f97316"),
+                    (rm2,"KH g",rec.get("kh",0),"#22c55e"),
+                    (rm3,"EIWIT g",rec.get("eiwit",0),"#3b82f6"),
+                    (rm4,"VET g",rec.get("vet",0),"#8b5cf6"),
+                ]:
+                    with col:
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:6px;">' +
+                            f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
+                            f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                            f'</div>', unsafe_allow_html=True)
+                if ing:
+                    st.markdown('<div style="font-size:0.72rem;font-weight:700;color:#64748b;margin:6px 0 4px;">INGREDIËNTEN</div>', unsafe_allow_html=True)
+                    for item in ing:
+                        naam_i  = item.get("naam","") if isinstance(item,dict) else ""
+                        gram_i  = item.get("gram",0) if isinstance(item,dict) else 0
+                        label_i = item.get("label","") if isinstance(item,dict) else ""
+                        st.markdown(
+                            f'<div style="font-size:0.8rem;color:#f1f5f9;padding:2px 0;">' +
+                            f'· <b>{naam_i}</b> — {label_i or str(gram_i)+"g"}</div>',
+                            unsafe_allow_html=True)
                 if rec.get("bereiding"):
-                    st.markdown(f'<div style="font-size:0.75rem;color:#64748b;">👨‍🍳 {rec["bereiding"]}</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f'<div style="font-size:0.78rem;color:#94a3b8;margin-top:6px;">' +
+                        f'👨\u200d🍳 {rec["bereiding"]}</div>', unsafe_allow_html=True)
                 if rec.get("user_id") == user_id or user_id == "22019eac-30b9-471e-88f3-58c7e80a4876":
                     if st.button("🗑 Verwijderen", key=f"r_del_{rec['id']}"):
                         try:
@@ -2037,11 +2100,15 @@ def _stap_bibliotheek(user: dict):
         st.markdown(f'<div style="font-size:0.72rem;color:#64748b;margin:6px 0;">{len(db_res)} product(en)</div>', unsafe_allow_html=True)
 
         for i, p in enumerate(db_res[:50]):
-            with st.expander(f"{p['naam']} — {p['portie_label']} · {p['kcal']}kcal/100g", expanded=False):
+            with st.expander(f"🥦 {p['naam']}  ·  {p['kcal']} kcal  ·  {p['portie_label']}", expanded=False):
                 mc1,mc2,mc3,mc4 = st.columns(4)
-                for col,lbl,val,kl in [(mc1,"KCAL",p["kcal"],"#f97316"),(mc2,"KH",f'{p["kh"]}g',"#22c55e"),(mc3,"EIWIT",f'{p["eiwit"]}g',"#3b82f6"),(mc4,"VET",f'{p["vet"]}g',"#8b5cf6")]:
+                for col,lbl,val,kl in [(mc1,"KCAL",p["kcal"],"#f97316"),(mc2,"KH g",p["kh"],"#22c55e"),(mc3,"EIWIT g",p["eiwit"],"#3b82f6"),(mc4,"VET g",p["vet"],"#8b5cf6")]:
                     with col:
-                        st.markdown(f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;"><div style="font-size:0.6rem;color:#64748b;">{lbl}</div><div style="font-size:0.9rem;font-weight:700;color:{kl};">{val}</div></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:4px;">' +
+                            f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
+                            f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                            f'</div>', unsafe_allow_html=True)
                 extra_db = [
                     f'Vezels: {p["vezels"]}g',
                     f'Natrium: {p["natrium"]}mg',
@@ -2138,11 +2205,17 @@ def _stap_bibliotheek(user: dict):
             eiwit   = p.get("eiwit_100g") or 0
             vet     = p.get("vet_100g") or 0
             fav_ster = "⭐ " if p.get("favoriet") else ""
-            with st.expander(f"{fav_ster}{p.get('naam','')} — {p.get('categorie','')}", expanded=False):
+            with st.expander(
+                    f"{'⭐ ' if p.get('favoriet') else ''}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
+                    expanded=False):
                 mc1,mc2,mc3,mc4 = st.columns(4)
-                for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH",f"{kh}g","#22c55e"),(mc3,"EIWIT",f"{eiwit}g","#3b82f6"),(mc4,"VET",f"{vet}g","#8b5cf6")]:
+                for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH g",kh,"#22c55e"),(mc3,"EIWIT g",eiwit,"#3b82f6"),(mc4,"VET g",vet,"#8b5cf6")]:
                     with col:
-                        st.markdown(f'<div style="background:#0f172a;border-radius:6px;padding:8px;text-align:center;"><div style="font-size:0.6rem;color:#64748b;">{lbl}</div><div style="font-size:0.9rem;font-weight:700;color:{kl};">{val}</div></div>', unsafe_allow_html=True)
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:4px;">' +
+                            f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
+                            f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                            f'</div>', unsafe_allow_html=True)
                 if portie > 0:
                     st.markdown(
                         f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">' +
