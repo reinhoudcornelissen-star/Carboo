@@ -3126,6 +3126,10 @@ def _stap_dagschema(user: dict):
             st.session_state[dag_menu_open_key] = not st.session_state.get(dag_menu_open_key, False)
             st.rerun()
 
+    momenten = _bereken_moment_doelen(
+        energie_dag, momenten_basis, "Geen training", profiel,
+        training_kcal_dag, verdeling_pct)
+
     # ── Opgeslagen dagmenu panel ──────────────────────────────────────────────
     if st.session_state.get(dag_menu_open_key, False):
         with st.container():
@@ -3189,10 +3193,6 @@ def _stap_dagschema(user: dict):
         t.get("kcal_verbranding",0) or 0
         for t in alle_trainingen if t.get("datum","")[:10] == dag_str)
     energie_totaal = energie_dag + training_kcal_dag
-
-    momenten = _bereken_moment_doelen(
-        energie_dag, momenten_basis, "Geen training", profiel,
-        training_kcal_dag, verdeling_pct)
 
     # ── Dagdoel balk ──────────────────────────────────────────────────────────
     alle_items_dag = []
