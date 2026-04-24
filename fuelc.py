@@ -3016,8 +3016,20 @@ def _update_dagboek_item(item_id, datum, hoeveelheid, kcal_100, kh_100, ei_100, 
 
 def _sla_recept_items(user_id, datum, moment_idx, recept, bibliotheek):
     """Sla ingrediënten van recept op als dagboek items."""
-    n = max(len(recept.get("ingredienten",[])), 1)
-    for naam, gram in recept.get("ingredienten", []):
+    import json as _jr
+    ing_raw = recept.get("ingredienten", [])
+    if isinstance(ing_raw, str):
+        try: ing_raw = _jr.loads(ing_raw)
+        except: ing_raw = []
+    # Normaliseer naar lijst van (naam, gram)
+    ing_list = []
+    for item in ing_raw:
+        if isinstance(item, dict):
+            ing_list.append((item.get("naam",""), float(item.get("gram") or item.get("g") or 100)))
+        elif isinstance(item, (list, tuple)) and len(item) >= 2:
+            ing_list.append((item[0], float(item[1])))
+    n = max(len(ing_list), 1)
+    for naam, gram in ing_list:
         prod = next((p for p in bibliotheek if p["naam"].lower() == naam.lower()), None)
         if prod is None:
             prod = {
@@ -3050,7 +3062,7 @@ def _stap_dagschema(user: dict):
     dag_naam = ["Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag"][datum.weekday()]
     is_vandaag = datum == _date.today()
 
-    n1, n2, n3, n4, n5 = st.columns([0.7, 3, 0.7, 1.2, 1.2])
+    n1, n2, n3, n4 = st.columns([0.7, 4, 0.7, 2])
     with n1:
         if st.button("◀", key="ds_vorige", use_container_width=True):
             st.session_state["ds_datum"] = datum - _td(days=1)
@@ -3058,9 +3070,9 @@ def _stap_dagschema(user: dict):
     with n2:
         vd_badge = ' <span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:1px 6px;margin-left:6px;">VANDAAG</span>' if is_vandaag else ""
         st.markdown(
-            f'<div style="text-align:center;padding:5px 0;">'
-            f'<div style="font-size:1rem;font-weight:800;color:#f8fafc;">'
-            f'{dag_naam} {datum.strftime("%d/%m/%Y")}{vd_badge}</div>'
+            f'<div style="text-align:center;padding:5px 0;">' +
+            f'<div style="font-size:1rem;font-weight:800;color:#f8fafc;">' +
+            f'{dag_naam} {datum.strftime("%d/%m/%Y")}{vd_badge}</div>' +
             f'</div>',
             unsafe_allow_html=True)
     with n3:
@@ -3068,10 +3080,6 @@ def _stap_dagschema(user: dict):
             st.session_state["ds_datum"] = datum + _td(days=1)
             st.rerun()
     with n4:
-        if st.button("📅 Vandaag", key="ds_vandaag", use_container_width=True):
-            st.session_state["ds_datum"] = _date.today()
-            st.rerun()
-    with n5:
         dag_menu_open_key = f"dagmenu_open_{dag_str}"
         if st.button("💾 Opgeslagen schema's", key=f"dm_open_{dag_str}", use_container_width=True):
             st.session_state[dag_menu_open_key] = not st.session_state.get(dag_menu_open_key, False)
@@ -3337,27 +3345,44 @@ def _stap_dagschema(user: dict):
                             _sla_recept_items(user_id,dag_str,mi,gekozen_rec,bibliotheek)
                             st.session_state.pop(f"rk_{dag_str}_{mi}",None); st.rerun()
             else:
-                cat_f = st.selectbox("Categorie", ["Alle"]+CATEGORIE_OPTIES,
-                    key=f"c_{dag_str}_{mi}", label_visibility="collapsed")
-                fav_f = st.selectbox("Filter", ["Alle","⭐ Favorieten"],
-                    key=f"f_{dag_str}_{mi}", label_visibility="collapsed")
+                # Compact: categorie · fav · product op één rij
+                pc1, pc2, pc3 = st.columns([2, 1, 3])
+                with pc1:
+                    cat_f = st.selectbox("cat", ["Alle"] + CATEGORIE_OPTIES,
+                        key=f"c_{dag_str}_{mi}", label_visibility="collapsed")
+                with pc2:
+                    fav_f = st.selectbox("fav", ["Alle", "⭐"],
+                        key=f"f_{dag_str}_{mi}", label_visibility="collapsed")
                 gefilterd = [p for p in bibliotheek
                              if (cat_f=="Alle" or p.get("categorie","")==cat_f)
                              and (fav_f=="Alle" or p.get("favoriet",False))]
-                keuze = st.selectbox("Product kiezen",
-                    ["— kies product —"] + [p["naam"] for p in gefilterd],
-                    key=f"pk_{dag_str}_{mi}", label_visibility="collapsed")
+                with pc3:
+                    keuze = st.selectbox("product",
+                        ["— kies product —"] + [p["naam"] for p in gefilterd],
+                        key=f"pk_{dag_str}_{mi}", label_visibility="collapsed")
                 if keuze != "— kies product —":
                     gekozen = next((p for p in gefilterd if p["naam"]==keuze), None)
                     if gekozen:
                         portie = float(gekozen.get("portie_g") or 100)
-                        hoev = st.number_input(f"Hoeveelheid (portie = {portie}g)",
-                            1.0, 2000.0, portie, 5.0,
-                            key=f"h_{dag_str}_{mi}", label_visibility="collapsed")
-                        if st.button(f"➕ {gekozen['naam']} toevoegen",
-                                     key=f"add_{dag_str}_{mi}", use_container_width=True):
-                            _sla_dagboek_item(user_id,dag_str,mi,gekozen,hoev)
-                            st.session_state.pop(f"pk_{dag_str}_{mi}",None); st.rerun()
+                        portie_lbl = gekozen.get("portie_label","") or f"{portie}g"
+                        # Preview macro's
+                        kcal_p = round((gekozen.get("kcal_100g",0) or 0)*portie/100)
+                        kh_p   = round((gekozen.get("kh_100g",0) or 0)*portie/100,1)
+                        ei_p   = round((gekozen.get("eiwit_100g",0) or 0)*portie/100,1)
+                        st.markdown(
+                            f'<div style="background:#0f172a;border-radius:6px;padding:8px 12px;margin:4px 0;">' +
+                            f'<div style="font-size:0.75rem;font-weight:700;color:#f1f5f9;">{gekozen["naam"]}</div>' +
+                            f'<div style="font-size:0.7rem;color:#64748b;margin-top:2px;">{portie_lbl} · {kcal_p} kcal · {kh_p}g KH · {ei_p}g eiwit</div>' +
+                            f'</div>', unsafe_allow_html=True)
+                        ha1, ha2 = st.columns([3,1])
+                        with ha1:
+                            hoev = st.number_input("g", 1.0, 2000.0, portie, 5.0,
+                                key=f"h_{dag_str}_{mi}", label_visibility="collapsed")
+                        with ha2:
+                            if st.button("➕ Voeg toe", key=f"add_{dag_str}_{mi}",
+                                         use_container_width=True):
+                                _sla_dagboek_item(user_id,dag_str,mi,gekozen,hoev)
+                                st.session_state.pop(f"pk_{dag_str}_{mi}",None); st.rerun()
 
 
 
