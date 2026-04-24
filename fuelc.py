@@ -508,6 +508,7 @@ def _verwijder_training(training_id: str) -> bool:
     try:
         sb = _get_supabase()
         sb.table("fuelc_trainingen").delete().eq("id", training_id).execute()
+        _laad_trainingen.clear()
         return True
     except Exception as e:
         st.error(f"Fout bij verwijderen: {e}")
@@ -703,12 +704,16 @@ def _stap_trainingen(user: dict):
                     "notitie":         notitie_vol,
                 }
                 if _sla_training_op(user_id, training_data):
-                    st.success("✅ Training opgeslagen!")
                     _laad_trainingen.clear()
-                    for k in ["tr_opw_min","tr_kern_min","tr_cool_min","tr_naam",
-                              "tr_kern_type","tr_int_herh","tr_int_werk","tr_int_rust"]:
+                    st.session_state["tr_saved"] = True
+                    for k in [k for k in st.session_state
+                              if k.startswith(("tr_opw","tr_kern","tr_cool",
+                                               "tr_naam","tr_int","tr_ramp"))]:
                         st.session_state.pop(k, None)
                     st.rerun()
+
+            if st.session_state.pop("tr_saved", False):
+                st.success("✅ Training opgeslagen! Ga naar 📋 Mijn trainingen.")
         else:
             st.button("💾 Training opslaan", key="tr_opslaan", use_container_width=True, disabled=True)
             st.caption("Vul minstens één blok in.")
@@ -1451,6 +1456,86 @@ def _verwijder_product(product_id: str) -> bool:
 
 
 # ─── COMMUNITY FUNCTIES ───────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3 — MIJN TRAININGEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab_lijst:
+        st.markdown("<br>", unsafe_allow_html=True)
+        trainingen = _laad_trainingen(user_id)
+
+        if not trainingen:
+            st.markdown(
+                '<div style="text-align:center;color:#64748b;padding:30px;">' +
+                'Nog geen trainingen toegevoegd.</div>',
+                unsafe_allow_html=True)
+        else:
+            from datetime import date as _dt2, timedelta as _td2
+            vandaag    = _dt2.today()
+            week_start = vandaag - _td2(days=vandaag.weekday())
+            week_kcal  = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
+            week_min   = sum(t.get("duur_min",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
+            st.markdown(
+                f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:10px;' +
+                f'padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;">' +
+                f'<div><div style="font-size:0.65rem;color:#64748b;">DEZE WEEK</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{week_min//60}u{week_min%60:02d} · {week_kcal} kcal</div></div>' +
+                f'<div><div style="font-size:0.65rem;color:#64748b;">TRAININGEN</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">' +
+                f'{len([t for t in trainingen if t.get("datum","") >= str(week_start)])}</div></div></div>',
+                unsafe_allow_html=True)
+
+            SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊","Kracht":"💪","Andere":"⚡"}
+            ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24","z4":"#f97316","z5":"#ef4444"}
+
+            for t in trainingen:
+                import json as _jt
+                sport_em = SPORT_EMOJI.get(t.get("sport",""),"⚡")
+                duur_min = t.get("duur_min",0) or 0
+                kcal     = t.get("kcal_verbranding",0) or 0
+                notitie  = t.get("notitie","") or ""
+                zv = t.get("zone_verdeling") or {}
+                if isinstance(zv,str):
+                    try: zv = _jt.loads(zv)
+                    except: zv = {}
+                totaal_zv = sum(zv.values()) if zv else max(duur_min,1)
+                zone_balken = "".join([
+                    f'<div style="display:inline-block;width:{round(zv.get(z,0)/totaal_zv*100)}%;' +
+                    f'height:6px;background:{kleur};"></div>'
+                    for z,kleur in ZONE_KLEUR.items() if zv.get(z,0) > 0
+                ])
+
+                with st.expander(
+                    f"{sport_em} {t.get('sport','')} — {t.get('datum','')[:10]} — "
+                    f"{duur_min//60}u{duur_min%60:02d} — {kcal}kcal",
+                    expanded=False):
+                    if notitie:
+                        st.markdown(f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">{notitie[:100]}</div>', unsafe_allow_html=True)
+                    if zone_balken:
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">{zone_balken}</div>',
+                            unsafe_allow_html=True)
+
+                    # Bevestiging verwijder
+                    confirm_key = f"confirm_del_{t['id']}"
+                    if not st.session_state.get(confirm_key, False):
+                        if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}"):
+                            st.session_state[confirm_key] = True
+                            st.rerun()
+                    else:
+                        st.warning("Ben je zeker dat je deze training wilt verwijderen?")
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("✅ Ja, verwijderen", key=f"tr_del_ja_{t['id']}", use_container_width=True):
+                                if _verwijder_training(t["id"]):
+                                    _laad_trainingen.clear()
+                                    st.session_state.pop(confirm_key, None)
+                                    st.rerun()
+                        with c2:
+                            if st.button("❌ Annuleren", key=f"tr_del_nee_{t['id']}", use_container_width=True):
+                                st.session_state.pop(confirm_key, None)
+                                st.rerun()
+
+
 
 def _laad_community_recepten() -> list:
     """Laad alle gedeelde recepten met scores en reacties."""
@@ -1654,85 +1739,6 @@ def _render_community_tab(user: dict):
 
 
 
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # TAB 3 — MIJN TRAININGEN
-    # ══════════════════════════════════════════════════════════════════════════
-    with tab_lijst:
-        st.markdown("<br>", unsafe_allow_html=True)
-        trainingen = _laad_trainingen(user_id)
-
-        if not trainingen:
-            st.markdown(
-                '<div style="text-align:center;color:#64748b;padding:30px;">' +
-                'Nog geen trainingen toegevoegd.</div>',
-                unsafe_allow_html=True)
-        else:
-            from datetime import date as _dt2, timedelta as _td2
-            vandaag    = _dt2.today()
-            week_start = vandaag - _td2(days=vandaag.weekday())
-            week_kcal  = sum(t.get("kcal_verbranding",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
-            week_min   = sum(t.get("duur_min",0) or 0 for t in trainingen if t.get("datum","") >= str(week_start))
-            st.markdown(
-                f'<div style="background:#0f172a;border:1px solid #22c55e;border-radius:10px;' +
-                f'padding:12px 16px;margin-bottom:16px;display:flex;gap:24px;">' +
-                f'<div><div style="font-size:0.65rem;color:#64748b;">DEZE WEEK</div>' +
-                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{week_min//60}u{week_min%60:02d} · {week_kcal} kcal</div></div>' +
-                f'<div><div style="font-size:0.65rem;color:#64748b;">TRAININGEN</div>' +
-                f'<div style="font-size:1.1rem;font-weight:800;color:#22c55e;">' +
-                f'{len([t for t in trainingen if t.get("datum","") >= str(week_start)])}</div></div></div>',
-                unsafe_allow_html=True)
-
-            SPORT_EMOJI = {"Lopen":"🏃","Fietsen":"🚴","Zwemmen":"🏊","Kracht":"💪","Andere":"⚡"}
-            ZONE_KLEUR  = {"z1":"#64748b","z2":"#22c55e","z3":"#fbbf24","z4":"#f97316","z5":"#ef4444"}
-
-            for t in trainingen:
-                import json as _jt
-                sport_em = SPORT_EMOJI.get(t.get("sport",""),"⚡")
-                duur_min = t.get("duur_min",0) or 0
-                kcal     = t.get("kcal_verbranding",0) or 0
-                notitie  = t.get("notitie","") or ""
-                zv = t.get("zone_verdeling") or {}
-                if isinstance(zv,str):
-                    try: zv = _jt.loads(zv)
-                    except: zv = {}
-                totaal_zv = sum(zv.values()) if zv else max(duur_min,1)
-                zone_balken = "".join([
-                    f'<div style="display:inline-block;width:{round(zv.get(z,0)/totaal_zv*100)}%;' +
-                    f'height:6px;background:{kleur};"></div>'
-                    for z,kleur in ZONE_KLEUR.items() if zv.get(z,0) > 0
-                ])
-
-                with st.expander(
-                    f"{sport_em} {t.get('sport','')} — {t.get('datum','')[:10]} — "
-                    f"{duur_min//60}u{duur_min%60:02d} — {kcal}kcal",
-                    expanded=False):
-                    if notitie:
-                        st.markdown(f'<div style="font-size:0.8rem;color:#94a3b8;margin-bottom:6px;">{notitie[:100]}</div>', unsafe_allow_html=True)
-                    if zone_balken:
-                        st.markdown(
-                            f'<div style="background:#1e293b;border-radius:4px;height:8px;overflow:hidden;margin-bottom:6px;">{zone_balken}</div>',
-                            unsafe_allow_html=True)
-
-                    # Bevestiging verwijder
-                    confirm_key = f"confirm_del_{t['id']}"
-                    if not st.session_state.get(confirm_key, False):
-                        if st.button("🗑 Verwijderen", key=f"tr_del_{t['id']}"):
-                            st.session_state[confirm_key] = True
-                            st.rerun()
-                    else:
-                        st.warning("Ben je zeker dat je deze training wilt verwijderen?")
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            if st.button("✅ Ja, verwijderen", key=f"tr_del_ja_{t['id']}", use_container_width=True):
-                                if _verwijder_training(t["id"]):
-                                    _laad_trainingen.clear()
-                                    st.session_state.pop(confirm_key, None)
-                                    st.rerun()
-                        with c2:
-                            if st.button("❌ Annuleren", key=f"tr_del_nee_{t['id']}", use_container_width=True):
-                                st.session_state.pop(confirm_key, None)
-                                st.rerun()
 
 
 
