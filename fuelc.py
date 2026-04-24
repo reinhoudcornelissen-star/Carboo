@@ -388,9 +388,9 @@ def _stap_profiel(user: dict):
                 "eiwit_doel_pct": eiwit_pct,
                 "vet_doel_pct":   vet_pct,
                 "eet_patroon":    st.session_state.get("prof_patroon","Klassiek (3 maaltijden)"),
-                "momenten_tijden":_json_save.dumps(st.session_state.get("prof_tijd_0") and {
-                    str(i): st.session_state.get(f"prof_tijd_{i}", "") for i in range(3)
-                } or {}),
+                "momenten_tijden":_json_save.dumps({
+                    str(i): st.session_state.get(f"prof_tijd_{i}", "") for i in range(6)
+                }),
                 "td_0": 0 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
                 "td_1": 1 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
                 "td_2": 2 in [ti for ti in range(3) if st.session_state.get(f"prof_td_{ti}")],
@@ -542,6 +542,18 @@ def _zone_info(zones: dict, zone_label: str, eenheid: str, sport: str) -> str:
         if van and tot: return f"{int(van)}—{int(tot)} bpm"
         elif van: return f"vanaf {int(van)} bpm"
     return ""
+
+def _parse_tempo(s: str):
+    """Converteer tempo string (5:30 of 5.5) naar decimaal getal."""
+    if not s: return None
+    s = s.strip()
+    if ":" in s:
+        parts = s.split(":")
+        try: return int(parts[0]) + int(parts[1])/60
+        except: return None
+    try: return float(s)
+    except: return None
+
 
 def _stap_trainingen(user: dict):
     user_id = user.get("id", "")
@@ -733,6 +745,18 @@ def _stap_trainingen(user: dict):
         kal_sport = st.selectbox("Sport", SPORT_OPTIES, key="kal_sport")
         kal_zones = _laad_zones(user_id, kal_sport)
 
+        # Toon status per sport
+        sport_status = []
+        for sp in SPORT_OPTIES:
+            z = _laad_zones(user_id, sp)
+            if z:
+                sport_status.append(f'<span style="background:#22c55e22;color:#22c55e;border:1px solid #22c55e44;border-radius:4px;padding:2px 8px;font-size:0.7rem;margin:2px;">{sp} ✓</span>')
+            else:
+                sport_status.append(f'<span style="background:#1e293b;color:#475569;border:1px solid #334155;border-radius:4px;padding:2px 8px;font-size:0.7rem;margin:2px;">{sp}</span>')
+        st.markdown(
+            '<div style="margin-bottom:12px;">' + " ".join(sport_status) + '</div>',
+            unsafe_allow_html=True)
+
         if kal_sport == "Lopen":
             kal_eenheid = st.radio("Koppelen aan",
                 ["Tempo (min/km)", "Hartslag (bpm)", "Beide"],
@@ -787,15 +811,6 @@ def _stap_trainingen(user: dict):
                         placeholder="bijv. 5:30",
                         help="Formaat: min:sec bijv. 5:30 of 5.5")
                     # Converteer terug naar decimaal
-                    def _parse_tempo(s):
-                        s = s.strip()
-                        if not s: return None
-                        if ":" in s:
-                            parts = s.split(":")
-                            try: return int(parts[0]) + int(parts[1])/60
-                            except: return None
-                        try: return float(s)
-                        except: return None
                     nieuwe_zones[f"{z_key}_tempo_van"] = _parse_tempo(tempo_van_str)
 
                 with t2:
@@ -838,8 +853,9 @@ def _stap_trainingen(user: dict):
                         f'→ {int(hs_van)}—{int(hs_tot)} bpm</div>', unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("💾 Zones opslaan", key="kal_opslaan", use_container_width=True):
+        if st.button(f"💾 Zones opslaan voor {kal_sport}", key=f"kal_ops_{kal_sport}", use_container_width=True):
             if _sla_zones_op(user_id, kal_sport, nieuwe_zones):
+                _laad_zones.clear()
                 st.success(f"✅ Zones opgeslagen voor {kal_sport}!")
                 st.rerun()
 
@@ -1887,17 +1903,19 @@ def _stap_bibliotheek(user: dict):
         st.markdown("<br>", unsafe_allow_html=True)
         product_data = _product_formulier("bib")
         st.markdown("<br>", unsafe_allow_html=True)
+        if st.session_state.pop("bib_saved", False):
+            st.success("✅ Product opgeslagen in je bibliotheek!")
+
         if product_data["naam"]:
             if st.button("💾 Product opslaan", key="bib_opslaan", use_container_width=True):
                 product_data["bron"] = "manueel"
                 if _sla_product_op(user_id, product_data):
-                    st.success(f"✅ '{product_data['naam']}' opgeslagen!")
-                    for k in [k for k in st.session_state if k.startswith("bib_")]:
+                    st.session_state["bib_saved"] = True
+                    for k in [k for k in st.session_state if k.startswith("bib_") and k != "bib_saved"]:
                         st.session_state.pop(k, None)
                     st.rerun()
         else:
             st.button("💾 Product opslaan", key="bib_opslaan", use_container_width=True, disabled=True)
-            st.caption("Vul minstens een naam in.")
 
     with tab_db:
         st.markdown("<br>", unsafe_allow_html=True)
