@@ -1855,9 +1855,15 @@ def _render_receptenbeheer(user_id: str):
                 if prod_sel:
                     ga1, ga2 = st.columns([3,1])
                     with ga1:
-                        gram_db = st.number_input(
-                            f"Hoeveelheid (portie = {prod_sel['portie']}g | {prod_sel.get('portie_label','')})",
-                            1.0, 2000.0, float(prod_sel["portie"]), 5.0, key="r_db_gram")
+                        portie_std = float(prod_sel["portie"])
+                        pc1, pc2 = st.columns([1,1])
+                        with pc1:
+                            n_porties = st.number_input("Porties", 0.5, 20.0, 1.0, 0.5,
+                                key="r_db_porties")
+                        with pc2:
+                            gram_db = st.number_input("Gram totaal",
+                                1.0, 5000.0, round(portie_std * n_porties, 1), 5.0,
+                                key="r_db_gram")
                         st.markdown(
                             f'<div style="font-size:0.7rem;color:#22c55e;">' +
                             f'{round(prod_sel["kcal"]*gram_db/100)}kcal · ' +
@@ -1905,9 +1911,15 @@ def _render_receptenbeheer(user_id: str):
                     portie_bib = float(prod_bib.get("portie_g",100) or 100)
                     gb1, gb2 = st.columns([3,1])
                     with gb1:
-                        gram_bib = st.number_input(
-                            f"Hoeveelheid ({prod_bib.get('portie_label','') or str(portie_bib)+'g'})",
-                            1.0, 2000.0, portie_bib, 5.0, key="r_bib_gram")
+                        portie_label_str = prod_bib.get("portie_label","") or f"{portie_bib}g"
+                        bc1, bc2 = st.columns([1,1])
+                        with bc1:
+                            n_porties_b = st.number_input(f"Porties ({portie_label_str})",
+                                0.5, 20.0, 1.0, 0.5, key="r_bib_porties")
+                        with bc2:
+                            gram_bib = st.number_input("Gram totaal",
+                                1.0, 5000.0, round(portie_bib * n_porties_b, 1), 5.0,
+                                key="r_bib_gram")
                         kcal_p = round((prod_bib.get("kcal_100g",0) or 0)*gram_bib/100)
                         kh_p   = round((prod_bib.get("kh_100g",0) or 0)*gram_bib/100,1)
                         ei_p   = round((prod_bib.get("eiwit_100g",0) or 0)*gram_bib/100,1)
@@ -1958,15 +1970,31 @@ def _render_receptenbeheer(user_id: str):
             placeholder="1. Kook 3 min. 2. Voeg fruit toe. 3. Serveer.")
 
         if ingredienten_data and totaal_kcal > 0:
+            def _som2(veld):
+                def _g(i): return float(i.get("gram") or i.get("g") or 100)
+                return round(sum((i.get(veld,0) or 0)*(_g(i)/100) for i in ingredienten_data),1)
+            extra_v = []
+            if _som2("vezels_100g"):    extra_v.append(f'Vezels: {_som2("vezels_100g")}g')
+            if _som2("natrium_100g"):   extra_v.append(f'Natrium: {round(_som2("natrium_100g"))}mg')
+            if _som2("kalium_100g"):    extra_v.append(f'Kalium: {round(_som2("kalium_100g"))}mg')
+            if _som2("calcium_100g"):   extra_v.append(f'Calcium: {round(_som2("calcium_100g"))}mg')
+            if _som2("ijzer_100g"):     extra_v.append(f'IJzer: {_som2("ijzer_100g")}mg')
+            if _som2("magnesium_100g"): extra_v.append(f'Magnesium: {round(_som2("magnesium_100g"))}mg')
+            if _som2("vitc_100g"):      extra_v.append(f'Vit C: {_som2("vitc_100g")}mg')
+            if _som2("vitd_100g"):      extra_v.append(f'Vit D: {_som2("vitd_100g")}µg')
+            if _som2("vitb12_100g"):    extra_v.append(f'Vit B12: {_som2("vitb12_100g")}µg')
+            if _som2("omega3_100g"):    extra_v.append(f'Omega-3: {_som2("omega3_100g")}g')
             st.markdown(
-                f'<div style="background:#1e293b;border-radius:10px;padding:12px;margin:10px 0;">'
-                f'<div style="font-size:0.7rem;color:#22c55e;margin-bottom:6px;">TOTAAL RECEPT</div>'
-                f'<div style="display:flex;gap:16px;">'
-                f'<span style="color:#f97316;font-weight:700;">{round(totaal_kcal)}kcal</span>'
-                f'<span style="color:#22c55e;">{round(totaal_kh,1)}g KH</span>'
-                f'<span style="color:#3b82f6;">{round(totaal_eiwit,1)}g eiwit</span>'
-                f'<span style="color:#8b5cf6;">{round(totaal_vet,1)}g vet</span>'
-                f'</div></div>',
+                f'<div style="background:#1e293b;border-radius:10px;padding:14px;margin:10px 0;">' +
+                f'<div style="font-size:0.7rem;font-weight:700;color:#22c55e;margin-bottom:10px;">TOTAAL RECEPT</div>' +
+                f'<div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:8px;">' +
+                f'<div><div style="font-size:0.6rem;color:#94a3b8;">KCAL</div><div style="font-size:1.1rem;font-weight:800;color:#f97316;">{round(totaal_kcal)}</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#94a3b8;">KH</div><div style="font-size:1.1rem;font-weight:800;color:#22c55e;">{round(totaal_kh,1)}g</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#94a3b8;">EIWIT</div><div style="font-size:1.1rem;font-weight:800;color:#3b82f6;">{round(totaal_eiwit,1)}g</div></div>' +
+                f'<div><div style="font-size:0.6rem;color:#94a3b8;">VET</div><div style="font-size:1.1rem;font-weight:800;color:#8b5cf6;">{round(totaal_vet,1)}g</div></div>' +
+                f'</div>' +
+                (f'<div style="font-size:0.72rem;color:#94a3b8;margin-top:4px;">' + ' · '.join(extra_v) + '</div>' if extra_v else '') +
+                f'</div>',
                 unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -2100,7 +2128,7 @@ def _stap_bibliotheek(user: dict):
         st.markdown(f'<div style="font-size:0.72rem;color:#64748b;margin:6px 0;">{len(db_res)} product(en)</div>', unsafe_allow_html=True)
 
         for i, p in enumerate(db_res[:50]):
-            with st.expander(f"🥦 {p['naam']}  ·  {p['kcal']} kcal  ·  {p['portie_label']}", expanded=False):
+            with st.expander(f"🥦 {p['naam']}  ·  {p['kcal']} kcal/100g  ·  {p['portie_label']}", expanded=False):
                 mc1,mc2,mc3,mc4 = st.columns(4)
                 for col,lbl,val,kl in [(mc1,"KCAL",p["kcal"],"#f97316"),(mc2,"KH g",p["kh"],"#22c55e"),(mc3,"EIWIT g",p["eiwit"],"#3b82f6"),(mc4,"VET g",p["vet"],"#8b5cf6")]:
                     with col:
@@ -2206,7 +2234,7 @@ def _stap_bibliotheek(user: dict):
             vet     = p.get("vet_100g") or 0
             fav_ster = "⭐ " if p.get("favoriet") else ""
             with st.expander(
-                    f"{'⭐ ' if p.get('favoriet') else ''}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
+                    f"{'⭐ ' if p.get('favoriet') else '🥦 '}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
                     expanded=False):
                 mc1,mc2,mc3,mc4 = st.columns(4)
                 for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH g",kh,"#22c55e"),(mc3,"EIWIT g",eiwit,"#3b82f6"),(mc4,"VET g",vet,"#8b5cf6")]:
@@ -4243,16 +4271,3 @@ def render_fuelc(user: dict):
     elif stap == 3: _stap_bibliotheek(user)
     elif stap == 4: _stap_dagschema(user)
     elif stap == 5: _stap_dashboard(user)
-
-    if profiel_ingevuld and stap > 1:
-        st.markdown("<br>", unsafe_allow_html=True)
-        c_terug, c_next = st.columns([1,2])
-        with c_terug:
-            if st.button("← Vorige", key="fc_vorige", use_container_width=True):
-                st.session_state.fc_stap = max(1, stap-1)
-                st.rerun()
-        with c_next:
-            if stap < len(namen):
-                if st.button("Volgende →", key="fc_volgende", use_container_width=True):
-                    st.session_state.fc_stap = stap+1
-                    st.rerun()
