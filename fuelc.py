@@ -2863,6 +2863,47 @@ def _laad_dagschema(user_id, datum):
     except: return {}
 
 
+def _sla_dag_als_menu(user_id: str, datum: str, momenten: list, naam: str = "") -> bool:
+    """Sla alle items van een dag op als herbruikbaar dagmenu."""
+    import json as _j
+    try:
+        if not naam:
+            from datetime import datetime as _dt
+            naam = f"Dagmenu {_dt.now().strftime('%d/%m %H:%M')}"
+        items_per_moment = {}
+        heeft_items = False
+        for mi, m in enumerate(momenten):
+            items = _laad_dagboek_items(user_id, datum, mi)
+            if items:
+                heeft_items = True
+                items_per_moment[str(mi)] = {
+                    "naam": m.get("naam",""),
+                    "type": m.get("type",""),
+                    "items": [
+                        {"naam": i["naam"],
+                         "hoeveelheid_g": i.get("hoeveelheid_g",100),
+                         "kcal": i.get("kcal",0),
+                         "kh_g": i.get("kh_g",0),
+                         "eiwit_g": i.get("eiwit_g",0),
+                         "vet_g": i.get("vet_g",0)}
+                        for i in items
+                    ]
+                }
+        if not heeft_items:
+            st.warning("Voeg eerst voeding toe aan deze dag voor je het schema opslaat.")
+            return False
+        _get_supabase().table("fuelc_dagmenu").insert({
+            "user_id":    user_id,
+            "naam":       naam,
+            "momenten":   _j.dumps(items_per_moment),
+            "is_globaal": False,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout opslaan: {e}")
+        return False
+
+
 def _laad_dagmenu_lijst(user_id: str) -> list:
     try:
         r = _get_supabase().table("fuelc_dagmenu").select("*")            .or_(f"user_id.eq.{user_id},is_globaal.eq.true")            .order("naam").execute()
@@ -3095,9 +3136,7 @@ def _stap_dagschema(user: dict):
                 dm_naam = st.text_input("Naam", placeholder="bijv. Rustdag, Trainingsdag...",
                     key=f"dm_naam_{dag_str}", label_visibility="collapsed")
                 if st.button("Opslaan", key=f"dm_ops_{dag_str}", use_container_width=True):
-                    bibliotheek_dm = _laad_gecombineerde_bibliotheek(user_id)
-                    momenten_dm = []  # tijdelijk leeg, _sla_dagmenu gebruikt dagboek_items
-                    if _sla_dagmenu(user_id, dag_str, momenten_dm, bibliotheek_dm, dm_naam):
+                    if _sla_dag_als_menu(user_id, dag_str, momenten, dm_naam):
                         st.success("✅ Schema opgeslagen!")
                         st.session_state.pop(dag_menu_open_key, None)
                         st.rerun()
