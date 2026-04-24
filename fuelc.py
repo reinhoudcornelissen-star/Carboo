@@ -360,18 +360,23 @@ def _stap_profiel(user: dict):
         '.fc-groen button{background:#22c55e!important;color:#0a0f1e!important;'
         'font-weight:800!important;}</style>',
         unsafe_allow_html=True)
-    if totaal_pct == 100:
-        c_ops, c_vol = st.columns(2)
-        with c_ops:
-            opslaan_klik = st.button("💾 Opslaan", key="fc_prof_opslaan",
-                         use_container_width=True)
-        with c_vol:
-            if st.session_state.fc_profiel.get("bmr"):
-                if st.button("Volgende →", key="fc_prof_volgende",
-                             use_container_width=True):
-                    st.session_state.fc_stap = 2
-                    st.rerun()
-        if opslaan_klik:
+    if totaal_pct != 100:
+        st.markdown(
+            f'<div style="background:#1a0a0a;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:8px 14px;font-size:0.8rem;color:#fbbf24;margin-bottom:8px;">' +
+            f'⚠️ Macro verdeling is {totaal_pct}% — aanbeveling is 100%. Je kan toch opslaan.</div>',
+            unsafe_allow_html=True)
+
+    c_ops, c_vol = st.columns(2)
+    with c_ops:
+        opslaan_klik = st.button("💾 Opslaan", key="fc_prof_opslaan",
+                     use_container_width=True)
+    with c_vol:
+        if st.session_state.fc_profiel.get("bmr"):
+            if st.button("Volgende →", key="fc_prof_volgende",
+                         use_container_width=True):
+                st.session_state.fc_stap = 2
+                st.rerun()
+    if opslaan_klik:
             import json as _json_save
             profiel_data = {
                 "geslacht":       geslacht,
@@ -399,10 +404,7 @@ def _stap_profiel(user: dict):
                 st.session_state.fc_profiel = profiel_data
                 st.success("✅ Profiel opgeslagen!")
                 st.rerun()
-    else:
-        st.button("💾 Profiel opslaan →", key="fc_prof_opslaan",
-                  use_container_width=True, disabled=True)
-        st.caption("Corrigeer de macro verdeling naar 100% voor je kan opslaan.")
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1780,37 +1782,131 @@ def _render_receptenbeheer(user_id: str):
         r_globaal = st.checkbox("🌍 Deel met community", key="r_globaal")
 
         _sectie("INGREDIËNTEN", "#22c55e")
-        n_ing = st.session_state.get("r_n_ing", 1)
-        ingredienten_data = []
-        totaal_kcal=0; totaal_kh=0; totaal_eiwit=0; totaal_vet=0; totaal_vezels=0; totaal_natrium=0
 
-        for ii in range(n_ing):
-            with st.expander(f"Ingrediënt {ii+1}", expanded=(ii==n_ing-1)):
-                ing_data = _product_formulier(f"ing_{ii}")
-                gram = ing_data.get("portie_g",100) or 100
-                f_ing = gram/100
-                kcal_ing  = (ing_data.get("kcal_100g") or 0)*f_ing
-                kh_ing    = (ing_data.get("kh_100g") or 0)*f_ing
-                eiwit_ing = (ing_data.get("eiwit_100g") or 0)*f_ing
-                vet_ing   = (ing_data.get("vet_100g") or 0)*f_ing
-                vez_ing   = (ing_data.get("vezels_100g") or 0)*f_ing
-                nat_ing   = (ing_data.get("natrium_100g") or 0)*f_ing
-                if ing_data["naam"]:
-                    st.markdown(
-                        f'<div style="font-size:0.72rem;color:#22c55e;">'
-                        f'→ {round(kcal_ing)}kcal · {round(kh_ing,1)}g KH · {round(eiwit_ing,1)}g eiwit</div>',
-                        unsafe_allow_html=True)
-                    totaal_kcal+=kcal_ing; totaal_kh+=kh_ing; totaal_eiwit+=eiwit_ing
-                    totaal_vet+=vet_ing; totaal_vezels+=vez_ing; totaal_natrium+=nat_ing
-                    ingredienten_data.append({"naam":ing_data["naam"],"gram":gram,"label":ing_data.get("portie_label","")})
-                if n_ing > 1:
-                    if st.button(f"✕ Verwijderen", key=f"ing_del_{ii}"):
-                        st.session_state["r_n_ing"] = n_ing-1
+        # Ingrediënten in session state bewaren
+        if "r_ingredienten" not in st.session_state:
+            st.session_state["r_ingredienten"] = []
+        ingredienten_data = st.session_state["r_ingredienten"]
+
+        # Bereken totalen
+        def _som(veld):
+            return sum((i.get(veld,0) or 0)*(i.get("gram",100)/100) for i in ingredienten_data)
+        totaal_kcal  = _som("kcal_100g")
+        totaal_kh    = _som("kh_100g")
+        totaal_eiwit = _som("eiwit_100g")
+        totaal_vet   = _som("vet_100g")
+        totaal_vezels= _som("vezels_100g")
+        totaal_natrium=_som("natrium_100g")
+
+        # Toon toegevoegde ingrediënten
+        for ii, ing in enumerate(ingredienten_data):
+            ic1, ic2, ic3, ic4 = st.columns([4, 1.5, 2, 0.5])
+            with ic1:
+                st.markdown(
+                    f'<div style="font-size:0.82rem;color:#f1f5f9;padding:5px 0;">' +
+                    f'<b>{ing["naam"]}</b></div>',
+                    unsafe_allow_html=True)
+            with ic2:
+                nieuwe_gram = st.number_input("g", 1.0, 2000.0, float(ing["gram"]), 5.0,
+                    key=f"r_gram_{ii}", label_visibility="collapsed")
+                if nieuwe_gram != ing["gram"]:
+                    st.session_state["r_ingredienten"][ii]["gram"] = nieuwe_gram
+                    st.rerun()
+            with ic3:
+                kcal_ing = round((ing.get("kcal_100g",0) or 0)*ing["gram"]/100)
+                kh_ing   = round((ing.get("kh_100g",0) or 0)*ing["gram"]/100,1)
+                ei_ing   = round((ing.get("eiwit_100g",0) or 0)*ing["gram"]/100,1)
+                st.markdown(
+                    f'<div style="font-size:0.7rem;color:#22c55e;padding-top:6px;">' +
+                    f'{kcal_ing}kcal · {kh_ing}g KH · {ei_ing}g ei</div>',
+                    unsafe_allow_html=True)
+            with ic4:
+                if st.button("✕", key=f"r_del_{ii}"):
+                    st.session_state["r_ingredienten"].pop(ii)
+                    st.rerun()
+
+        st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
+
+        # Zoek en voeg toe
+        z1, z2, z3 = st.columns([1.5, 2, 3])
+        with z1:
+            bron = st.selectbox("Bron",
+                ["🔍 Voedselbank","📋 Mijn bibliotheek","✏️ Manueel"],
+                key="r_bron", label_visibility="collapsed")
+
+        if bron == "✏️ Manueel":
+            with st.expander("Manueel invoeren", expanded=False):
+                ing_man = _product_formulier("r_man")
+                if ing_man["naam"]:
+                    if st.button("➕ Toevoegen", key="r_man_add", use_container_width=True):
+                        st.session_state["r_ingredienten"].append(ing_man)
                         st.rerun()
 
-        if st.button("➕ Ingrediënt toevoegen", key="r_ing_add", use_container_width=True):
-            st.session_state["r_n_ing"] = n_ing+1
-            st.rerun()
+        elif bron == "🔍 Voedselbank":
+            with z2:
+                zoek_db = st.text_input("Zoeken", placeholder="zoek product...",
+                    key="r_db_zoek", label_visibility="collapsed")
+            resultaten = [p for p in VOEDSEL_DB
+                         if not zoek_db or zoek_db.lower() in p["naam"].lower()][:30]
+            with z3:
+                keuze_db = st.selectbox("Product",
+                    ["— kies —"] + [f"{p['naam']} ({p['kcal']}kcal/100g)" for p in resultaten],
+                    key="r_db_keuze", label_visibility="collapsed")
+            if keuze_db != "— kies —" and resultaten:
+                idx_k = ["— kies —"] + [f"{p['naam']} ({p['kcal']}kcal/100g)" for p in resultaten]
+                prod_sel = resultaten[idx_k.index(keuze_db)-1] if keuze_db in idx_k else None
+                if prod_sel:
+                    ga1, ga2 = st.columns([3,1])
+                    with ga1:
+                        gram_db = st.number_input(f"Hoeveelheid (g) — standaard {prod_sel['portie']}g",
+                            1.0, 2000.0, float(prod_sel["portie"]), 5.0, key="r_db_gram")
+                    with ga2:
+                        if st.button("➕ Toevoegen", key="r_db_add", use_container_width=True):
+                            st.session_state["r_ingredienten"].append({
+                                "naam":prod_sel["naam"],"gram":gram_db,
+                                "label":f"{gram_db}g",
+                                "kcal_100g":prod_sel["kcal"],"kh_100g":prod_sel["kh"],
+                                "eiwit_100g":prod_sel["eiwit"],"vet_100g":prod_sel["vet"],
+                                "vezels_100g":prod_sel["vezels"],"natrium_100g":prod_sel["natrium"],
+                            })
+                            st.session_state.pop("r_db_keuze",None)
+                            st.rerun()
+
+        else:  # Mijn bibliotheek
+            bib_alle = _laad_gecombineerde_bibliotheek(user_id)
+            with z2:
+                zoek_bib = st.text_input("Zoeken", placeholder="zoek product...",
+                    key="r_bib_zoek", label_visibility="collapsed")
+            bib_res = [p for p in bib_alle
+                      if not zoek_bib or zoek_bib.lower() in p["naam"].lower()][:30]
+            with z3:
+                keuze_bib = st.selectbox("Product",
+                    ["— kies —"] + [p["naam"] for p in bib_res],
+                    key="r_bib_keuze", label_visibility="collapsed")
+            if keuze_bib != "— kies —" and bib_res:
+                prod_bib = next((p for p in bib_res if p["naam"]==keuze_bib), None)
+                if prod_bib:
+                    gb1, gb2 = st.columns([3,1])
+                    with gb1:
+                        portie_bib = float(prod_bib.get("portie_g",100) or 100)
+                        gram_bib = st.number_input(
+                            f"Hoeveelheid (g) — {prod_bib.get('portie_label','')}",
+                            1.0, 2000.0, portie_bib, 5.0, key="r_bib_gram")
+                    with gb2:
+                        if st.button("➕ Toevoegen", key="r_bib_add", use_container_width=True):
+                            st.session_state["r_ingredienten"].append({
+                                "naam":prod_bib["naam"],"gram":gram_bib,
+                                "label":f"{gram_bib}g",
+                                "kcal_100g":prod_bib.get("kcal_100g",0) or 0,
+                                "kh_100g":prod_bib.get("kh_100g",0) or 0,
+                                "eiwit_100g":prod_bib.get("eiwit_100g",0) or 0,
+                                "vet_100g":prod_bib.get("vet_100g",0) or 0,
+                                "vezels_100g":prod_bib.get("vezels_100g",0) or 0,
+                                "natrium_100g":prod_bib.get("natrium_100g",0) or 0,
+                            })
+                            st.session_state.pop("r_bib_keuze",None)
+                            st.rerun()
+
 
         _sectie("BEREIDING", "#22c55e")
         r_bereiding = st.text_area("Bereidingswijze", key="r_bereiding", height=80,
