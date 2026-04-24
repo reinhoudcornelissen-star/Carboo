@@ -3374,14 +3374,24 @@ def _stap_dagschema(user: dict):
                             f'<div style="font-size:0.75rem;font-weight:700;color:#f1f5f9;">{gekozen["naam"]}</div>' +
                             f'<div style="font-size:0.7rem;color:#64748b;margin-top:2px;">{portie_lbl} · {kcal_p} kcal · {kh_p}g KH · {ei_p}g eiwit</div>' +
                             f'</div>', unsafe_allow_html=True)
-                        ha1, ha2 = st.columns([3,1])
+                        ha1, ha2, ha3 = st.columns([2, 1.5, 1])
                         with ha1:
                             hoev = st.number_input("g", 1.0, 2000.0, portie, 5.0,
                                 key=f"h_{dag_str}_{mi}", label_visibility="collapsed")
                         with ha2:
-                            if st.button("➕ Voeg toe", key=f"add_{dag_str}_{mi}",
+                            n_port = st.number_input("porties", 0.5, 20.0, 1.0, 0.5,
+                                key=f"np_{dag_str}_{mi}", label_visibility="collapsed",
+                                help="Aantal porties")
+                            hoev_totaal = round(portie * n_port, 1)
+                            st.markdown(
+                                f'<div style="font-size:0.68rem;color:#22c55e;margin-top:2px;">' +
+                                f'= {hoev_totaal}g</div>',
+                                unsafe_allow_html=True)
+                        with ha3:
+                            if st.button("➕", key=f"add_{dag_str}_{mi}",
                                          use_container_width=True):
-                                _sla_dagboek_item(user_id,dag_str,mi,gekozen,hoev)
+                                gram_fin = hoev_totaal if n_port != 1.0 else hoev
+                                _sla_dagboek_item(user_id,dag_str,mi,gekozen,gram_fin)
                                 st.session_state.pop(f"pk_{dag_str}_{mi}",None); st.rerun()
 
 
