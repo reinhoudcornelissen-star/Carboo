@@ -2863,6 +2863,69 @@ def _laad_dagschema(user_id, datum):
     except: return {}
 
 
+def _laad_dagmenu_lijst(user_id: str) -> list:
+    try:
+        r = _get_supabase().table("fuelc_dagmenu").select("*")            .or_(f"user_id.eq.{user_id},is_globaal.eq.true")            .order("naam").execute()
+        return r.data or []
+    except: return []
+
+
+def _sla_dagmenu(user_id: str, datum: str, momenten: list, bibliotheek: list, naam: str = "") -> bool:
+    import json as _j
+    try:
+        if not naam:
+            from datetime import datetime as _dt
+            naam = f"Dagmenu {_dt.now().strftime('%d/%m %H:%M')}"
+        items_per_moment = {}
+        for mi, m in enumerate(momenten):
+            items = _laad_dagboek_items(user_id, datum, mi)
+            if items:
+                items_per_moment[mi] = {
+                    "naam": m.get("naam",""), "type": m.get("type",""),
+                    "items": [{"naam":i["naam"],"hoeveelheid_g":i.get("hoeveelheid_g",100),
+                               "kcal":i.get("kcal",0),"kh_g":i.get("kh_g",0),
+                               "eiwit_g":i.get("eiwit_g",0),"vet_g":i.get("vet_g",0)} for i in items]
+                }
+        if not items_per_moment:
+            st.warning("Geen items om op te slaan.")
+            return False
+        _get_supabase().table("fuelc_dagmenu").insert({
+            "user_id": user_id, "naam": naam,
+            "momenten": _j.dumps(items_per_moment), "is_globaal": False,
+        }).execute()
+        return True
+    except Exception as e:
+        st.error(f"Fout opslaan dagmenu: {e}")
+        return False
+
+
+def _laad_dagmenu_op_dag(user_id: str, datum: str, dagmenu: dict, bibliotheek: list) -> bool:
+    import json as _j
+    try:
+        momenten_data = dagmenu.get("momenten") or "{}"
+        if isinstance(momenten_data, str):
+            momenten_data = _j.loads(momenten_data)
+        for mi_str, moment_info in momenten_data.items():
+            mi = int(mi_str)
+            for item in moment_info.get("items", []):
+                prod = next((p for p in bibliotheek if p["naam"].lower()==item["naam"].lower()), None)
+                hg = float(item.get("hoeveelheid_g",100))
+                if prod is None:
+                    prod = {
+                        "naam": item["naam"], "id": f"db_{item['naam']}",
+                        "kcal_100g": round(item.get("kcal",0)*100/max(hg,1), 1),
+                        "kh_100g":   round(item.get("kh_g",0)*100/max(hg,1), 1),
+                        "eiwit_100g":round(item.get("eiwit_g",0)*100/max(hg,1), 1),
+                        "vet_100g":  round(item.get("vet_g",0)*100/max(hg,1), 1),
+                        "vezels_100g":0,
+                    }
+                _sla_dagboek_item(user_id, datum, mi, prod, hg)
+        return True
+    except Exception as e:
+        st.error(f"Fout laden dagmenu: {e}")
+        return False
+
+
 def _sla_dagschema_op(user_id, datum, schema):
     try:
         sb = _get_supabase()
