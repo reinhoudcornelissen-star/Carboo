@@ -3350,52 +3350,259 @@ def _render_voedingsdagboek(user: dict):
     from datetime import date as _ddb, timedelta as _tddb
     user_id = user.get("id","")
     profiel = st.session_state.get("fc_profiel",{})
-    _sectie("VOEDINGSDAGBOEK", "#22c55e")
-    w1, w2 = st.columns([2,3])
-    with w1:
-        week_start = st.date_input("Week van", value=_ddb.today(), key="db_week")
-        maandag = week_start - _tddb(days=week_start.weekday())
-    with w2:
-        st.markdown(f'<div style="padding-top:28px;font-size:0.8rem;color:#64748b;">{maandag.strftime("%d/%m/%Y")} — {(maandag+_tddb(days=6)).strftime("%d/%m/%Y")}</div>', unsafe_allow_html=True)
-    DAGEN = ["Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag"]
     energie_doel = int(profiel.get("energie_doel",2000) or 2000)
+
+    _sectie("WEEKDAGBOEK", "#22c55e")
+
+    # Week navigator
+    if "db_week_offset" not in st.session_state:
+        st.session_state["db_week_offset"] = 0
+    offset = st.session_state["db_week_offset"]
+    vandaag = _ddb.today()
+    maandag = vandaag - _tddb(days=vandaag.weekday()) + _tddb(weeks=offset)
+
+    wn1, wn2, wn3 = st.columns([0.7, 4, 0.7])
+    with wn1:
+        if st.button("◀", key="db_vorige_week", use_container_width=True):
+            st.session_state["db_week_offset"] -= 1; st.rerun()
+    with wn2:
+        zondag = maandag + _tddb(days=6)
+        st.markdown(
+            f'<div style="text-align:center;padding:5px 0;">' +
+            f'<div style="font-size:0.9rem;font-weight:800;color:#f8fafc;">' +
+            f'Week van {maandag.strftime("%d/%m")} tot {zondag.strftime("%d/%m/%Y")}</div>' +
+            f'</div>', unsafe_allow_html=True)
+    with wn3:
+        if st.button("▶", key="db_volgende_week", use_container_width=True):
+            st.session_state["db_week_offset"] += 1; st.rerun()
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    DAGEN = ["Maandag","Dinsdag","Woensdag","Donderdag","Vrijdag","Zaterdag","Zondag"]
+
+    # Laad alle welzijn data voor de week in 1 query
+    @st.cache_data(ttl=60)
+    def _laad_week_welzijn(uid, ma, zo):
+        try:
+            r = _get_supabase().table("fuelc_dagboek_welzijn").select("*")                .eq("user_id",uid).gte("datum",str(ma)).lte("datum",str(zo)).execute()
+            return {row["datum"][:10]: row for row in (r.data or [])}
+        except: return {}
+
+    week_welzijn = _laad_week_welzijn(user_id, maandag, maandag+_tddb(days=6))
+
+    # 7 dagen
     for dag_idx in range(7):
-        dag_datum = maandag + _tddb(days=dag_idx)
-        dag_str   = str(dag_datum)
-        is_vandaag = dag_datum == _ddb.today()
+        dag_datum  = maandag + _tddb(days=dag_idx)
+        dag_str    = str(dag_datum)
+        dag_naam   = DAGEN[dag_idx]
+        is_vandaag = dag_datum == vandaag
+        is_toekomst = dag_datum > vandaag
+
+        # Voeding data
         alle_items = []
         for mi in range(6):
             alle_items += _laad_dagboek_items(user_id, dag_str, mi)
         tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items)
         pct = min(100, round(tot_kcal/energie_doel*100)) if energie_doel > 0 else 0
         k = "#22c55e" if pct>=80 else ("#fbbf24" if pct>=40 else "#334155")
-        vd = " 🟢" if is_vandaag else ""
-        st.markdown(
-            f'<div style="display:flex;align-items:center;gap:12px;padding:6px 0;">' +
-            f'<div style="min-width:90px;font-size:0.82rem;font-weight:700;color:#f8fafc;">{DAGEN[dag_idx]}{vd}</div>' +
-            f'<div style="flex:1;background:#1e293b;border-radius:4px;height:8px;"><div style="width:{pct}%;height:100%;background:{k};border-radius:4px;"></div></div>' +
-            f'<div style="font-size:0.78rem;color:{k};min-width:80px;text-align:right;">{round(tot_kcal)} kcal</div>' +
-            f'</div>', unsafe_allow_html=True)
-        if dag_datum.weekday() == 3:
-            welzijn = {}
-            try:
-                r = _get_supabase().table("fuelc_dagboek_welzijn").select("*").eq("user_id",user_id).eq("datum",dag_str).execute()
-                welzijn = r.data[0] if r.data else {}
-            except: pass
-            with st.expander(f"⚖️ Gewicht & welzijn — {dag_datum.strftime('%d/%m')}", expanded=is_vandaag):
+
+        # Welzijn data
+        w = week_welzijn.get(dag_str, {})
+        heeft_welzijn = bool(w.get("energie_score") or w.get("slaap_uur"))
+
+        open_key = f"db_dag_open_{dag_str}"
+
+        # ── Dag header ────────────────────────────────────────────────────────
+        dh1, dh2, dh3, dh4 = st.columns([0.5, 3, 2.5, 0.6])
+        with dh1:
+            lbl = "▲" if st.session_state.get(open_key) else "▼"
+            if st.button(lbl, key=f"db_tog_{dag_str}", use_container_width=True):
+                st.session_state[open_key] = not st.session_state.get(open_key, False)
+                st.rerun()
+        with dh2:
+            vd_badge = ' <span style="background:#f97316;color:white;border-radius:3px;font-size:0.55rem;padding:1px 5px;">VANDAAG</span>' if is_vandaag else ""
+            st.markdown(
+                f'<div style="padding:4px 0;">' +
+                f'<span style="font-size:0.9rem;font-weight:800;color:#f8fafc;">{dag_naam} {dag_datum.strftime("%d/%m")}{vd_badge}</span>' +
+                (f'<span style="font-size:0.68rem;color:#22c55e;margin-left:8px;">✓ welzijn</span>' if heeft_welzijn else '') +
+                f'</div>', unsafe_allow_html=True)
+        with dh3:
+            # Mini kcal balk
+            st.markdown(
+                f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">' +
+                f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px;">' +
+                f'<div style="width:{pct}%;height:100%;background:{k};border-radius:3px;"></div></div>' +
+                f'<div style="font-size:0.75rem;color:{k};min-width:70px;text-align:right;">{round(tot_kcal)} kcal</div>' +
+                f'</div>', unsafe_allow_html=True)
+        with dh4:
+            # Welzijn score dot
+            en = w.get("energie_score",0) or 0
+            dot_k = "#22c55e" if en>=7 else ("#fbbf24" if en>=4 else ("#ef4444" if en>0 else "#334155"))
+            st.markdown(
+                f'<div style="text-align:center;padding:4px 0;">' +
+                f'<div style="width:12px;height:12px;border-radius:50%;background:{dot_k};margin:0 auto;" title="Energie {en}/10"></div>' +
+                f'</div>', unsafe_allow_html=True)
+
+        # ── Uitklapbare detail ────────────────────────────────────────────────
+        if st.session_state.get(open_key, False):
+            with st.container():
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:0 0 10px 10px;padding:16px;margin-bottom:4px;">',
+                    unsafe_allow_html=True)
+
+                # ── WELZIJN invullen ──────────────────────────────────────────
+                st.markdown('<div style="font-size:0.72rem;font-weight:700;color:#22c55e;margin-bottom:12px;letter-spacing:1px;">WELZIJN</div>', unsafe_allow_html=True)
+
+                # Energieniveau + Stemming + Stress
                 wc1, wc2, wc3 = st.columns(3)
                 with wc1:
-                    gew = st.number_input("Gewicht (kg)", 30.0, 250.0, float(welzijn.get("gewicht_kg") or profiel.get("gewicht_kg") or 70), 0.1, key=f"db_gew_{dag_str}")
+                    en_val = st.select_slider("⚡ Energieniveau",
+                        options=list(range(1,11)),
+                        value=int(w.get("energie_score") or 5),
+                        key=f"db_en_{dag_str}")
                 with wc2:
-                    energie_score = st.slider("Energieniveau", 1, 10, int(welzijn.get("energie_score") or 5), key=f"db_en_{dag_str}")
+                    stem_val = st.select_slider("😊 Stemming",
+                        options=[1,2,3,4,5],
+                        value=int(w.get("stemming") or 3),
+                        key=f"db_stem_{dag_str}")
                 with wc3:
-                    slaap_uur = st.number_input("Slaap (uur)", 0.0, 12.0, float(welzijn.get("slaap_uur") or 7.5), 0.5, key=f"db_sl_{dag_str}")
+                    stress_val = st.select_slider("😤 Stress",
+                        options=[1,2,3,4,5],
+                        value=int(w.get("stress") or 2),
+                        key=f"db_stress_{dag_str}")
+
+                # Slaap
+                st.markdown('<div style="font-size:0.7rem;font-weight:600;color:#64748b;margin:10px 0 6px;">SLAAP</div>', unsafe_allow_html=True)
+                sc1, sc2, sc3 = st.columns(3)
+                with sc1:
+                    slaap_uur_val = st.number_input("🌙 Uren slaap",
+                        0.0, 12.0, float(w.get("slaap_uur") or 7.5), 0.5,
+                        key=f"db_sl_{dag_str}")
+                with sc2:
+                    slaap_kwal_val = st.select_slider("💤 Slaapkwaliteit",
+                        options=list(range(1,11)),
+                        value=int(w.get("slaap_kwaliteit") or 5),
+                        key=f"db_slk_{dag_str}")
+                with sc3:
+                    sp_val = st.select_slider("🦵 Spierpijn/vermoeidheid",
+                        options=list(range(1,11)),
+                        value=int(w.get("spierpijn") or 1),
+                        key=f"db_sp_{dag_str}")
+
+                # HF + HRV
+                st.markdown('<div style="font-size:0.7rem;font-weight:600;color:#64748b;margin:10px 0 6px;">HARTSLAG & HRV (optioneel)</div>', unsafe_allow_html=True)
+                hc1, hc2 = st.columns(2)
+                with hc1:
+                    hf_val = st.number_input("❤️ HF rust (bpm)",
+                        0, 120, int(w.get("hf_rust") or 0), 1,
+                        key=f"db_hf_{dag_str}")
+                with hc2:
+                    hrv_val = st.number_input("📡 HRV (ms)",
+                        0, 200, int(w.get("hrv") or 0), 1,
+                        key=f"db_hrv_{dag_str}")
+
+                # ── VOEDING & TRAINING ────────────────────────────────────────
+                st.markdown('<div style="font-size:0.72rem;font-weight:700;color:#22c55e;margin:14px 0 10px;letter-spacing:1px;">VOEDING & TRAINING</div>', unsafe_allow_html=True)
+                vc1, vc2, vc3 = st.columns(3)
+                with vc1:
+                    honger_val = st.select_slider("🍽️ Hongergevoel",
+                        options=[1,2,3,4,5],
+                        value=int(w.get("honger") or 3),
+                        key=f"db_hg_{dag_str}",
+                        help="1=geen honger, 5=constant honger")
+                with vc2:
+                    gi_val = st.checkbox("🫀 GI klachten tijdens training",
+                        value=bool(w.get("gi_klachten", False)),
+                        key=f"db_gi_{dag_str}")
+                with vc3:
+                    hydr_val = st.checkbox("💧 Voldoende gehydrateerd",
+                        value=bool(w.get("gehydrateerd", True)),
+                        key=f"db_hydr_{dag_str}")
+
+                # Training RPE
+                has_training = any(
+                    t.get("datum","")[:10] == dag_str
+                    for t in _laad_trainingen(user_id))
+                if has_training:
+                    tc1, tc2 = st.columns(2)
+                    with tc1:
+                        rpe_val = st.select_slider("💪 RPE training",
+                            options=list(range(1,11)),
+                            value=int(w.get("rpe") or 5),
+                            key=f"db_rpe_{dag_str}",
+                            help="1=heel licht, 10=maximaal")
+                    with tc2:
+                        energiek_val = st.checkbox("⚡ Energiek tijdens training",
+                            value=bool(w.get("energiek_training", True)),
+                            key=f"db_entr_{dag_str}")
+                else:
+                    rpe_val = None; energiek_val = None
+
+                # Gewicht
+                st.markdown('<div style="font-size:0.7rem;font-weight:600;color:#64748b;margin:12px 0 6px;">GEWICHT (optioneel)</div>', unsafe_allow_html=True)
+                gew_val = st.number_input("⚖️ Gewicht (kg)",
+                    0.0, 250.0, float(w.get("gewicht_kg") or 0), 0.1,
+                    key=f"db_gew_{dag_str}",
+                    help="Laat 0 als je vandaag niet gewogen hebt")
+
+                # Opslaan
+                st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("💾 Opslaan", key=f"db_ops_{dag_str}", use_container_width=True):
+                    data = {
+                        "user_id":          user_id,
+                        "datum":            dag_str,
+                        "energie_score":    en_val,
+                        "stemming":         stem_val,
+                        "stress":           stress_val,
+                        "slaap_uur":        slaap_uur_val,
+                        "slaap_kwaliteit":  slaap_kwal_val,
+                        "spierpijn":        sp_val,
+                        "hf_rust":          hf_val if hf_val > 0 else None,
+                        "hrv":              hrv_val if hrv_val > 0 else None,
+                        "honger":           honger_val,
+                        "gi_klachten":      gi_val,
+                        "gehydrateerd":     hydr_val,
+                        "rpe":              rpe_val,
+                        "energiek_training":energiek_val,
+                        "gewicht_kg":       gew_val if gew_val > 0 else None,
+                    }
                     try:
-                        _get_supabase().table("fuelc_dagboek_welzijn").upsert({"user_id":user_id,"datum":dag_str,"gewicht_kg":gew,"energie_score":energie_score,"slaap_uur":slaap_uur}, on_conflict="user_id,datum").execute()
+                        _get_supabase().table("fuelc_dagboek_welzijn")                            .upsert(data, on_conflict="user_id,datum").execute()
                         st.success("✅ Opgeslagen!")
-                        st.cache_data.clear()
-                    except Exception as e: st.error(str(e))
+                        _laad_week_welzijn.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Fout: {e}")
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div style="height:2px;"></div>', unsafe_allow_html=True)
+
+    # ── Weekoverzicht onderaan ────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    _sectie("WEEKOVERZICHT", "#22c55e")
+
+    # Bereken week gemiddelden
+    scores = [week_welzijn.get(str(maandag+_tddb(days=i)),{}) for i in range(7)]
+    gem_en    = round(sum(s.get("energie_score",0) or 0 for s in scores if s.get("energie_score"))/max(1,sum(1 for s in scores if s.get("energie_score"))),1)
+    gem_slaap = round(sum(s.get("slaap_uur",0) or 0 for s in scores if s.get("slaap_uur"))/max(1,sum(1 for s in scores if s.get("slaap_uur"))),1)
+    gem_stress= round(sum(s.get("stress",0) or 0 for s in scores if s.get("stress"))/max(1,sum(1 for s in scores if s.get("stress"))),1)
+    gem_sp    = round(sum(s.get("spierpijn",0) or 0 for s in scores if s.get("spierpijn"))/max(1,sum(1 for s in scores if s.get("spierpijn"))),1)
+
+    ov1, ov2, ov3, ov4 = st.columns(4)
+    for col, label, val, max_val, kleur in [
+        (ov1, "⚡ Gem energie", f"{gem_en}/10" if gem_en else "—", 10, "#22c55e"),
+        (ov2, "🌙 Gem slaap",  f"{gem_slaap}u" if gem_slaap else "—", 9, "#3b82f6"),
+        (ov3, "😤 Gem stress", f"{gem_stress}/5" if gem_stress else "—", 5, "#f97316"),
+        (ov4, "🦵 Gem spierpijn", f"{gem_sp}/10" if gem_sp else "—", 10, "#8b5cf6"),
+    ]:
+        with col:
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;">' +
+                f'<div style="font-size:0.68rem;color:#64748b;margin-bottom:4px;">{label}</div>' +
+                f'<div style="font-size:1.1rem;font-weight:800;color:{kleur};">{val}</div>' +
+                f'</div>', unsafe_allow_html=True)
+
 
 
 def _render_analyses(user: dict):
@@ -3480,9 +3687,14 @@ def _stap_dashboard(user: dict):
 
 def render_fuelc(user: dict):
     st.markdown(
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">' +
+        '<div style="margin-bottom:8px;">' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">' +
         '<div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">FUEL<span style="color:#22c55e;">C</span></div>' +
-        '<div style="font-size:0.85rem;font-weight:700;color:#22c55e;letter-spacing:2px;border:1px solid #22c55e;border-radius:6px;padding:3px 10px;">ENERGIE COACH</div></div>',
+        '<div style="font-size:0.85rem;font-weight:700;color:#22c55e;letter-spacing:2px;border:1px solid #22c55e;border-radius:6px;padding:3px 10px;">ENERGIE COACH</div>' +
+        '</div>' +
+        '<div style="font-size:0.78rem;color:#64748b;font-style:italic;letter-spacing:0.5px;">' +
+        'Eet zoals je traint. Met een plan.' +
+        '</div></div>',
         unsafe_allow_html=True)
     if st.button("← Terug naar modules", key="fc_terug_top"):
         st.session_state.module = "menu"; st.rerun()
