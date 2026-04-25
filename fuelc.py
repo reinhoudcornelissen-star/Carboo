@@ -3346,6 +3346,14 @@ def _stap_dagschema(user: dict):
 
 
 
+def _safe_int(val, default=1, min_val=1, max_val=10):
+    """Converteer veilig naar int, ook als val een string is."""
+    try:
+        v = int(float(str(val))) if val else default
+        return max(min_val, min(max_val, v))
+    except: return default
+
+
 def _render_voedingsdagboek(user: dict):
     from datetime import date as _ddb, timedelta as _tddb
     user_id = user.get("id","")
@@ -3458,17 +3466,17 @@ def _render_voedingsdagboek(user: dict):
                 with wc1:
                     en_val = st.select_slider("⚡ Energieniveau",
                         options=list(range(1,11)),
-                        value=int(w.get("energie_score") or 5),
+                        value=_safe_int(w.get("energie_score"), 5, 1, 10),
                         key=f"db_en_{dag_str}")
                 with wc2:
                     stem_val = st.select_slider("😊 Stemming",
                         options=[1,2,3,4,5],
-                        value=int(w.get("stemming") or 3),
+                        value=_safe_int(w.get("stemming"), 3, 1, 5),
                         key=f"db_stem_{dag_str}")
                 with wc3:
                     stress_val = st.select_slider("😤 Stress",
                         options=[1,2,3,4,5],
-                        value=int(w.get("stress") or 2),
+                        value=_safe_int(w.get("stress"), 2, 1, 5),
                         key=f"db_stress_{dag_str}")
 
                 # Slaap
@@ -3481,12 +3489,12 @@ def _render_voedingsdagboek(user: dict):
                 with sc2:
                     slaap_kwal_val = st.select_slider("💤 Slaapkwaliteit",
                         options=list(range(1,11)),
-                        value=int(w.get("slaap_kwaliteit") or 5),
+                        value=_safe_int(w.get("slaap_kwaliteit"), 5, 1, 10),
                         key=f"db_slk_{dag_str}")
                 with sc3:
                     sp_val = st.select_slider("🦵 Spierpijn/vermoeidheid",
                         options=list(range(1,11)),
-                        value=int(w.get("spierpijn") or 1),
+                        value=_safe_int(w.get("spierpijn"), 1, 1, 10),
                         key=f"db_sp_{dag_str}")
 
                 # HF + HRV
@@ -3494,11 +3502,11 @@ def _render_voedingsdagboek(user: dict):
                 hc1, hc2 = st.columns(2)
                 with hc1:
                     hf_val = st.number_input("❤️ HF rust (bpm)",
-                        0, 120, int(w.get("hf_rust") or 0), 1,
+                        0, 120, _safe_int(w.get("hf_rust"), 0, 0, 120), 1,
                         key=f"db_hf_{dag_str}")
                 with hc2:
                     hrv_val = st.number_input("📡 HRV (ms)",
-                        0, 200, int(w.get("hrv") or 0), 1,
+                        0, 200, _safe_int(w.get("hrv"), 0, 0, 200), 1,
                         key=f"db_hrv_{dag_str}")
 
                 # ── VOEDING & TRAINING ────────────────────────────────────────
@@ -3507,7 +3515,7 @@ def _render_voedingsdagboek(user: dict):
                 with vc1:
                     honger_val = st.select_slider("🍽️ Hongergevoel",
                         options=[1,2,3,4,5],
-                        value=int(w.get("honger") or 3),
+                        value=_safe_int(w.get("honger"), 3, 1, 5),
                         key=f"db_hg_{dag_str}",
                         help="1=geen honger, 5=constant honger")
                 with vc2:
@@ -3528,7 +3536,7 @@ def _render_voedingsdagboek(user: dict):
                     with tc1:
                         rpe_val = st.select_slider("💪 RPE training",
                             options=list(range(1,11)),
-                            value=int(w.get("rpe") or 5),
+                            value=_safe_int(w.get("rpe"), 5, 1, 10),
                             key=f"db_rpe_{dag_str}",
                             help="1=heel licht, 10=maximaal")
                     with tc2:
@@ -3584,10 +3592,10 @@ def _render_voedingsdagboek(user: dict):
 
     # Bereken week gemiddelden
     scores = [week_welzijn.get(str(maandag+_tddb(days=i)),{}) for i in range(7)]
-    gem_en    = round(sum(s.get("energie_score",0) or 0 for s in scores if s.get("energie_score"))/max(1,sum(1 for s in scores if s.get("energie_score"))),1)
-    gem_slaap = round(sum(s.get("slaap_uur",0) or 0 for s in scores if s.get("slaap_uur"))/max(1,sum(1 for s in scores if s.get("slaap_uur"))),1)
-    gem_stress= round(sum(s.get("stress",0) or 0 for s in scores if s.get("stress"))/max(1,sum(1 for s in scores if s.get("stress"))),1)
-    gem_sp    = round(sum(s.get("spierpijn",0) or 0 for s in scores if s.get("spierpijn"))/max(1,sum(1 for s in scores if s.get("spierpijn"))),1)
+    gem_en    = round(sum(_safe_int(s.get("energie_score"),0,0,10) for s in scores if s.get("energie_score"))/max(1,sum(1 for s in scores if s.get("energie_score"))),1)
+    gem_slaap = round(sum(float(s.get("slaap_uur") or 0) for s in scores if s.get("slaap_uur"))/max(1,sum(1 for s in scores if s.get("slaap_uur"))),1)
+    gem_stress= round(sum(_safe_int(s.get("stress"),0,0,5) for s in scores if s.get("stress"))/max(1,sum(1 for s in scores if s.get("stress"))),1)
+    gem_sp    = round(sum(_safe_int(s.get("spierpijn"),0,0,10) for s in scores if s.get("spierpijn"))/max(1,sum(1 for s in scores if s.get("spierpijn"))),1)
 
     ov1, ov2, ov3, ov4 = st.columns(4)
     for col, label, val, max_val, kleur in [
