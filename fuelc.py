@@ -3670,7 +3670,7 @@ def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
     breakdown["macrokwaliteit"] = {"score": macro_score, "max": 25,
         "detail": f"KH {round(kh_act_pct if kcal>0 else 0)}% · Eiwit {round(ei_act_pct if kcal>0 else 0)}% · Vet {round(vt_act_pct if kcal>0 else 0)}%"}
 
-    # ── PIJLER 3: MICRONUTRIËNTENDICHTHEID (20pt) ─────────────────────────────
+    # ── PIJLER 3: MICRONUTRIËNTDENSITEIT (20pt) ─────────────────────────────
     micro_score = 0
 
     # Vezels: ADH 30g, lineair
@@ -3969,7 +3969,7 @@ def _render_analyses(user: dict):
 
     # ── TABS ─────────────────────────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "⚖️ Gewicht","🌿 Voedingskwaliteit","🍬 Koolhydraten","🥩 Eiwit","🫙 Vetten","📈 Performance"])
+        "⚖️ Gewicht","🌿 Voedingskwaliteit","🍬 KH & Toegevoegde suikers","🥩 Eiwit","🫙 Vetten","📈 Performance"])
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 1 — GEWICHT
@@ -4100,18 +4100,21 @@ def _render_analyses(user: dict):
                         vitb12  += float(prod.get("vitb12_100g")  or 0) * factor
                         omega3  += float(prod.get("omega3_100g")  or 0) * factor
 
-                    # Bewerkingsgraad
-                    if cat in VERS:       kcal_vers     += kc
-                    elif cat in BEWERKT:  kcal_bewerkt  += kc
-                    else:                 kcal_neutraal  += kc
+                    # Restgroep
+                    if cat in RESTGROEP_CAT: kcal_bewerkt += kc
+                    else: kcal_vers += kc
 
                     # Plantaardig/dierlijk
                     if cat in PLANTAARDIG: kcal_plant += kc
                     elif cat in DIERLIJK:  kcal_dier  += kc
 
-                # Nutriëntendichtheid score /10
+                # Nutriëntdensiteit score /10
                 # Per 100 kcal: vezels >3g=2pt, kalium>300mg=2pt, calcium>100mg=1pt,
                 # ijzer>1mg=1pt, vitD>1µg=1pt, B12>0.5µg=1pt, omega3>0.2g=2pt → max 10
+                # Groenten + fruit kcal (proxy voor fytochemicaliën en kleur)
+                kcal_gf = cat_kcal.get("Groenten", 0) + cat_kcal.get("Fruit", 0)
+                gf_pct  = kcal_gf / kcal_dag * 100 if kcal_dag > 0 else 0
+
                 nd = 0
                 if kcal_dag > 0:
                     v100 = vezels / kcal_dag * 100
@@ -4121,21 +4124,26 @@ def _render_analyses(user: dict):
                     vd100= vitd / kcal_dag * 100
                     b100 = vitb12 / kcal_dag * 100
                     o100 = omega3 / kcal_dag * 100
-                    if v100 >= 3:   nd += 2
+                    if v100 >= 3:    nd += 2
                     elif v100 >= 1.5: nd += 1
-                    if k100 >= 300: nd += 2
+                    if k100 >= 300:  nd += 2
                     elif k100 >= 150: nd += 1
-                    if c100 >= 100: nd += 1
-                    if i100 >= 1:   nd += 1
-                    if vd100 >= 1:  nd += 1
-                    if b100 >= 0.5: nd += 1
-                    if o100 >= 0.2: nd += 2
+                    if c100 >= 100:  nd += 1
+                    if i100 >= 1:    nd += 1
+                    if vd100 >= 1:   nd += 1
+                    if b100 >= 0.5:  nd += 1
+                    if o100 >= 0.2:  nd += 2
                     elif o100 >= 0.1: nd += 1
+                    # Groenten & fruit bijdrage (max 2pt extra → totaal max 12, afkappen op 10)
+                    if gf_pct >= 15:   nd += 2
+                    elif gf_pct >= 8:  nd += 1
+                    nd = min(10, nd)
 
                 heeft_micro = n_micro_items > 0
 
-                # Bewerkingsgraad score /10 (hoger = meer onbewerkt)
-                bew_score = round((kcal_vers / kcal_dag * 10)) if kcal_dag > 0 else 0
+                # Restgroep % (lager = beter)
+                restgroep_pct = round(kcal_bewerkt / kcal_dag * 100) if kcal_dag > 0 else 0
+                bew_score = max(0, 10 - round(restgroep_pct / 10))  # score 0-10
 
                 kwal_dagen.append({
                     "datum": dd["datum"],
@@ -4169,14 +4177,40 @@ def _render_analyses(user: dict):
             ontbrekend = [c for c in ["Groenten","Fruit","Vlees & vis","Peulvruchten","Noten & zaden","Zuivel"]
                           if c not in alle_cats_week]
 
+            gem_restgroep_pct = round((1 - gem_bew/10)*100)  # lager = beter
             k_nd  = "#22c55e" if gem_nd>=7 else ("#fbbf24" if gem_nd>=4 else "#ef4444")
-            k_bew = "#22c55e" if gem_bew>=7 else ("#fbbf24" if gem_bew>=4 else "#ef4444")
+            k_bew = "#22c55e" if gem_restgroep_pct<=20 else ("#fbbf24" if gem_restgroep_pct<=40 else "#ef4444")
             k_cat = "#22c55e" if gem_cats>=5 else ("#fbbf24" if gem_cats>=3 else "#ef4444")
+
+            # Info tooltips
+            INFO_ND = (
+                "Nutriëntdensiteit score (0-10) meet hoeveel micronutriënten je krijgt per 100 kcal. "
+                "Berekening: vezels ≥3g/100kcal=2pt, kalium ≥300mg=2pt, calcium ≥100mg=1pt, "
+                "ijzer ≥1mg=1pt, vitD ≥1µg=1pt, B12 ≥0.5µg=1pt, omega-3 ≥0.2g=2pt. "
+                "Groenten & fruit ≥15% van kcal = 2pt bonus (proxy voor fytochemicaliën). "
+                "Hoge score = voedingsrijke keuzes. Lage score = lege calorieën.")
+            INFO_RESTGROEP = (
+                "Restgroep = voedingsmiddelen die niet in plantaardig of dierlijk vallen: "
+                "Sauzen & spreads, Dranken, Vetten & oliën (behalve olijfolie), "
+                "Sportvoeding, Granen & brood (bewerkt), Overige. "
+                "Een hoog % restgroep kan wijzen op veel bewerkte voeding. "
+                "Streef naar max 20% van je kcal uit de restgroep.")
+            INFO_MICRO = (
+                "Micronutriënten worden berekend op basis van de producten in je bibliotheek. "
+                "Enkel producten waarvoor je de micronutriënten hebt ingevuld (of die in de NEVO-databank staan) "
+                "worden meegeteld. Producten zonder data worden niet meegenomen in de berekening.")
+
+            with st.expander("ℹ️ Hoe worden deze scores berekend?", expanded=False):
+                st.markdown(
+                    f'<div style="font-size:0.78rem;color:#94a3b8;line-height:1.7;">' +
+                    f'<b style="color:#22c55e;">Nutriëntdensiteit:</b> {INFO_ND}<br><br>' +
+                    f'<b style="color:#22c55e;">% Restgroep:</b> {INFO_RESTGROEP}' +
+                    f'</div>', unsafe_allow_html=True)
 
             q1,q2,q3 = st.columns(3)
             for col,lbl,val,sub,kl in [
                 (q1,"NUTRIËNTDENSITEIT",f"{gem_nd}/10","gem per dag",k_nd),
-                (q2,"VERS VOEDSELAANDEEL",f"{gem_bew}/10","gem per dag",k_bew),
+                (q2,"% RESTGROEP",f"{round((1-gem_bew/10)*100)}%","kcal uit restgroep",k_bew),
                 (q3,"VARIATIE GROEPEN",f"{gem_cats}",f"gem categorieën/dag",k_cat)]:
                 with col:
                     st.markdown(
@@ -4201,18 +4235,18 @@ def _render_analyses(user: dict):
                     f'Voeg voedingswaarden toe in de bibliotheek voor een vollediger beeld.</div>'
                     f'</div>', unsafe_allow_html=True)
 
-            # ── GRAFIEK 1: Nutriëntendichtheid per dag ─────────────────────────
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Nutriëntendichtheid per dag (/10)</div>', unsafe_allow_html=True)
+            # ── GRAFIEK 1: Nutriëntdensiteit per dag ─────────────────────────
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Nutriëntdensiteit per dag (/10)</div>', unsafe_allow_html=True)
             nd_labels = [d["datum"][5:] for d in kwal_dagen]
             nd_vals   = [d["nd_score"] for d in kwal_dagen]
             bew_vals  = [d["bew_score"] for d in kwal_dagen]
             _chart(_lijn_chart(nd_labels, [
-                {"label":"Nutriëntdensiteit","data":nd_vals,"color":"#22c55e","fill":False},
-                {"label":"Vers voedselaandeel","data":bew_vals,"color":"#3b82f6","fill":False},
+                {"label":"Nutriëntdensiteit /10","data":nd_vals,"color":"#22c55e","fill":False},
+                {"label":"% Restgroep (lager=beter)","data":[round((1-v/10)*100) if v>0 else 0 for v in bew_vals],"color":"#3b82f6","fill":False},
             ], doel_lijn=7, y_label="Score /10"), height=280)
 
             # ── GRAFIEK 2: Plantaardig vs dierlijk ────────────────────────────
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardig vs dierlijk aandeel (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardige vs dierlijke voeding (% kcal per dag)</div>', unsafe_allow_html=True)
             plant_pct = []
             dier_pct  = []
             for d in kwal_dagen:
@@ -4257,7 +4291,19 @@ def _render_analyses(user: dict):
 
             # ── MICRONUTRIËNTEN vs ADH ─────────────────────────────────────────
             if heeft_micro_data:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten — gemiddelde vs ADH</div>', unsafe_allow_html=True)
+                mc1, mc2 = st.columns([4,1])
+                with mc1:
+                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 4px;">Micronutriënten — gemiddelde vs ADH</div>', unsafe_allow_html=True)
+                with mc2:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    with st.expander("ℹ️"):
+                        st.markdown(
+                            '<div style="font-size:0.75rem;color:#94a3b8;line-height:1.6;">' +
+                            'Gebaseerd op producten in je bibliotheek of de NEVO-databank waarvoor micronutriënten zijn ingevuld. ' +
+                            'Producten zonder micronutriëntendata worden niet meegenomen. ' +
+                            'Voeg waarden toe in de bibliotheek voor een vollediger beeld.' +
+                            '</div>', unsafe_allow_html=True)
+                st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
                 gem_kal = round(sum(d["kalium"] for d in kwal_dagen)/len(kwal_dagen))
                 gem_cal = round(sum(d["calcium"] for d in kwal_dagen)/len(kwal_dagen))
                 gem_ij  = round(sum(d["ijzer"] for d in kwal_dagen)/len(kwal_dagen),1)
@@ -4374,13 +4420,7 @@ def _render_analyses(user: dict):
                     f'<div style="font-size:0.78rem;color:#22c55e;">✓ Suikerinname onder 10% van KH op alle dagen. Goed bezig!</div></div>',
                     unsafe_allow_html=True)
 
-            # KH vs Vet
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">KH vs Vet per dag</div>', unsafe_allow_html=True)
-            vet_vals = [round(d["vet"],1) for d in dagen_data]
-            _chart(_lijn_chart(labels_d, [
-                {"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
-                {"label":"Vet (g)","data":vet_vals,"color":"#8b5cf6","fill":False}],
-                y_label="gram"), height=260)
+
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
@@ -4636,17 +4676,16 @@ def render_fuelc(user: dict):
             def _laad_suikers_bib(uid):
                 try:
                     r1 = _get_supabase().table("fuelc_bibliotheek")\
-                        .select("id,naam,suikers_100g").eq("user_id",uid).execute()
+                        .select("id,naam,suikers_100g,gi").eq("user_id",uid).execute()
                     r2 = _get_supabase().table("fuelc_bibliotheek")\
-                        .select("id,naam,suikers_100g").is_("user_id","null").execute()
-                    return {row["id"]: row for row in (r1.data or [])+(r2.data or [])}
+                        .select("id,naam,suikers_100g,gi").is_("user_id","null").execute()
                 except: return {}
 
             su_bib = _laad_suikers_bib(user_id)
 
             # Suikers per dag + top producten
             suikers_per_dag = []
-            suiker_producten = {}  # naam -> totale suikers over periode
+            suiker_producten = {}  # naam -> {"su": gram, "gi": waarde}
             for dd in dagen_data:
                 dag_su = 0
                 for it in dd.get("items",[]):
@@ -4654,10 +4693,15 @@ def render_fuelc(user: dict):
                     pid = it.get("product_id","") or ""
                     prod = su_bib.get(pid,{})
                     su = float(prod.get("suikers_100g") or 0) * hg / 100
+                    gi = prod.get("gi") or None
                     dag_su += su
                     if su > 2:
                         naam = it.get("naam","") or prod.get("naam","Onbekend")
-                        suiker_producten[naam] = suiker_producten.get(naam,0) + su
+                        if naam not in suiker_producten:
+                            suiker_producten[naam] = {"su": 0, "gi": gi}
+                        suiker_producten[naam]["su"] += su
+                        if gi and not suiker_producten[naam]["gi"]:
+                            suiker_producten[naam]["gi"] = gi
                 suikers_per_dag.append(round(dag_su,1))
 
             gem_kh = round(sum(d["kh"] for d in dagen_met)/len(dagen_met),1)
@@ -4671,7 +4715,7 @@ def render_fuelc(user: dict):
             for col,lbl,val,kl in [
                 (m1,"GEM KH/DAG",f"{gem_kh}g",k_kh),
                 (m2,"KH DOEL",f"{kh_doel_g}g","#64748b"),
-                (m3,"GEM TOEGEV. SUIKERS",f"{gem_su}g",k_su),
+                (m3,"GEM TOEGEVOEGDE SUIKERS",f"{gem_su}g",k_su),
                 (m4,"SUIKERS % VAN KH",f"{su_pct}%",k_su)]:
                 with col:
                     st.markdown(
@@ -4707,18 +4751,32 @@ def render_fuelc(user: dict):
 
             # Top suikerproducten
             if suiker_producten:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met toegevoegde suikers (deze periode)</div>', unsafe_allow_html=True)
-                top_su = sorted(suiker_producten.items(), key=lambda x:-x[1])[:6]
-                max_su = top_su[0][1] if top_su else 1
-                for naam_su, gram_su in top_su:
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 4px;">🍬 Voedingsmiddelen met toegevoegde suikers — top deze periode</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.7rem;color:#64748b;margin-bottom:10px;">GI: laag &lt;55 · matig 55-70 · hoog &gt;70 · — = niet bekend</div>', unsafe_allow_html=True)
+                top_su = sorted(suiker_producten.items(), key=lambda x:-x[1]["su"])[:8]
+                max_su = top_su[0][1]["su"] if top_su else 1
+                for naam_su, data_su in top_su:
+                    gram_su = data_su["su"]
+                    gi_su   = data_su["gi"]
                     pct_bar = round(gram_su/max_su*100)
+                    # GI kleur en label
+                    if gi_su:
+                        gi_int = int(gi_su)
+                        gi_lbl = str(gi_int)
+                        gi_kl  = "#22c55e" if gi_int<55 else ("#fbbf24" if gi_int<=70 else "#ef4444")
+                        gi_cat = "laag" if gi_int<55 else ("matig" if gi_int<=70 else "hoog")
+                    else:
+                        gi_lbl = "—"; gi_kl = "#475569"; gi_cat = ""
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
-                        f'<div style="min-width:140px;font-size:0.78rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
-                        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:7px;">'
-                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div></div>'
-                        f'<div style="min-width:50px;font-size:0.75rem;color:#f97316;text-align:right;">{round(gram_su,1)}g</div>'
-                        f'</div>', unsafe_allow_html=True)
+                        f'<div style="background:#1e293b;border-radius:8px;padding:9px 12px;margin-bottom:5px;">'
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">'
+                        f'<div style="flex:1;font-size:0.78rem;color:#f1f5f9;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
+                        f'<div style="font-size:0.72rem;color:#f97316;font-weight:700;min-width:40px;text-align:right;">{round(gram_su,1)}g</div>'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:{gi_kl};min-width:52px;text-align:right;">GI {gi_lbl}</div>'
+                        f'</div>'
+                        f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
+                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
+                        f'</div></div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
