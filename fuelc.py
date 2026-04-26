@@ -4421,7 +4421,34 @@ def _render_analyses(user: dict):
                     f'<div style="font-size:0.78rem;color:#22c55e;">✓ Suikerinname onder 10% van KH op alle dagen. Goed bezig!</div></div>',
                     unsafe_allow_html=True)
 
-
+            # Top suikerproducten
+            if suiker_producten:
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 4px;">🍬 Voedingsmiddelen met toegevoegde suikers — top deze periode</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.7rem;color:#64748b;margin-bottom:10px;">GI: laag &lt;55 · matig 55-70 · hoog &gt;70 · — = niet bekend</div>', unsafe_allow_html=True)
+                top_su = sorted(suiker_producten.items(), key=lambda x:-x[1]["su"])[:8]
+                max_su = top_su[0][1]["su"] if top_su else 1
+                for naam_su, data_su in top_su:
+                    gram_su = data_su["su"]
+                    gi_su   = data_su["gi"]
+                    pct_bar = round(gram_su/max_su*100)
+                    # GI kleur en label
+                    if gi_su:
+                        gi_int = int(gi_su)
+                        gi_lbl = str(gi_int)
+                        gi_kl  = "#22c55e" if gi_int<55 else ("#fbbf24" if gi_int<=70 else "#ef4444")
+                        gi_cat = "laag" if gi_int<55 else ("matig" if gi_int<=70 else "hoog")
+                    else:
+                        gi_lbl = "—"; gi_kl = "#475569"; gi_cat = ""
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:8px;padding:9px 12px;margin-bottom:5px;">'
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">'
+                        f'<div style="flex:1;font-size:0.78rem;color:#f1f5f9;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
+                        f'<div style="font-size:0.72rem;color:#f97316;font-weight:700;min-width:40px;text-align:right;">{round(gram_su,1)}g</div>'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:{gi_kl};min-width:52px;text-align:right;">GI {gi_lbl}</div>'
+                        f'</div>'
+                        f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
+                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
+                        f'</div></div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
@@ -4750,34 +4777,6 @@ def render_fuelc(user: dict):
                     st.markdown(f'<div style="font-size:0.78rem;color:#94a3b8;padding:2px 0;">· {datum_m}: {su_m}g = {pct_m}%</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # Top suikerproducten
-            if suiker_producten:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 4px;">🍬 Voedingsmiddelen met toegevoegde suikers — top deze periode</div>', unsafe_allow_html=True)
-                st.markdown('<div style="font-size:0.7rem;color:#64748b;margin-bottom:10px;">GI: laag &lt;55 · matig 55-70 · hoog &gt;70 · — = niet bekend</div>', unsafe_allow_html=True)
-                top_su = sorted(suiker_producten.items(), key=lambda x:-x[1]["su"])[:8]
-                max_su = top_su[0][1]["su"] if top_su else 1
-                for naam_su, data_su in top_su:
-                    gram_su = data_su["su"]
-                    gi_su   = data_su["gi"]
-                    pct_bar = round(gram_su/max_su*100)
-                    # GI kleur en label
-                    if gi_su:
-                        gi_int = int(gi_su)
-                        gi_lbl = str(gi_int)
-                        gi_kl  = "#22c55e" if gi_int<55 else ("#fbbf24" if gi_int<=70 else "#ef4444")
-                        gi_cat = "laag" if gi_int<55 else ("matig" if gi_int<=70 else "hoog")
-                    else:
-                        gi_lbl = "—"; gi_kl = "#475569"; gi_cat = ""
-                    st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:9px 12px;margin-bottom:5px;">'
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">'
-                        f'<div style="flex:1;font-size:0.78rem;color:#f1f5f9;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
-                        f'<div style="font-size:0.72rem;color:#f97316;font-weight:700;min-width:40px;text-align:right;">{round(gram_su,1)}g</div>'
-                        f'<div style="font-size:0.72rem;font-weight:700;color:{gi_kl};min-width:52px;text-align:right;">GI {gi_lbl}</div>'
-                        f'</div>'
-                        f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
-                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
-                        f'</div></div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
