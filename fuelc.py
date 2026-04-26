@@ -3883,9 +3883,10 @@ def _render_analyses(user: dict):
     def _chart(html_body: str, height: int = 320):
         st.components.v1.html(
             f'<html><head><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
-            f'<style>body{{margin:0;background:#0a0f1e;}}canvas{{border-radius:10px;}}</style></head>'
-            f'<body>{html_body}</body></html>',
-            height=height)
+            f'<style>body{{margin:0;padding:0;background:#0a0f1e;overflow:hidden;}}'
+            f'canvas{{border-radius:10px;display:block;width:100%!important;max-height:{height-20}px!important;}}</style></head>'
+            f'<body style="height:{height}px;">{html_body}</body></html>',
+            height=height, scrolling=False)
 
     def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title=""):
         ds_js = []
@@ -4051,7 +4052,7 @@ def _render_analyses(user: dict):
                 labels_g,
                 [{"label":"Gewicht (kg)","data":vals_g,"color":"#22c55e","fill":True}],
                 y_label="kg")
-            _chart(chart_html, height=320)
+            _chart(chart_html, height=400)
 
             # Statistieken
             if len(vals_g) >= 2:
@@ -4144,17 +4145,42 @@ def _render_analyses(user: dict):
             st.info("Nog geen voedingsdata.")
         else:
             labels_d = [d["datum"][5:] for d in dagen_data]
-            gem_kh = round(sum(d["kh"] for d in dagen_met)/len(dagen_met),1)
-            gem_vc = round(sum(d["vet"] for d in dagen_met)/len(dagen_met),1)
-            pct_kh = round(gem_kh/max(kh_doel_g,1)*100)
-            k_kh   = "#22c55e" if 85<=pct_kh<=115 else ("#fbbf24" if 70<=pct_kh<=130 else "#ef4444")
+
+            # Haal suikerdata op via product bibliotheek
+            @st.cache_data(ttl=300)
+            def _laad_suikers_bibliotheek(uid):
+                try:
+                    r = _get_supabase().table("fuelc_bibliotheek")                        .select("id,suikers_100g").eq("user_id",uid).execute()
+                    return {row["id"]: float(row.get("suikers_100g") or 0) for row in (r.data or [])}
+                except: return {}
+
+            suikers_bib = _laad_suikers_bibliotheek(user_id)
+
+            # Bereken suikers per dag
+            suikers_per_dag = []
+            for dd in dagen_data:
+                dag_suikers = 0
+                for it in dd.get("items",[]):
+                    pid = it.get("product_id","") or ""
+                    hg  = float(it.get("hoeveelheid_g",100) or 100)
+                    su_100 = suikers_bib.get(pid, 0)
+                    dag_suikers += su_100 * hg / 100
+                suikers_per_dag.append(round(dag_suikers, 1))
+
+            gem_kh  = round(sum(d["kh"] for d in dagen_met)/len(dagen_met),1)
+            gem_su  = round(sum(s for s,d in zip(suikers_per_dag,dagen_data) if d["kcal"]>0)/max(len(dagen_met),1),1)
+            pct_kh  = round(gem_kh/max(kh_doel_g,1)*100)
+            k_kh    = "#22c55e" if 85<=pct_kh<=115 else ("#fbbf24" if 70<=pct_kh<=130 else "#ef4444")
+            su_pct_kh = round(gem_su/max(gem_kh,1)*100)
+            k_su    = "#22c55e" if su_pct_kh<=10 else ("#fbbf24" if su_pct_kh<=20 else "#ef4444")
 
             # KPIs
-            m1,m2,m3 = st.columns(3)
+            m1,m2,m3,m4 = st.columns(4)
             for col,lbl,val,kl in [
                 (m1,"GEM KH/DAG",f"{gem_kh}g",k_kh),
                 (m2,"KH DOEL",f"{kh_doel_g}g","#64748b"),
-                (m3,"% VAN DOEL",f"{pct_kh}%",k_kh)]:
+                (m3,"GEM SUIKERS/DAG",f"{gem_su}g",k_su),
+                (m4,"SUIKERS % VAN KH",f"{su_pct_kh}%",k_su)]:
                 with col:
                     st.markdown(
                         f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
@@ -4162,32 +4188,46 @@ def _render_analyses(user: dict):
                         f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>'
                         f'</div>', unsafe_allow_html=True)
 
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Koolhydraten per dag vs doel</div>', unsafe_allow_html=True)
+            # KH vs Suikers per dag
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Koolhydraten vs toegevoegde suikers per dag</div>', unsafe_allow_html=True)
             kh_vals = [round(d["kh"],1) for d in dagen_data]
-            _chart(_lijn_chart(labels_d,
-                [{"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":True}],
-                doel_lijn=kh_doel_g, y_label="gram"), height=280)
+            _chart(_lijn_chart(labels_d, [
+                {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
+                {"label":"Suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
+                doel_lijn=kh_doel_g, y_label="gram"), height=300)
 
-            # KH + Vet gecombineerd
+            # Meldingen per dag > 10% suikers
+            st.markdown("<br>", unsafe_allow_html=True)
+            meldingen = []
+            for dd, su in zip(dagen_data, suikers_per_dag):
+                if dd["kh"] > 0 and su/dd["kh"]*100 > 10:
+                    pct_dag_su = round(su/dd["kh"]*100)
+                    meldingen.append((dd["datum"][5:], su, pct_dag_su))
+
+            if meldingen:
+                st.markdown(
+                    f'<div style="background:#1a0a0a;border-left:3px solid #f97316;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:8px;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#f97316;margin-bottom:6px;">⚠️ HOGE SUIKERINNAME (&gt;10% van KH)</div>',
+                    unsafe_allow_html=True)
+                for datum_m, su_m, pct_m in meldingen:
+                    st.markdown(
+                        f'<div style="font-size:0.78rem;color:#94a3b8;padding:2px 0;">'
+                        f'· {datum_m}: {su_m}g suikers = {pct_m}% van KH</div>',
+                        unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f'<div style="background:#0a1a0a;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;">'
+                    f'<div style="font-size:0.78rem;color:#22c55e;">✓ Suikerinname onder 10% van KH op alle dagen. Goed bezig!</div></div>',
+                    unsafe_allow_html=True)
+
+            # KH vs Vet
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">KH vs Vet per dag</div>', unsafe_allow_html=True)
             vet_vals = [round(d["vet"],1) for d in dagen_data]
             _chart(_lijn_chart(labels_d, [
                 {"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
                 {"label":"Vet (g)","data":vet_vals,"color":"#8b5cf6","fill":False}],
                 y_label="gram"), height=260)
-
-            # Tip
-            pct_kh_actual = round(sum(d["kh"]*4 for d in dagen_met)/max(sum(d["kcal"] for d in dagen_met),1)*100)
-            if pct_kh_actual < kh_doel_pct - 10:
-                tip = f"⚠️ Je KH-inname ({pct_kh_actual}%) ligt onder je doel ({round(kh_doel_pct)}%). Op trainingsdag kan dit je prestaties beïnvloeden."
-                tip_k = "#fbbf24"
-            elif pct_kh_actual > kh_doel_pct + 10:
-                tip = f"⚠️ Je KH-inname ({pct_kh_actual}%) ligt boven je doel ({round(kh_doel_pct)}%). Check of dit op trainings- of rustdagen is."
-                tip_k = "#f97316"
-            else:
-                tip = f"✓ Je KH-inname ({pct_kh_actual}%) zit goed in lijn met je doel ({round(kh_doel_pct)}%)."
-                tip_k = "#22c55e"
-            st.markdown(f'<div style="background:#1e293b;border-radius:8px;padding:12px;margin-top:8px;font-size:0.82rem;color:{tip_k};">{tip}</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
@@ -4221,6 +4261,40 @@ def _render_analyses(user: dict):
             _chart(_lijn_chart(labels_d,
                 [{"label":"Eiwit (g)","data":ei_vals,"color":"#3b82f6","fill":True}],
                 doel_lijn=ei_doel_g, y_label="gram"), height=280)
+
+            # Eiwit verdeling over dag (momenten)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Eiwitverdeling over maaltijdmomenten (gemiddelde)</div>', unsafe_allow_html=True)
+            MOMENT_NAMEN = ["Ontbijt","Tussendoor vm","Lunch","Tussendoor nm","Avondmaal","Avondsnack"]
+            ei_per_moment = [0.0] * 6
+            n_per_moment  = [0] * 6
+            for dd in dagen_met:
+                for it in dd.get("items",[]):
+                    mi = int(it.get("moment",0) or 0)
+                    if 0 <= mi < 6:
+                        ei_per_moment[mi] += float(it.get("eiwit_g",0) or 0)
+                        n_per_moment[mi]  += 1
+            ei_gem_moment = [round(ei_per_moment[i]/max(len(dagen_met),1),1) for i in range(6)]
+            # Ideale verdeling: gelijk over alle actieve momenten
+            n_actief = sum(1 for e in ei_gem_moment if e > 0)
+            ei_ideaal_per_mom = round(ei_doel_g / max(n_actief,1), 1) if n_actief > 0 else round(ei_doel_g/3,1)
+
+            # Check spreiding
+            max_mom = max(ei_gem_moment) if any(e>0 for e in ei_gem_moment) else 1
+            min_mom = min(e for e in ei_gem_moment if e>0) if any(e>0 for e in ei_gem_moment) else 0
+            spread_ok = (max_mom / max(min_mom,1)) < 2.5 if min_mom > 0 else False
+
+            _chart(_bar_chart(MOMENT_NAMEN, [
+                {"label":"Gem eiwit (g)","data":ei_gem_moment,"color":"#3b82f6"},
+                {"label":"Ideaal per moment","data":[ei_ideaal_per_mom]*6,"color":"#f97316"},
+            ], y_label="gram"), height=260)
+
+            if spread_ok:
+                spread_msg = "✓ Goede eiwitverdeling over de dag. Optimale MPS (spierproteïnesynthese)."
+                spread_k = "#22c55e"
+            else:
+                spread_msg = "⚠️ Ongelijke eiwitverdeling. Probeer eiwit gelijkmatiger te spreiden over 3–5 maaltijden voor optimale spiereiwitsynthese."
+                spread_k = "#fbbf24"
+            st.markdown(f'<div style="background:#1e293b;border-radius:8px;padding:12px;margin-top:6px;font-size:0.82rem;color:{spread_k};">{spread_msg}</div>', unsafe_allow_html=True)
 
             # Plantaardig vs dierlijk
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Herkomst eiwit (schatting op basis van categorieën)</div>', unsafe_allow_html=True)
