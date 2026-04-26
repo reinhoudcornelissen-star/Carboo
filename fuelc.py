@@ -3589,6 +3589,192 @@ def _render_voedingsdagboek(user: dict):
 
 
 
+def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
+                                items_detail: list = None) -> dict:
+    """
+    Performance score 0-100 op basis van sportvoedingswetenschap.
+    6 pijlers, elk wetenschappelijk gewogen.
+    """
+    score = 0
+    breakdown = {}
+
+    energie_doel = int(profiel.get("energie_doel", 2000) or 2000)
+    kh_doel_pct  = float(profiel.get("kh_doel_pct", 50) or 50)
+    ei_doel_pct  = float(profiel.get("eiwit_doel_pct", 25) or 25)
+    vt_doel_pct  = float(profiel.get("vet_doel_pct", 25) or 25)
+
+    kcal   = dag_data.get("kcal", 0) or 0
+    kh     = dag_data.get("kh", 0) or 0
+    eiwit  = dag_data.get("eiwit", 0) or 0
+    vet    = dag_data.get("vet", 0) or 0
+    vezels = dag_data.get("vezels", 0) or 0
+    natrium= dag_data.get("natrium", 0) or 0
+    omega3 = dag_data.get("omega3", 0) or 0
+    vitd   = dag_data.get("vitd", 0) or 0
+    vitb12 = dag_data.get("vitb12", 0) or 0
+    n_mom_gevuld = dag_data.get("n_momenten_ingevuld", 0) or 0
+    n_mom_totaal = dag_data.get("n_momenten", 3) or 3
+    heeft_training = dag_data.get("heeft_training", False)
+    cat_kcal = dag_data.get("cat_kcal", {})
+
+    # ── PIJLER 1: ENERGIEBALANS (20pt) ────────────────────────────────────────
+    # Gaussian curve: max bij 100% doel, daalt proportioneel
+    if energie_doel > 0 and kcal > 0:
+        import math as _m
+        pct_e = kcal / energie_doel
+        # Gaussian: sigma=0.15 → 1 SD = 15% afwijking = 60% score
+        e_score = round(20 * _m.exp(-((pct_e - 1.0) ** 2) / (2 * 0.18 ** 2)))
+        e_score = max(2, min(20, e_score))
+    else:
+        e_score = 0
+    score += e_score
+    breakdown["energiebalans"] = {"score": e_score, "max": 20,
+        "detail": f"{round(kcal)} / {energie_doel} kcal ({round(kcal/max(energie_doel,1)*100)}%)"}
+
+    # ── PIJLER 2: MACROKWALITEIT (25pt) ───────────────────────────────────────
+    macro_score = 0
+
+    # KH: goed gespreide inname, op trainingsdag hoger gewogen
+    if kcal > 0:
+        kh_act_pct = kh * 4 / kcal * 100
+        kh_diff = abs(kh_act_pct - kh_doel_pct)
+        kh_pts = 10 if kh_diff <= 5 else (8 if kh_diff <= 10 else (5 if kh_diff <= 20 else 2))
+        macro_score += kh_pts
+
+        # Eiwit: beoordeel spreiding over momenten
+        ei_act_pct = eiwit * 4 / kcal * 100
+        ei_diff = abs(ei_act_pct - ei_doel_pct)
+        # Spreiding: hoeveel momenten hebben eiwit (via items_detail)
+        if items_detail:
+            momenten_met_eiwit = len(set(
+                i.get("moment", 0) for i in items_detail
+                if (i.get("eiwit_g", 0) or 0) >= 5  # min 5g eiwit per moment telt mee
+            ))
+            n_mom_eiwit = min(5, n_mom_totaal)
+            spread_pct = momenten_met_eiwit / max(n_mom_eiwit, 1)
+            ei_spread_pts = round(5 * spread_pct)  # 5pt voor goede spreiding
+        else:
+            ei_spread_pts = 3  # onbekend → neutraal
+        ei_pts = (5 if ei_diff <= 5 else (3 if ei_diff <= 15 else 1)) + ei_spread_pts
+        macro_score += min(10, ei_pts)
+
+        # Vet: niet te laag (hormonaal), niet te hoog
+        vt_act_pct = vet * 9 / kcal * 100
+        if 20 <= vt_act_pct <= 35: vt_pts = 5
+        elif 15 <= vt_act_pct <= 40: vt_pts = 3
+        elif vt_act_pct < 15: vt_pts = 1  # te laag = hormonaal risico
+        else: vt_pts = 2
+        macro_score += vt_pts
+
+    score += macro_score
+    breakdown["macrokwaliteit"] = {"score": macro_score, "max": 25,
+        "detail": f"KH {round(kh_act_pct if kcal>0 else 0)}% · Eiwit {round(ei_act_pct if kcal>0 else 0)}% · Vet {round(vt_act_pct if kcal>0 else 0)}%"}
+
+    # ── PIJLER 3: MICRONUTRIËNTENDICHTHEID (20pt) ─────────────────────────────
+    micro_score = 0
+
+    # Vezels: ADH 30g, lineair
+    if vezels >= 30: micro_score += 6
+    elif vezels >= 20: micro_score += 4
+    elif vezels >= 10: micro_score += 2
+
+    # Omega-3: belangrijk voor herstel en inflammatie
+    if omega3 >= 1.5: micro_score += 5
+    elif omega3 >= 0.8: micro_score += 3
+    elif omega3 >= 0.3: micro_score += 1
+
+    # Vitamine D: crucaal voor sporters
+    if vitd >= 10: micro_score += 4
+    elif vitd >= 5:  micro_score += 2
+    elif vitd > 0:   micro_score += 1
+
+    # Vitamine B12: risico bij plant-based
+    if vitb12 >= 2.4: micro_score += 3
+    elif vitb12 >= 1:  micro_score += 2
+    elif vitb12 > 0:   micro_score += 1
+
+    # Natrium: sporters mogen meer (verlies via zweet)
+    na_max = 3500 if heeft_training else 2300
+    if natrium > 0:
+        if natrium <= na_max: micro_score += 2
+        else: micro_score += 0
+    else:
+        micro_score += 1  # onbekend = neutraal
+
+    score += micro_score
+    breakdown["micronutriënten"] = {"score": micro_score, "max": 20,
+        "detail": f"Vezels {round(vezels)}g · Omega-3 {round(omega3,1)}g · VitD {round(vitd,1)}µg"}
+
+    # ── PIJLER 4: MAALTIJDREGELMAAT & TIMING (15pt) ───────────────────────────
+    reg_score = 0
+
+    # Alle momenten ingevuld
+    if n_mom_totaal > 0:
+        dekking = n_mom_gevuld / n_mom_totaal
+        reg_score += round(8 * dekking)
+
+    # Post-training maaltijd: als training, is er een avondmaaltijd?
+    if heeft_training and n_mom_gevuld >= 2:
+        reg_score += 4
+    elif not heeft_training:
+        reg_score += 4  # rustdag: geen post-training nodig
+
+    # Niet meer dan 5u zonder eten (schatting via n momenten)
+    if n_mom_gevuld >= 3:
+        reg_score += 3
+    elif n_mom_gevuld >= 2:
+        reg_score += 1
+
+    score += reg_score
+    breakdown["maaltijdregelmaat"] = {"score": reg_score, "max": 15,
+        "detail": f"{n_mom_gevuld}/{n_mom_totaal} momenten ingevuld"}
+
+    # ── PIJLER 5: VOEDINGSKWALITEIT INDEX (15pt) ──────────────────────────────
+    kwal_score = 0
+
+    # Variatie voedingsgroepen
+    n_groepen = len([c for c, k in cat_kcal.items() if k > 50])  # min 50kcal bijdrage
+    if n_groepen >= 5:   kwal_score += 5
+    elif n_groepen >= 3: kwal_score += 3
+    elif n_groepen >= 2: kwal_score += 1
+
+    # Plantaardig/dierlijk balans
+    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+    DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
+    # Sportvoeding = neutraal, niet meegewogen in bewerkingsgraad
+    kcal_plant = sum(k for c,k in cat_kcal.items() if c in PLANTAARDIG)
+    kcal_dier  = sum(k for c,k in cat_kcal.items() if c in DIERLIJK)
+    kcal_voeding = kcal_plant + kcal_dier
+    if kcal_voeding > 0:
+        plant_pct = kcal_plant / kcal_voeding * 100
+        if 30 <= plant_pct <= 70: kwal_score += 5  # goede mix
+        elif plant_pct >= 20:     kwal_score += 3
+        else:                     kwal_score += 1
+
+    # Groenten & fruit aanwezig
+    groente_kcal = cat_kcal.get("Groenten", 0) + cat_kcal.get("Fruit", 0)
+    if groente_kcal >= 150:   kwal_score += 5
+    elif groente_kcal >= 75:  kwal_score += 3
+    elif groente_kcal > 0:    kwal_score += 1
+
+    score += kwal_score
+    breakdown["voedingskwaliteit"] = {"score": kwal_score, "max": 15,
+        "detail": f"{n_groepen} voedingsgroepen · {round(plant_pct if kcal_voeding>0 else 0)}% plantaardig"}
+
+    # ── PIJLER 6: HYDRATATIE & GI (5pt) ──────────────────────────────────────
+    hydr_score = 0
+    if welzijn.get("gehydrateerd", True):   hydr_score += 3
+    if not welzijn.get("gi_klachten", False): hydr_score += 2
+    score += hydr_score
+    breakdown["hydratatie"] = {"score": hydr_score, "max": 5,
+        "detail": "Gehydrateerd" if welzijn.get("gehydrateerd",True) else "Niet optimaal"}
+
+    return {
+        "score": max(0, min(100, score)),
+        "breakdown": breakdown
+    }
+
+
 def _render_analyses(user: dict):
     from datetime import date as _da, timedelta as _ta
     import json as _json
