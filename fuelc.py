@@ -4101,9 +4101,10 @@ def _render_analyses(user: dict):
                         omega3  += float(prod.get("omega3_100g")  or 0) * factor
 
                     # Restgroep
-                    if cat in RESTGROEP_CAT: kcal_bewerkt += kc
+                    # Restgroep
+                    RESTGROEP_CAT_L = {"Sauzen & spreads","Dranken","Sportvoeding","Granen & brood","Vetten & oliën","Overige"}
+                    if cat in RESTGROEP_CAT_L: kcal_bewerkt += kc
                     else: kcal_vers += kc
-
                     # Plantaardig/dierlijk
                     if cat in PLANTAARDIG: kcal_plant += kc
                     elif cat in DIERLIJK:  kcal_dier  += kc
