@@ -3556,7 +3556,7 @@ def _render_voedingsdagboek(user: dict):
                 # Opslaan
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("💾 Opslaan", key=f"db_ops_{dag_str}", use_container_width=True):
-                    data_raw = {
+                    data = {
                         "user_id":          user_id,
                         "datum":            dag_str,
                         "energie_score":    en_val,
@@ -3575,7 +3575,6 @@ def _render_voedingsdagboek(user: dict):
                         "gewicht_kg":       gew_val if gew_val > 0 else None,
                     }
                     try:
-                        data = {k:v for k,v in data_raw.items() if v is not None or k in ("user_id","datum","gi_klachten","gehydrateerd")}
                         _get_supabase().table("fuelc_dagboek_welzijn")\
                             .upsert(data, on_conflict="user_id,datum").execute()
                         st.success("✅ Opgeslagen!")
@@ -3587,218 +3586,6 @@ def _render_voedingsdagboek(user: dict):
                 st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<div style="height:2px;"></div>', unsafe_allow_html=True)
-
-    # ── Weekoverzicht onderaan ────────────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    _sectie("WEEKOVERZICHT", "#22c55e")
-
-    # Bereken week gemiddelden
-    scores = [week_welzijn.get(str(maandag+_tddb(days=i)),{}) for i in range(7)]
-    gem_en    = round(sum(_safe_int(s.get("energie_score"),0,0,10) for s in scores if s.get("energie_score"))/max(1,sum(1 for s in scores if s.get("energie_score"))),1)
-    gem_slaap = round(sum(float(s.get("slaap_uur") or 0) for s in scores if s.get("slaap_uur"))/max(1,sum(1 for s in scores if s.get("slaap_uur"))),1)
-    gem_stress= round(sum(_safe_int(s.get("stress"),0,0,5) for s in scores if s.get("stress"))/max(1,sum(1 for s in scores if s.get("stress"))),1)
-    gem_sp    = round(sum(_safe_int(s.get("spierpijn"),0,0,10) for s in scores if s.get("spierpijn"))/max(1,sum(1 for s in scores if s.get("spierpijn"))),1)
-
-    ov1, ov2, ov3, ov4 = st.columns(4)
-    for col, label, val, max_val, kleur in [
-        (ov1, "⚡ Gem energie", f"{gem_en}/10" if gem_en else "—", 10, "#22c55e"),
-        (ov2, "🌙 Gem slaap",  f"{gem_slaap}u" if gem_slaap else "—", 9, "#3b82f6"),
-        (ov3, "😤 Gem stress", f"{gem_stress}/5" if gem_stress else "—", 5, "#f97316"),
-        (ov4, "🦵 Gem spierpijn", f"{gem_sp}/10" if gem_sp else "—", 10, "#8b5cf6"),
-    ]:
-        with col:
-            st.markdown(
-                f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;">' +
-                f'<div style="font-size:0.68rem;color:#64748b;margin-bottom:4px;">{label}</div>' +
-                f'<div style="font-size:1.1rem;font-weight:800;color:{kleur};">{val}</div>' +
-                f'</div>', unsafe_allow_html=True)
-
-
-
-def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
-                                items_detail: list = None) -> dict:
-    """
-    Performance score 0-100 op basis van sportvoedingswetenschap.
-    6 pijlers, elk wetenschappelijk gewogen.
-    """
-    score = 0
-    breakdown = {}
-
-    energie_doel = int(profiel.get("energie_doel", 2000) or 2000)
-    kh_doel_pct  = float(profiel.get("kh_doel_pct", 50) or 50)
-    ei_doel_pct  = float(profiel.get("eiwit_doel_pct", 25) or 25)
-    vt_doel_pct  = float(profiel.get("vet_doel_pct", 25) or 25)
-
-    kcal   = dag_data.get("kcal", 0) or 0
-    kh     = dag_data.get("kh", 0) or 0
-    eiwit  = dag_data.get("eiwit", 0) or 0
-    vet    = dag_data.get("vet", 0) or 0
-    vezels = dag_data.get("vezels", 0) or 0
-    natrium= dag_data.get("natrium", 0) or 0
-    omega3 = dag_data.get("omega3", 0) or 0
-    vitd   = dag_data.get("vitd", 0) or 0
-    vitb12 = dag_data.get("vitb12", 0) or 0
-    n_mom_gevuld = dag_data.get("n_momenten_ingevuld", 0) or 0
-    n_mom_totaal = dag_data.get("n_momenten", 3) or 3
-    heeft_training = dag_data.get("heeft_training", False)
-    cat_kcal = dag_data.get("cat_kcal", {})
-
-    # ── PIJLER 1: ENERGIEBALANS (20pt) ────────────────────────────────────────
-    # Gaussian curve: max bij 100% doel, daalt proportioneel
-    if energie_doel > 0 and kcal > 0:
-        import math as _m
-        pct_e = kcal / energie_doel
-        # Gaussian: sigma=0.15 → 1 SD = 15% afwijking = 60% score
-        e_score = round(20 * _m.exp(-((pct_e - 1.0) ** 2) / (2 * 0.18 ** 2)))
-        e_score = max(2, min(20, e_score))
-    else:
-        e_score = 0
-    score += e_score
-    breakdown["energiebalans"] = {"score": e_score, "max": 20,
-        "detail": f"{round(kcal)} / {energie_doel} kcal ({round(kcal/max(energie_doel,1)*100)}%)"}
-
-    # ── PIJLER 2: MACROKWALITEIT (25pt) ───────────────────────────────────────
-    macro_score = 0
-
-    # KH: goed gespreide inname, op trainingsdag hoger gewogen
-    if kcal > 0:
-        kh_act_pct = kh * 4 / kcal * 100
-        kh_diff = abs(kh_act_pct - kh_doel_pct)
-        kh_pts = 10 if kh_diff <= 5 else (8 if kh_diff <= 10 else (5 if kh_diff <= 20 else 2))
-        macro_score += kh_pts
-
-        # Eiwit: beoordeel spreiding over momenten
-        ei_act_pct = eiwit * 4 / kcal * 100
-        ei_diff = abs(ei_act_pct - ei_doel_pct)
-        # Spreiding: hoeveel momenten hebben eiwit (via items_detail)
-        if items_detail:
-            momenten_met_eiwit = len(set(
-                i.get("moment", 0) for i in items_detail
-                if (i.get("eiwit_g", 0) or 0) >= 5  # min 5g eiwit per moment telt mee
-            ))
-            n_mom_eiwit = min(5, n_mom_totaal)
-            spread_pct = momenten_met_eiwit / max(n_mom_eiwit, 1)
-            ei_spread_pts = round(5 * spread_pct)  # 5pt voor goede spreiding
-        else:
-            ei_spread_pts = 3  # onbekend → neutraal
-        ei_pts = (5 if ei_diff <= 5 else (3 if ei_diff <= 15 else 1)) + ei_spread_pts
-        macro_score += min(10, ei_pts)
-
-        # Vet: niet te laag (hormonaal), niet te hoog
-        vt_act_pct = vet * 9 / kcal * 100
-        if 20 <= vt_act_pct <= 35: vt_pts = 5
-        elif 15 <= vt_act_pct <= 40: vt_pts = 3
-        elif vt_act_pct < 15: vt_pts = 1  # te laag = hormonaal risico
-        else: vt_pts = 2
-        macro_score += vt_pts
-
-    score += macro_score
-    breakdown["macrokwaliteit"] = {"score": macro_score, "max": 25,
-        "detail": f"KH {round(kh_act_pct if kcal>0 else 0)}% · Eiwit {round(ei_act_pct if kcal>0 else 0)}% · Vet {round(vt_act_pct if kcal>0 else 0)}%"}
-
-    # ── PIJLER 3: MICRONUTRIËNTENDICHTHEID (20pt) ─────────────────────────────
-    micro_score = 0
-
-    # Vezels: ADH 30g, lineair
-    if vezels >= 30: micro_score += 6
-    elif vezels >= 20: micro_score += 4
-    elif vezels >= 10: micro_score += 2
-
-    # Omega-3: belangrijk voor herstel en inflammatie
-    if omega3 >= 1.5: micro_score += 5
-    elif omega3 >= 0.8: micro_score += 3
-    elif omega3 >= 0.3: micro_score += 1
-
-    # Vitamine D: crucaal voor sporters
-    if vitd >= 10: micro_score += 4
-    elif vitd >= 5:  micro_score += 2
-    elif vitd > 0:   micro_score += 1
-
-    # Vitamine B12: risico bij plant-based
-    if vitb12 >= 2.4: micro_score += 3
-    elif vitb12 >= 1:  micro_score += 2
-    elif vitb12 > 0:   micro_score += 1
-
-    # Natrium: sporters mogen meer (verlies via zweet)
-    na_max = 3500 if heeft_training else 2300
-    if natrium > 0:
-        if natrium <= na_max: micro_score += 2
-        else: micro_score += 0
-    else:
-        micro_score += 1  # onbekend = neutraal
-
-    score += micro_score
-    breakdown["micronutriënten"] = {"score": micro_score, "max": 20,
-        "detail": f"Vezels {round(vezels)}g · Omega-3 {round(omega3,1)}g · VitD {round(vitd,1)}µg"}
-
-    # ── PIJLER 4: MAALTIJDREGELMAAT & TIMING (15pt) ───────────────────────────
-    reg_score = 0
-
-    # Alle momenten ingevuld
-    if n_mom_totaal > 0:
-        dekking = n_mom_gevuld / n_mom_totaal
-        reg_score += round(8 * dekking)
-
-    # Post-training maaltijd: als training, is er een avondmaaltijd?
-    if heeft_training and n_mom_gevuld >= 2:
-        reg_score += 4
-    elif not heeft_training:
-        reg_score += 4  # rustdag: geen post-training nodig
-
-    # Niet meer dan 5u zonder eten (schatting via n momenten)
-    if n_mom_gevuld >= 3:
-        reg_score += 3
-    elif n_mom_gevuld >= 2:
-        reg_score += 1
-
-    score += reg_score
-    breakdown["maaltijdregelmaat"] = {"score": reg_score, "max": 15,
-        "detail": f"{n_mom_gevuld}/{n_mom_totaal} momenten ingevuld"}
-
-    # ── PIJLER 5: VOEDINGSKWALITEIT INDEX (15pt) ──────────────────────────────
-    kwal_score = 0
-
-    # Variatie voedingsgroepen
-    n_groepen = len([c for c, k in cat_kcal.items() if k > 50])  # min 50kcal bijdrage
-    if n_groepen >= 5:   kwal_score += 5
-    elif n_groepen >= 3: kwal_score += 3
-    elif n_groepen >= 2: kwal_score += 1
-
-    # Plantaardig/dierlijk balans
-    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
-    DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
-    # Sportvoeding = neutraal, niet meegewogen in bewerkingsgraad
-    kcal_plant = sum(k for c,k in cat_kcal.items() if c in PLANTAARDIG)
-    kcal_dier  = sum(k for c,k in cat_kcal.items() if c in DIERLIJK)
-    kcal_voeding = kcal_plant + kcal_dier
-    if kcal_voeding > 0:
-        plant_pct = kcal_plant / kcal_voeding * 100
-        if 30 <= plant_pct <= 70: kwal_score += 5  # goede mix
-        elif plant_pct >= 20:     kwal_score += 3
-        else:                     kwal_score += 1
-
-    # Groenten & fruit aanwezig
-    groente_kcal = cat_kcal.get("Groenten", 0) + cat_kcal.get("Fruit", 0)
-    if groente_kcal >= 150:   kwal_score += 5
-    elif groente_kcal >= 75:  kwal_score += 3
-    elif groente_kcal > 0:    kwal_score += 1
-
-    score += kwal_score
-    breakdown["voedingskwaliteit"] = {"score": kwal_score, "max": 15,
-        "detail": f"{n_groepen} voedingsgroepen · {round(plant_pct if kcal_voeding>0 else 0)}% plantaardig"}
-
-    # ── PIJLER 6: HYDRATATIE & GI (5pt) ──────────────────────────────────────
-    hydr_score = 0
-    if welzijn.get("gehydrateerd", True):   hydr_score += 3
-    if not welzijn.get("gi_klachten", False): hydr_score += 2
-    score += hydr_score
-    breakdown["hydratatie"] = {"score": hydr_score, "max": 5,
-        "detail": "Gehydrateerd" if welzijn.get("gehydrateerd",True) else "Niet optimaal"}
-
-    return {
-        "score": max(0, min(100, score)),
-        "breakdown": breakdown
-    }
 
 
 
@@ -4005,23 +3792,13 @@ def _render_analyses(user: dict):
         st.markdown("<br>", unsafe_allow_html=True)
 
         # Invoer
-        vandaag_str = str(_da.today())
-        c1, c2 = st.columns([3,1])
-        with c1:
-            start_g = float(gewicht_punten[-1][1] if gewicht_punten else profiel.get("gewicht_kg") or 70)
-            nieuw_g = st.number_input("Gewicht vandaag (kg)", 30.0, 250.0, start_g, 0.1,
-                key="an_gew", label_visibility="collapsed")
-        with c2:
-            if st.button("💾 Opslaan", key="an_gew_ops", use_container_width=True):
-                try:
-                    _get_supabase().table("fuelc_dagboek_welzijn").upsert(
-                        {"user_id":user_id,"datum":vandaag_str,"gewicht_kg":nieuw_g},
-                        on_conflict="user_id,datum").execute()
-                    st.success("✅"); st.cache_data.clear(); st.rerun()
-                except Exception as e: st.error(str(e))
+        st.markdown(
+            '<div style="font-size:0.78rem;color:#64748b;margin-bottom:12px;">' +
+            'Gewicht wordt opgeslagen via het dagboek (tab 📓 Dagboek).</div>',
+            unsafe_allow_html=True)
 
         if not gewicht_punten:
-            st.info("Nog geen gewicht ingevoerd. Voer je gewicht in via het dagboek of hierboven.")
+            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek en open een dag om je gewicht in te voeren.")
         else:
             laatste = gewicht_punten[-1][1]
             eerste  = gewicht_punten[0][1]
@@ -4082,61 +3859,251 @@ def _render_analyses(user: dict):
     with tab2:
         st.markdown("<br>", unsafe_allow_html=True)
         if not dagen_met:
-            st.info("Nog geen voedingsdata. Vul je dagschema in om analyses te zien.")
+            st.info("Vul je dagschema in om voedingskwaliteit te analyseren.")
         else:
-            labels_d = [d["datum"][5:] for d in dagen_data]
+            # Laad micronutriënten uit bibliotheek voor alle producten
+            @st.cache_data(ttl=300)
+            def _laad_micro_bibliotheek(uid):
+                try:
+                    r = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,categorie,vezels_100g,kalium_100g,calcium_100g,ijzer_100g,vitd_100g,vitb12_100g,omega3_100g,suikers_100g")\
+                        .eq("user_id", uid).execute()
+                    # ook globale producten
+                    r2 = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,categorie,vezels_100g,kalium_100g,calcium_100g,ijzer_100g,vitd_100g,vitb12_100g,omega3_100g,suikers_100g")\
+                        .is_("user_id","null").execute()
+                    alle = (r.data or []) + (r2.data or [])
+                    return {row["id"]: row for row in alle}
+                except: return {}
 
-            # Energie vs doel
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Energie per dag vs doel</div>', unsafe_allow_html=True)
-            kcal_vals = [d["kcal"] for d in dagen_data]
-            _chart(_lijn_chart(labels_d,
-                [{"label":"Ingenomen kcal","data":kcal_vals,"color":"#22c55e","fill":True}],
-                doel_lijn=energie_doel, y_label="kcal"), height=280)
+            micro_bib = _laad_micro_bibliotheek(user_id)
 
-            # Macro verdeling donut (gemiddelde over periode)
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Gemiddelde macroverdeling</div>', unsafe_allow_html=True)
-            gem_kh_d  = sum(d["kh"]*4 for d in dagen_met)/max(sum(d["kcal"] for d in dagen_met),1)*100
-            gem_ei_d  = sum(d["eiwit"]*4 for d in dagen_met)/max(sum(d["kcal"] for d in dagen_met),1)*100
-            gem_vt_d  = sum(d["vet"]*9 for d in dagen_met)/max(sum(d["kcal"] for d in dagen_met),1)*100
-            dc1, dc2 = st.columns([1,1])
-            with dc1:
-                _chart(_donut_chart(
-                    [f"KH {round(gem_kh_d)}%", f"Eiwit {round(gem_ei_d)}%", f"Vet {round(gem_vt_d)}%"],
-                    [round(gem_kh_d), round(gem_ei_d), round(gem_vt_d)],
-                    ["#22c55e","#3b82f6","#8b5cf6"]), height=240)
-            with dc2:
-                _chart(_donut_chart(
-                    [f"KH doel {round(kh_doel_pct)}%", f"Eiwit doel {round(ei_doel_pct)}%", f"Vet doel {round(vt_doel_pct)}%"],
-                    [round(kh_doel_pct), round(ei_doel_pct), round(vt_doel_pct)],
-                    ["#22c55e88","#3b82f688","#8b5cf688"]), height=240)
-            st.markdown('<div style="font-size:0.7rem;color:#64748b;text-align:center;">Links: werkelijk · Rechts: doel</div>', unsafe_allow_html=True)
+            VERS = {"Groenten","Fruit","Vlees & vis","Eieren","Noten & zaden","Peulvruchten"}
+            BEWERKT = {"Sauzen & spreads","Dranken"}
+            NEUTRAAL_CAT = {"Sportvoeding","Granen & brood","Zuivel","Vetten & oliën","Overige"}
+            PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Vetten & oliën"}
+            DIERLIJK = {"Vlees & vis","Zuivel","Eieren"}
 
-            # Voedingsgroepen
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Voedingsgroepen (% van totale kcal)</div>', unsafe_allow_html=True)
-            alle_cats = {}
+            # Bereken kwaliteitsdata per dag
+            kwal_dagen = []
             for dd in dagen_met:
-                for cat, kk in dd.get("cat_kcal",{}).items():
-                    alle_cats[cat] = alle_cats.get(cat,0) + kk
-            if alle_cats:
-                totaal_ck = sum(alle_cats.values()) or 1
-                CAT_K = {"Granen & brood":"#f97316","Zuivel":"#3b82f6","Eieren":"#fbbf24",
-                         "Vlees & vis":"#ef4444","Groenten":"#22c55e","Fruit":"#a78bfa",
-                         "Noten & zaden":"#f59e0b","Vetten & oliën":"#6366f1",
-                         "Sauzen & spreads":"#ec4899","Sportvoeding":"#14b8a6","Overige":"#64748b"}
-                sorted_cats = sorted(alle_cats.items(), key=lambda x:-x[1])
-                cat_labels  = [c for c,_ in sorted_cats if alle_cats[c]/totaal_ck*100 >= 2]
-                cat_vals    = [round(alle_cats[c]/totaal_ck*100) for c in cat_labels]
-                cat_colors  = [CAT_K.get(c,"#64748b") for c in cat_labels]
-                _chart(_donut_chart(cat_labels, cat_vals, cat_colors), height=260)
+                kcal_dag = dd["kcal"] or 1
+                vezels=0; kalium=0; calcium=0; ijzer=0; vitd=0; vitb12=0; omega3=0
+                kcal_vers=0; kcal_bewerkt=0; kcal_neutraal=0
+                kcal_plant=0; kcal_dier=0
+                n_micro_items=0; n_items=len(dd.get("items",[]))
+                cats_dag = set()
 
-            # Vezels
+                for it in dd.get("items",[]):
+                    hg   = float(it.get("hoeveelheid_g",100) or 100)
+                    kc   = float(it.get("kcal",0) or 0)
+                    cat  = it.get("categorie","Overige") or "Overige"
+                    pid  = it.get("product_id","") or ""
+                    cats_dag.add(cat)
+
+                    prod = micro_bib.get(pid, {})
+                    factor = hg / 100
+
+                    if prod:
+                        n_micro_items += 1
+                        vezels  += float(prod.get("vezels_100g")  or 0) * factor
+                        kalium  += float(prod.get("kalium_100g")  or 0) * factor
+                        calcium += float(prod.get("calcium_100g") or 0) * factor
+                        ijzer   += float(prod.get("ijzer_100g")   or 0) * factor
+                        vitd    += float(prod.get("vitd_100g")    or 0) * factor
+                        vitb12  += float(prod.get("vitb12_100g")  or 0) * factor
+                        omega3  += float(prod.get("omega3_100g")  or 0) * factor
+
+                    # Bewerkingsgraad
+                    if cat in VERS:       kcal_vers     += kc
+                    elif cat in BEWERKT:  kcal_bewerkt  += kc
+                    else:                 kcal_neutraal  += kc
+
+                    # Plantaardig/dierlijk
+                    if cat in PLANTAARDIG: kcal_plant += kc
+                    elif cat in DIERLIJK:  kcal_dier  += kc
+
+                # Nutriëntendichtheid score /10
+                # Per 100 kcal: vezels >3g=2pt, kalium>300mg=2pt, calcium>100mg=1pt,
+                # ijzer>1mg=1pt, vitD>1µg=1pt, B12>0.5µg=1pt, omega3>0.2g=2pt → max 10
+                nd = 0
+                if kcal_dag > 0:
+                    v100 = vezels / kcal_dag * 100
+                    k100 = kalium / kcal_dag * 100
+                    c100 = calcium / kcal_dag * 100
+                    i100 = ijzer / kcal_dag * 100
+                    vd100= vitd / kcal_dag * 100
+                    b100 = vitb12 / kcal_dag * 100
+                    o100 = omega3 / kcal_dag * 100
+                    if v100 >= 3:   nd += 2
+                    elif v100 >= 1.5: nd += 1
+                    if k100 >= 300: nd += 2
+                    elif k100 >= 150: nd += 1
+                    if c100 >= 100: nd += 1
+                    if i100 >= 1:   nd += 1
+                    if vd100 >= 1:  nd += 1
+                    if b100 >= 0.5: nd += 1
+                    if o100 >= 0.2: nd += 2
+                    elif o100 >= 0.1: nd += 1
+
+                heeft_micro = n_micro_items > 0
+
+                # Bewerkingsgraad score /10 (hoger = meer onbewerkt)
+                bew_score = round((kcal_vers / kcal_dag * 10)) if kcal_dag > 0 else 0
+
+                kwal_dagen.append({
+                    "datum": dd["datum"],
+                    "nd_score": nd,
+                    "bew_score": min(10, bew_score),
+                    "vezels": round(vezels,1),
+                    "kalium": round(kalium),
+                    "calcium": round(calcium),
+                    "ijzer": round(ijzer,1),
+                    "vitd": round(vitd,1),
+                    "vitb12": round(vitb12,2),
+                    "omega3": round(omega3,2),
+                    "kcal_vers": kcal_vers,
+                    "kcal_bewerkt": kcal_bewerkt,
+                    "kcal_plant": kcal_plant,
+                    "kcal_dier": kcal_dier,
+                    "kcal_dag": kcal_dag,
+                    "n_cats": len(cats_dag),
+                    "cats": cats_dag,
+                    "heeft_micro": heeft_micro,
+                })
+
+            heeft_micro_data = any(d["heeft_micro"] for d in kwal_dagen)
+
+            # ── KWALITEITSOVERZICHT ────────────────────────────────────────────
+            gem_nd   = round(sum(d["nd_score"] for d in kwal_dagen)/len(kwal_dagen),1)
+            gem_bew  = round(sum(d["bew_score"] for d in kwal_dagen)/len(kwal_dagen),1)
+            gem_cats = round(sum(d["n_cats"] for d in kwal_dagen)/len(kwal_dagen),1)
+            alle_cats_week = set()
+            for d in kwal_dagen: alle_cats_week |= d["cats"]
+            ontbrekend = [c for c in ["Groenten","Fruit","Vlees & vis","Peulvruchten","Noten & zaden","Zuivel"]
+                          if c not in alle_cats_week]
+
+            k_nd  = "#22c55e" if gem_nd>=7 else ("#fbbf24" if gem_nd>=4 else "#ef4444")
+            k_bew = "#22c55e" if gem_bew>=7 else ("#fbbf24" if gem_bew>=4 else "#ef4444")
+            k_cat = "#22c55e" if gem_cats>=5 else ("#fbbf24" if gem_cats>=3 else "#ef4444")
+
+            q1,q2,q3 = st.columns(3)
+            for col,lbl,val,sub,kl in [
+                (q1,"NUTRIËNTENDICHTHEID",f"{gem_nd}/10","gem per dag",k_nd),
+                (q2,"ONBEWERKT AANDEEL",f"{gem_bew}/10","gem per dag",k_bew),
+                (q3,"VARIATIE GROEPEN",f"{gem_cats}",f"gem categorieën/dag",k_cat)]:
+                with col:
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">{lbl}</div>'
+                        f'<div style="font-size:1.4rem;font-weight:900;color:{kl};">{val}</div>'
+                        f'<div style="font-size:0.65rem;color:#475569;">{sub}</div>'
+                        f'</div>', unsafe_allow_html=True)
+
+            # Ontbrekende groepen
+            if ontbrekend:
+                st.markdown(
+                    f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE VOEDINGSGROEPEN DEZE PERIODE</div>'
+                    f'<div style="font-size:0.78rem;color:#94a3b8;">{" · ".join(ontbrekend)}</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+            if not heeft_micro_data:
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin-bottom:14px;">'
+                    f'<div style="font-size:0.78rem;color:#64748b;">ℹ️ Micronutriënten niet beschikbaar voor alle producten. '
+                    f'Voeg voedingswaarden toe in de bibliotheek voor een vollediger beeld.</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+            # ── GRAFIEK 1: Nutriëntendichtheid per dag ─────────────────────────
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Nutriëntendichtheid per dag (/10)</div>', unsafe_allow_html=True)
+            nd_labels = [d["datum"][5:] for d in kwal_dagen]
+            nd_vals   = [d["nd_score"] for d in kwal_dagen]
+            bew_vals  = [d["bew_score"] for d in kwal_dagen]
+            _chart(_lijn_chart(nd_labels, [
+                {"label":"Nutriëntendichtheid","data":nd_vals,"color":"#22c55e","fill":False},
+                {"label":"Onbewerkt aandeel","data":bew_vals,"color":"#3b82f6","fill":False},
+            ], doel_lijn=7, y_label="Score /10"), height=280)
+
+            # ── GRAFIEK 2: Plantaardig vs dierlijk ────────────────────────────
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardig vs dierlijk aandeel (%)</div>', unsafe_allow_html=True)
+            plant_pct = []
+            dier_pct  = []
+            for d in kwal_dagen:
+                totaal = d["kcal_plant"] + d["kcal_dier"]
+                if totaal > 0:
+                    plant_pct.append(round(d["kcal_plant"]/totaal*100))
+                    dier_pct.append(round(d["kcal_dier"]/totaal*100))
+                else:
+                    plant_pct.append(0); dier_pct.append(0)
+            gem_plant = round(sum(plant_pct)/max(len(plant_pct),1))
+
+            pa1, pa2 = st.columns([3,1])
+            with pa1:
+                _chart(_bar_chart(nd_labels, [
+                    {"label":"Plantaardig %","data":plant_pct,"color":"#22c55e"},
+                    {"label":"Dierlijk %","data":dier_pct,"color":"#3b82f6"},
+                ], y_label="%"), height=240)
+            with pa2:
+                k_plant = "#22c55e" if gem_plant>=50 else ("#fbbf24" if gem_plant>=30 else "#ef4444")
+                adv_plant = "Goed" if gem_plant>=50 else ("Matig" if gem_plant>=30 else "Te laag")
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:10px;padding:14px;text-align:center;height:100%;">'
+                    f'<div style="font-size:0.62rem;color:#64748b;margin-bottom:6px;">GEM PLANTAARDIG</div>'
+                    f'<div style="font-size:2rem;font-weight:900;color:{k_plant};">{gem_plant}%</div>'
+                    f'<div style="font-size:0.68rem;color:{k_plant};margin-top:4px;">{adv_plant}</div>'
+                    f'<div style="font-size:0.65rem;color:#475569;margin-top:8px;line-height:1.5;">Doel: min 50% plantaardig voor optimale darmgezondheid</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+            # ── GRAFIEK 3: Vezels per dag ──────────────────────────────────────
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Vezelinname per dag (ADH = 30g)</div>', unsafe_allow_html=True)
-            vez_vals = [round(d["vezels"],1) for d in dagen_data]
-            _chart(_bar_chart(labels_d,
-                [{"label":"Vezels (g)","data":vez_vals,"color":"#22c55e"}],
-                y_label="g"), height=240)
+            vez_vals_k = [d["vezels"] for d in kwal_dagen]
+            gem_vez = round(sum(vez_vals_k)/max(len(vez_vals_k),1),1)
+            k_vez = "#22c55e" if gem_vez>=25 else ("#fbbf24" if gem_vez>=15 else "#ef4444")
+            _chart(_lijn_chart(nd_labels,
+                [{"label":"Vezels (g)","data":vez_vals_k,"color":"#22c55e","fill":True}],
+                doel_lijn=30, y_label="gram"), height=240)
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin-top:4px;">'
+                f'<span style="font-size:0.8rem;color:{k_vez};">Gemiddeld {gem_vez}g vezels/dag — '
+                f'{"✓ voldoende" if gem_vez>=25 else ("⚠️ net onder ADH, voeg meer groenten/peulvruchten toe" if gem_vez>=15 else "⚠️ te laag — streef naar meer volkorenproducten, groenten en peulvruchten")}'
+                f'</span></div>', unsafe_allow_html=True)
 
-    # ══════════════════════════════════════════════════════════════════════════
+            # ── MICRONUTRIËNTEN vs ADH ─────────────────────────────────────────
+            if heeft_micro_data:
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten — gemiddelde vs ADH</div>', unsafe_allow_html=True)
+                gem_kal = round(sum(d["kalium"] for d in kwal_dagen)/len(kwal_dagen))
+                gem_cal = round(sum(d["calcium"] for d in kwal_dagen)/len(kwal_dagen))
+                gem_ij  = round(sum(d["ijzer"] for d in kwal_dagen)/len(kwal_dagen),1)
+                gem_vd  = round(sum(d["vitd"] for d in kwal_dagen)/len(kwal_dagen),1)
+                gem_b12 = round(sum(d["vitb12"] for d in kwal_dagen)/len(kwal_dagen),2)
+                gem_om3 = round(sum(d["omega3"] for d in kwal_dagen)/len(kwal_dagen),2)
+
+                MICROS = [
+                    ("🥬 Kalium",     gem_kal, 3500, "mg", False),
+                    ("🦴 Calcium",    gem_cal, 1000, "mg", False),
+                    ("🩸 IJzer",      gem_ij,  15,   "mg", False),
+                    ("☀️ Vitamine D", gem_vd,  15,   "µg", False),
+                    ("🧬 Vitamine B12",gem_b12,2.4,  "µg", False),
+                    ("🐟 Omega-3",    gem_om3, 1.5,  "g",  False),
+                ]
+                for lbl_m, waarde_m, adh_m, eenheid_m, inv_m in MICROS:
+                    if waarde_m == 0: continue
+                    pct_m = min(150, round(waarde_m/max(adh_m,0.001)*100))
+                    kl_m = "#22c55e" if pct_m>=80 else ("#fbbf24" if pct_m>=50 else "#ef4444")
+                    status_m = "✓" if pct_m>=80 else ("~" if pct_m>=50 else "⚠️")
+                    st.markdown(
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">'
+                        f'<div style="min-width:130px;font-size:0.78rem;color:#94a3b8;">{lbl_m}</div>'
+                        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:7px;">'
+                        f'<div style="width:{min(100,pct_m)}%;height:100%;background:{kl_m};border-radius:3px;"></div></div>'
+                        f'<div style="min-width:80px;font-size:0.75rem;color:{kl_m};text-align:right;">'
+                        f'{waarde_m}{eenheid_m}/{adh_m}{eenheid_m}</div>'
+                        f'<div style="font-size:0.75rem;min-width:18px;">{status_m}</div>'
+                        f'</div>', unsafe_allow_html=True)
+
+
+        # ══════════════════════════════════════════════════════════════════════════
     # TAB 3 — KOOLHYDRATEN
     # ══════════════════════════════════════════════════════════════════════════
     with tab3:
