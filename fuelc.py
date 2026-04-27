@@ -3265,11 +3265,21 @@ def _stap_dagschema(user: dict):
             # Zone 2: items
             if items:
                 for item in items:
-                    hg       = float(item.get("hoeveelheid_g",100))
-                    kcal_100 = round(item.get("kcal",0)*100/max(hg,1),1)
-                    kh_100   = round(item.get("kh_g",0)*100/max(hg,1),1)
-                    ei_100   = round(item.get("eiwit_g",0)*100/max(hg,1),1)
-                    vt_100   = round(item.get("vet_g",0)*100/max(hg,1),1)
+                    hg       = float(item.get("hoeveelheid_g",100) or 100)
+                    f100     = 100/max(hg,1)
+                    kcal_100 = round((item.get("kcal",0) or 0)*f100, 1)
+                    kh_100   = round((item.get("kh_g",0) or 0)*f100, 1)
+                    ei_100   = round((item.get("eiwit_g",0) or 0)*f100, 1)
+                    vt_100   = round((item.get("vet_g",0) or 0)*f100, 1)
+                    su_100   = round((item.get("suikers_g",0) or 0)*f100, 2)
+                    verz_100 = round((item.get("verz_g",0) or 0)*f100, 2)
+                    na_100   = round((item.get("natrium_mg",0) or 0)*f100, 1)
+                    ka_100   = round((item.get("kalium_mg",0) or 0)*f100, 1)
+                    ca_100   = round((item.get("calcium_mg",0) or 0)*f100, 1)
+                    ij_100   = round((item.get("ijzer_mg",0) or 0)*f100, 3)
+                    vd_100   = round((item.get("vitd_mcg",0) or 0)*f100, 3)
+                    b12_100  = round((item.get("vitb12_mcg",0) or 0)*f100, 3)
+                    om3_100  = round((item.get("omega3_g",0) or 0)*f100, 3)
                     st.markdown(
                         f'<div style="background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:4px;">' +
                         f'<div style="font-size:0.88rem;font-weight:700;color:#f1f5f9;">{item.get("naam","")}</div>' +
@@ -3280,7 +3290,11 @@ def _stap_dagschema(user: dict):
                         nieuwe_g = st.number_input("g",1.0,2000.0,hg,5.0,key=f"g_{item['id']}",label_visibility="collapsed")
                     with gi2:
                         if st.button("💾 Sla op",key=f"upd_{item['id']}",use_container_width=True):
-                            _update_dagboek_item(item["id"],dag_str,nieuwe_g,kcal_100,kh_100,ei_100,vt_100)
+                            _update_dagboek_item(
+                                item["id"],dag_str,nieuwe_g,
+                                kcal_100,kh_100,ei_100,vt_100,
+                                su_100,verz_100,na_100,ka_100,ca_100,
+                                ij_100,vd_100,b12_100,om3_100)
                             _invalideer_dagboek_cache(dag_str); st.rerun()
                     with gi3:
                         if st.button("🗑 Wis",key=f"del_{item['id']}",use_container_width=True):
