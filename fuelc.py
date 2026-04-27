@@ -4244,19 +4244,36 @@ def _render_analyses(user: dict):
 
 
             # KPI badges
-            q1,q2,q3 = st.columns(3)
-            for col,lbl,val,sub,kl in [
-                (q1,"NUTRIËNTDENSITEIT",f"{gem_nd}/10","gem per dag",k_nd),
-                (q2,"% RESTGROEP",f"{gem_rest}%","kcal uit restgroep",k_rst),
-                (q3,"VARIATIE",f"{gem_cats}","gem groepen/dag",k_cat)]:
-                with col:
-                    st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
-                        f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">{lbl}</div>'
-                        f'<div style="font-size:1.4rem;font-weight:900;color:{kl};">{val}</div>'
-                        f'<div style="font-size:0.65rem;color:#475569;">{sub}</div>'
-                        f'</div>', unsafe_allow_html=True)
+            q1,q3 = st.columns(2)
+            with q1:
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
+                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">NUTRIËNTDENSITEIT</div>'
+                    f'<div style="font-size:1.4rem;font-weight:900;color:{k_nd};">{gem_nd}/10</div>'
+                    f'<div style="font-size:0.65rem;color:#475569;">gem per dag</div>'
+                    f'</div>', unsafe_allow_html=True)
 
+            with q3:
+                ALLE_GROEPEN_V = [
+                    ("Groenten","#22c55e"),("Fruit","#a78bfa"),
+                    ("Granen & brood","#f97316"),("Vlees & vis","#ef4444"),
+                    ("Zuivel","#3b82f6"),("Eieren","#fbbf24"),
+                    ("Peulvruchten","#4ade80"),("Noten & zaden","#f59e0b"),
+                ]
+                blokjes = "".join(
+                    f'<div title="{g}" style="width:18px;height:18px;border-radius:4px;'
+                    f'background:{"" + kl if g in alle_cats_w else "#1e293b"};'
+                    f'border:1px solid {"" + kl if g in alle_cats_w else "#334155"};'
+                    f'display:inline-block;margin:2px;"></div>'
+                    for g, kl in ALLE_GROEPEN_V)
+                adv_var = "Goede variatie" if gem_cats>=5 else ("Matige variatie" if gem_cats>=3 else "Weinig variatie")
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
+                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:6px;">VARIATIE VOEDINGSGROEPEN</div>'
+                    f'<div style="margin-bottom:6px;line-height:1;">{blokjes}</div>'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var}</div>'
+                    f'<div style="font-size:0.62rem;color:#475569;">{round(gem_cats)}/8 groepen per dag</div>'
+                    f'</div>', unsafe_allow_html=True)
             if ontbrekend:
                 st.markdown(
                     f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
@@ -4314,7 +4331,10 @@ def _render_analyses(user: dict):
                     dier_pct.append(round(d["kcal_dier"]/tot*100))
                 else:
                     plant_pct.append(0); dier_pct.append(0)
-            gem_plant = round(sum(plant_pct)/max(len(plant_pct),1))
+            plant_met = [p for p, d in zip(plant_pct, kwal_dagen) if d["kcal_plant"]+d["kcal_dier"] > 0]
+            gem_plant = round(sum(plant_met)/max(len(plant_met),1)) if plant_met else 0
+            plant_met = [p for p, d in zip(plant_pct, kwal_dagen) if d["kcal_plant"]+d["kcal_dier"] > 0]
+            gem_plant = round(sum(plant_met)/max(len(plant_met),1)) if plant_met else 0
 
             pa1, pa2 = st.columns([3,1])
             with pa1:
