@@ -3843,7 +3843,38 @@ def _render_analyses(user: dict):
         except: return {}
 
     gewicht_punten = _laad_gewicht_all(user_id)
-    welzijn_data   = _laad_welzijn_week(user_id, start, einde)
+    gewicht_punten = _laad_gewicht_all(user_id)
+
+    # Automatisch profiel gewicht updaten als dagboek gewicht afwijkt
+    if gewicht_punten:
+        nieuwste_gew = gewicht_punten[-1][1]
+        profiel_gew  = float(profiel.get("gewicht_kg") or 0)
+        if profiel_gew > 0 and abs(nieuwste_gew - profiel_gew) >= 0.1:
+            # Herbereken BMR en TDEE met nieuw gewicht
+            import math as _math
+            geslacht = profiel.get("geslacht","man")
+            leeftijd = int(profiel.get("leeftijd",30) or 30)
+            lengte_cm_p = float(profiel.get("lengte_cm",175) or 175)
+            pal = float(profiel.get("pal",1.55) or 1.55)
+            if geslacht == "man":
+                bmr_nieuw = round(10*nieuwste_gew + 6.25*lengte_cm_p - 5*leeftijd + 5)
+            else:
+                bmr_nieuw = round(10*nieuwste_gew + 6.25*lengte_cm_p - 5*leeftijd - 161)
+            tdee_nieuw = round(bmr_nieuw * pal)
+            try:
+                _get_supabase().table("fuelc_profiel").update({
+                    "gewicht_kg": nieuwste_gew,
+                    "bmr": bmr_nieuw,
+                    "tdee": tdee_nieuw,
+                    "energie_doel": tdee_nieuw,
+                }).eq("user_id", user_id).execute()
+                st.session_state.fc_profiel["gewicht_kg"] = nieuwste_gew
+                st.session_state.fc_profiel["bmr"] = bmr_nieuw
+                st.session_state.fc_profiel["tdee"] = tdee_nieuw
+                st.session_state.fc_profiel["energie_doel"] = tdee_nieuw
+                profiel = st.session_state.fc_profiel
+            except: pass
+
 
     PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
     DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
@@ -4036,10 +4067,7 @@ def _render_analyses(user: dict):
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not gewicht_punten:
-            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek en open een dag om je gewicht in te voeren.")
-        if not gewicht_punten:
-            st.info("Nog geen gewicht ingevoerd. Voer je gewicht in via het dagboek of hierboven.")
-        else:
+            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek om je gewicht in te voeren.")
             laatste = gewicht_punten[-1][1]
             eerste  = gewicht_punten[0][1]
             bmi     = round(laatste/((lengte_prof/100)**2),1) if lengte_prof > 0 else 0
@@ -4072,7 +4100,7 @@ def _render_analyses(user: dict):
                 y_label="kg",
                 y_min=max(0, round(min(vals_g)-10)),
                 y_max=round(max(vals_g)+10))
-
+            _chart(chart_html, height=420)
             # Statistieken
             if len(vals_g) >= 2:
                 gem_gew = round(sum(vals_g)/len(vals_g),1)
