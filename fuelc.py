@@ -4706,6 +4706,281 @@ def _render_analyses(user: dict):
                                 it.get("categorie") or bib_cat_lookup.get(pid_d,{}).get("categorie",""))
 
 
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 5 — VETTEN
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab5:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if not dagen_met:
+            st.info("Nog geen voedingsdata.")
+        else:
+            labels_d = [d["datum"][5:] for d in dagen_data]
+            gem_vet = round(sum(d["vet"] for d in dagen_met)/len(dagen_met),1)
+            pct_vet = round(gem_vet/max(vt_doel_g,1)*100)
+            k_vet   = "#22c55e" if 85<=pct_vet<=115 else ("#fbbf24" if 70<=pct_vet<=130 else "#ef4444")
+            # Vet als % van kcal
+            gem_kcal_v = round(sum(d["kcal"] for d in dagen_met)/len(dagen_met))
+            vet_pct_kcal = round(gem_vet*9/max(gem_kcal_v,1)*100)
+
+            v1,v2,v3 = st.columns(3)
+            for col,lbl,val,kl in [
+                (v1,"GEM VET/DAG",f"{gem_vet}g",k_vet),
+                (v2,"DOEL",f"{vt_doel_g}g","#64748b"),
+                (v3,"% VAN KCAL",f"{vet_pct_kcal}%",k_vet)]:
+                with col:
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
+                        f'<div style="font-size:0.6rem;color:#64748b;">{lbl}</div>'
+                        f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>'
+                        f'</div>', unsafe_allow_html=True)
+
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Vetinname per dag vs doel</div>', unsafe_allow_html=True)
+            vet_vals = [round(d["vet"],1) for d in dagen_data]
+            _chart(_lijn_chart(labels_d,
+                [{"label":"Vet (g)","data":vet_vals,"color":"#8b5cf6","fill":True}],
+                doel_lijn=vt_doel_g, y_label="gram"), height=260)
+
+            # Verzadigde vs onverzadigde vetten
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Verzadigde vs onverzadigde vetten</div>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
+                'ℹ️ Verzadigde vetten max 10% van totale kcal (WHO). Onverzadigde vetten (olijfolie, noten, vis) zijn gunstig voor herstel en inflammatie.</div>',
+                unsafe_allow_html=True)
+
+            @st.cache_data(ttl=300)
+            def _laad_vet_bib(uid):
+                try:
+                    r1 = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,verzadigd_100g").eq("user_id",uid).execute()
+                    r2 = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,verzadigd_100g").is_("user_id","null").execute()
+                    return {row["id"]: float(row.get("verzadigd_100g") or 0) for row in (r1.data or [])+(r2.data or [])}
+                except: return {}
+
+            vet_bib = _laad_vet_bib(user_id)
+            verz_per_dag = []
+            onverz_per_dag = []
+            heeft_verz_data = False
+            for dd in dagen_data:
+                dag_verz = 0
+                dag_vet  = dd["vet"]
+                for it in dd.get("items",[]):
+                    hg  = float(it.get("hoeveelheid_g",100) or 100)
+                    pid = it.get("product_id","") or ""
+                    verz_100 = vet_bib.get(pid, 0)
+                    dag_verz += verz_100 * hg / 100
+                    if verz_100 > 0: heeft_verz_data = True
+                verz_per_dag.append(round(dag_verz,1))
+                onverz_per_dag.append(round(max(0, dag_vet - dag_verz),1))
+
+            if heeft_verz_data:
+                _chart(_bar_chart(labels_d, [
+                    {"label":"Onverzadigd (g)","data":onverz_per_dag,"color":"#22c55e"},
+                    {"label":"Verzadigd (g)","data":verz_per_dag,"color":"#ef4444"},
+                ], y_label="gram"), height=260)
+
+                gem_verz = round(sum(verz_per_dag)/max(len([x for x in verz_per_dag if x>0]),1),1)
+                verz_pct_kcal = round(gem_verz*9/max(gem_kcal_v,1)*100)
+                k_verz = "#22c55e" if verz_pct_kcal<=10 else "#ef4444"
+
+                # Donut verz/onverz gemiddelde
+                vd1, vd2 = st.columns([1,2])
+                with vd1:
+                    gem_onverz = round(gem_vet - gem_verz, 1)
+                    _chart(_donut_chart(
+                        [f"Onverzadigd {round(gem_onverz,1)}g",f"Verzadigd {gem_verz}g"],
+                        [max(0,round(gem_onverz,1)), gem_verz],
+                        ["#22c55e","#ef4444"]), height=200)
+                with vd2:
+                    adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
+                                else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
+                    k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;margin-top:8px;">'
+                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:8px;">ANALYSE</div>'
+                        f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;">{adv_verz}</div>'
+                        f'<br><div style="font-size:0.75rem;color:#64748b;line-height:1.5;">'
+                        f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
+                        f'WHO max: 10% van kcal = {round(gem_kcal_v*0.10/9)}g/dag bij {gem_kcal_v}kcal'
+                        f'</div></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
+                    '<div style="font-size:0.78rem;color:#64748b;">ℹ️ Verzadigde vetten niet beschikbaar. '
+                    'Voeg "Verzadigd vet (per 100g)" toe aan producten in de bibliotheek voor dit inzicht.</div>'
+                    '</div>', unsafe_allow_html=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 6 — PERFORMANCE
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab6:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if not dagen_met:
+            st.info("Vul je dagschema in om je performance score te berekenen.")
+        else:
+            scores_per_dag = []
+            for dd in dagen_data:
+                if dd["kcal"] > 0:
+                    w = welzijn_data.get(dd["datum"], {})
+                    result = _bereken_performance_score(dd, profiel, w, dd["items"])
+                    scores_per_dag.append({
+                        "datum": dd["datum"],
+                        "score": result["score"],
+                        "breakdown": result["breakdown"]})
+
+            if scores_per_dag:
+                gem_score = round(sum(s["score"] for s in scores_per_dag)/len(scores_per_dag))
+                beste     = max(scores_per_dag, key=lambda s:s["score"])
+                slechtste = min(scores_per_dag, key=lambda s:s["score"])
+                n_goed    = sum(1 for s in scores_per_dag if s["score"]>=75)
+                k_gem     = "#22c55e" if gem_score>=75 else ("#fbbf24" if gem_score>=50 else "#ef4444")
+
+                p1,p2,p3,p4 = st.columns(4)
+                for col,lbl,val,kl in [
+                    (p1,"GEM SCORE",f"{gem_score}/100",k_gem),
+                    (p2,"BESTE DAG",f"{beste['score']} ({beste['datum'][5:]})", "#22c55e"),
+                    (p3,"SLECHTSTE",f"{slechtste['score']} ({slechtste['datum'][5:]})", "#ef4444"),
+                    (p4,"GOEDE DAGEN",f"{n_goed}/{len(scores_per_dag)}","#22c55e")]:
+                    with col:
+                        st.markdown(
+                            f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
+                            f'<div style="font-size:0.6rem;color:#64748b;">{lbl}</div>'
+                            f'<div style="font-size:0.9rem;font-weight:800;color:{kl};">{val}</div>'
+                            f'</div>', unsafe_allow_html=True)
+
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Performance score per dag</div>', unsafe_allow_html=True)
+                perf_labels = [s["datum"][5:] for s in scores_per_dag]
+                perf_vals   = [s["score"] for s in scores_per_dag]
+                _chart(_lijn_chart(perf_labels,
+                    [{"label":"Score","data":perf_vals,"color":"#22c55e","fill":True}],
+                    doel_lijn=75, y_label="Score /100"), height=260)
+
+                # Breakdown laatste dag
+                bd = scores_per_dag[-1]
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Breakdown laatste dag</div>', unsafe_allow_html=True)
+                PIJLERS = {
+                    "energiebalans":    ("⚡ Energiebalans",20),
+                    "macrokwaliteit":   ("🥗 Macrokwaliteit",25),
+                    "micronutriënten":  ("💊 Micronutriënten",20),
+                    "maaltijdregelmaat":("📅 Maaltijdtiming",15),
+                    "voedingskwaliteit":("🌿 Voedingskwaliteit",15),
+                    "hydratatie":       ("💧 Hydratatie",5),
+                }
+                for k,(lbl,maxp) in PIJLERS.items():
+                    pts = bd["breakdown"].get(k,{})
+                    if isinstance(pts,dict): pts = pts.get("score",0)
+                    pct_p = round(pts/maxp*100)
+                    kl_p = "#22c55e" if pct_p>=80 else ("#fbbf24" if pct_p>=50 else "#ef4444")
+                    detail = ""
+                    if isinstance(bd["breakdown"].get(k),dict):
+                        detail = bd["breakdown"][k].get("detail","")
+                    detail_html = f'<div style="font-size:0.68rem;color:#64748b;margin-top:3px;">{detail}</div>' if detail else ""
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:6px;">'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
+                        f'<span style="font-size:0.82rem;color:#f8fafc;">{lbl}</span>'
+                        f'<span style="font-size:0.82rem;font-weight:700;color:{kl_p};">{pts}/{maxp}</span></div>'
+                        f'<div style="background:#0f172a;border-radius:3px;height:5px;margin-bottom:4px;">'
+                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:3px;"></div></div>'
+                        + detail_html + '</div>',
+                        unsafe_allow_html=True)
+
+                # Pre/post training macro inzicht
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Macro-inname voor en na training</div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
+                    'ℹ️ Pre-training (2-3u voor): focus op KH voor energie. Post-training (0-2u na): combinatie eiwit + KH voor herstel en MPS.</div>',
+                    unsafe_allow_html=True)
+
+                # Training momenten detecteren uit dagboek items
+                trainingen_dag = _laad_trainingen(user_id)
+                training_dagen = set(t.get("datum","")[:10] for t in trainingen_dag)
+
+                # Gemiddeld pre/post macro voor trainings- vs rustdagen
+                pre_kh=[]; pre_ei=[]; pre_vet=[]
+                post_kh=[]; post_ei=[]; post_vet=[]
+                rust_kh=[]; rust_ei=[]; rust_vet=[]
+
+                for dd in dagen_met:
+                    dag_str_p = dd["datum"]
+                    if dag_str_p in training_dagen:
+                        items = dd.get("items",[])
+                        if not items: continue
+                        # Schat: voor training = momenten 0,1,2 (ochtend/middag)
+                        # na training = momenten 3,4,5 (nm/avond)
+                        pre_items  = [it for it in items if int(it.get("moment",0) or 0) <= 2]
+                        post_items = [it for it in items if int(it.get("moment",0) or 0) >= 3]
+                        if pre_items:
+                            pre_kh.append(sum(it.get("kh_g",0) or 0 for it in pre_items))
+                            pre_ei.append(sum(it.get("eiwit_g",0) or 0 for it in pre_items))
+                            pre_vet.append(sum(it.get("vet_g",0) or 0 for it in pre_items))
+                        if post_items:
+                            post_kh.append(sum(it.get("kh_g",0) or 0 for it in post_items))
+                            post_ei.append(sum(it.get("eiwit_g",0) or 0 for it in post_items))
+                            post_vet.append(sum(it.get("vet_g",0) or 0 for it in post_items))
+                    else:
+                        items = dd.get("items",[])
+                        if items:
+                            rust_kh.append(dd["kh"]); rust_ei.append(dd["eiwit"]); rust_vet.append(dd["vet"])
+
+                if pre_kh or post_kh:
+                    def gem(lst): return round(sum(lst)/max(len(lst),1),1)
+                    pp1, pp2, pp3 = st.columns(3)
+                    for col, lbl_pp, kh_v, ei_v, vet_v, bg in [
+                        (pp1, "PRE-TRAINING\n(mom. 1-3)", gem(pre_kh), gem(pre_ei), gem(pre_vet), "#0f172a"),
+                        (pp2, "POST-TRAINING\n(mom. 4-6)", gem(post_kh), gem(post_ei), gem(post_vet), "#0f172a"),
+                        (pp3, "RUSTDAG GEM", gem(rust_kh), gem(rust_ei), gem(rust_vet), "#0f172a"),
+                    ]:
+                        with col:
+                            st.markdown(
+                                f'<div style="background:{bg};border:1px solid #1e293b;border-radius:10px;padding:14px;text-align:center;">'
+                                f'<div style="font-size:0.6rem;font-weight:700;color:#64748b;margin-bottom:8px;white-space:pre-line;">{lbl_pp}</div>'
+                                f'<div style="display:flex;justify-content:center;gap:12px;">'
+                                f'<div><div style="font-size:0.55rem;color:#64748b;">KH</div>'
+                                f'<div style="font-size:0.9rem;font-weight:800;color:#22c55e;">{kh_v}g</div></div>'
+                                f'<div><div style="font-size:0.55rem;color:#64748b;">Eiwit</div>'
+                                f'<div style="font-size:0.9rem;font-weight:800;color:#3b82f6;">{ei_v}g</div></div>'
+                                f'<div><div style="font-size:0.55rem;color:#64748b;">Vet</div>'
+                                f'<div style="font-size:0.9rem;font-weight:800;color:#8b5cf6;">{vet_v}g</div></div>'
+                                f'</div></div>',
+                                unsafe_allow_html=True)
+
+                    # Advies pre/post
+                    adv_pre = "✓ Goede KH-inname voor training." if gem(pre_kh)>=80 else "⚠️ Weinig KH voor training. Streef naar 1-4g/kg KH in de 2-3u voor training."
+                    adv_post = "✓ Goede combinatie eiwit+KH na training." if gem(post_ei)>=20 and gem(post_kh)>=40 else "⚠️ Post-training: combineer minstens 20g eiwit + 40g KH voor optimaal herstel."
+                    k_pre  = "#22c55e" if gem(pre_kh)>=80 else "#fbbf24"
+                    k_post = "#22c55e" if gem(post_ei)>=20 and gem(post_kh)>=40 else "#fbbf24"
+                    st.markdown(
+                        f'<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">'
+                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:{k_pre};">{adv_pre}</div>'
+                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:{k_post};">{adv_post}</div>'
+                        f'</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
+                        '<div style="font-size:0.78rem;color:#64748b;">Log trainingen in het trainingsblok en vul je dagschema in voor dit inzicht.</div>'
+                        '</div>', unsafe_allow_html=True)
+
+                # Verbeterpunt
+                zwak = min(PIJLERS.keys(), key=lambda k2: (bd["breakdown"].get(k2,{}).get("score",0) if isinstance(bd["breakdown"].get(k2),dict) else bd["breakdown"].get(k2,0)) / PIJLERS[k2][1])
+                ADVIEZEN = {
+                    "energiebalans":    "Zorg dat je dagelijkse kcal-inname dichter bij je doel zit.",
+                    "macrokwaliteit":   "Check je KH/eiwit/vet verhouding — spreiding en timing verbeteren.",
+                    "micronutriënten":  "Meer vezels (groenten, volkoren) en vette vis voor omega-3 en vitamine D.",
+                    "maaltijdregelmaat":"Vul alle maaltijdmomenten in. Regelmatig eten stabiliseert herstel.",
+                    "voedingskwaliteit":"Meer variatie in voedingsgroepen — groenten, fruit, peulvruchten.",
+                    "hydratatie":       "Drink min. 35ml/kg/dag. Op trainingsdag meer.",
+                }
+                st.markdown(
+                    f'<div style="background:#0f172a;border-radius:10px;padding:14px;margin-top:8px;">'
+                    f'<div style="font-size:0.7rem;font-weight:700;color:#f97316;margin-bottom:6px;">💡 VERBETERPUNT</div>'
+                    f'<div style="font-size:0.85rem;color:#94a3b8;line-height:1.6;">'
+                    f'<b style="color:#f8fafc">{PIJLERS[zwak][0]}</b> scoort het laagst. {ADVIEZEN.get(zwak,"")}'
+                    f'</div></div>', unsafe_allow_html=True)
+
+
+
 def _stap_dashboard(user: dict):
     tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
     with tab_db:
