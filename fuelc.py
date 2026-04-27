@@ -3453,7 +3453,8 @@ def _render_voedingsdagboek(user: dict):
             for t in _laad_trainingen(user_id) if (t.get("datum","") or "")[:10]==dag_str)
         energie_doel_dag = energie_doel + training_kcal_db
         pct = min(100, round(tot_kcal/energie_doel_dag*100)) if energie_doel_dag > 0 else 0
-
+        pct = min(100, round(tot_kcal/energie_doel_dag*100)) if energie_doel_dag > 0 else 0
+        k   = "#22c55e" if pct>=80 else ("#fbbf24" if pct>=40 else "#334155")
         # Welzijn data
         w = week_welzijn.get(dag_str, {})
         heeft_welzijn = bool(w.get("energie_score") or w.get("slaap_uur"))
