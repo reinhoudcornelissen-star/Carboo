@@ -4304,15 +4304,14 @@ def _render_analyses(user: dict):
                     f'border:1px solid {"" + kl if g in alle_cats_w else "#334155"};'
                     f'display:inline-block;margin:2px;"></div>'
                     for g, kl in ALLE_GROEPEN_V)
-                adv_var = "Goede variatie" if gem_cats>=5 else ("Matige variatie" if gem_cats>=3 else "Weinig variatie")
+                adv_var = "Veel variatie" if gem_cats>=4 else ("Matige variatie" if gem_cats>=2 else "Weinig variatie")
                 st.markdown(
                     f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;height:110px;display:flex;flex-direction:column;justify-content:center;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:6px;">VARIATIE VOEDINGSGROEPEN</div>'
-                    f'<div style="margin-bottom:6px;line-height:1;">{blokjes}</div>'
-                    f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var}</div>'
-                    f'<div style="font-size:0.62rem;color:#475569;">{len(alle_cats_w & {g for g,_ in ALLE_GROEPEN_V})}/8 groepen · gekleurd = gegeten</div>'
+                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:4px;">VARIATIE VOEDINGSGROEPEN</div>'
+                    f'<div style="font-size:0.62rem;color:#94a3b8;margin-bottom:5px;">{len(alle_cats_w & {g for g,_ in ALLE_GROEPEN_V})}/8 groepen gegeten · gekleurd = aanwezig</div>'
+                    f'<div style="margin-bottom:5px;line-height:1;">{blokjes}</div>'
+                    f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var} per dag</div>'
                     f'</div>', unsafe_allow_html=True)
-            if ontbrekend:
                 st.markdown(
                     f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
                     f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE GROEPEN DEZE PERIODE</div>'
