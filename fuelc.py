@@ -3904,7 +3904,19 @@ def _render_analyses(user: dict):
         for it in items:
             pid      = it.get("product_id","") or ""
             prod_bib = bib_cat_lookup.get(pid, {})
-            cat      = prod_bib.get("categorie","Overige") or it.get("categorie","Overige") or "Overige"
+            cat      = prod_bib.get("categorie","") or it.get("categorie","") or ""
+            if not cat or cat == "Overige":
+                naam_l = (it.get("naam","") or "").lower()
+                if any(w in naam_l for w in ["garnaal","garna","krab","kreeft","mossel","oester","scampi",
+                       "inktvis","zeevruchten","vis","zalm","tonijn","kabeljauw","kipfilet","kip",
+                       "vlees","gehakt","varken","rund","lam","steak","bacon","ham","worst","salami","filet"]):
+                    cat = "Vlees & vis"
+                elif any(w in naam_l for w in ["melk","yoghurt","kwark","kaas","room","boter"]):
+                    cat = "Zuivel"
+                elif any(w in naam_l for w in ["ei","omelet"]):
+                    cat = "Eieren"
+                else:
+                    cat = "Overige"
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         dagen_data.append({
             "datum":dag_str, "kcal":kcal,   "kh":kh,      "eiwit":eiwit,
@@ -4332,9 +4344,16 @@ def _render_analyses(user: dict):
             rest_vals = [d["rest_pct"] if d["kcal_dag"]>0 else None for d in kwal_dagen]
             if any(v is not None and v > 0 for v in rest_vals):
                 st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">% Restgroep per dag (lager is beter — doel: max 20%)</div>', unsafe_allow_html=True)
-                _chart(_lijn_chart(nd_labels, [
-                    {"label":"% Restgroep","data":rest_vals,"color":"#f97316","fill":True},
-                ], doel_lijn=20, y_label="%", y_max=100), height=340)
+                # Kleur per staaf: groen als <=20%, oranje als <=40%, rood als >40%
+                rest_kleuren = []
+                for v in rest_vals:
+                    if v is None: rest_kleuren.append('#334155')
+                    elif v<=20:   rest_kleuren.append('#22c55e')
+                    elif v<=40:   rest_kleuren.append('#fbbf24')
+                    else:         rest_kleuren.append('#ef4444')
+                _chart(_bar_chart(nd_labels, [
+                    {"label":"% Restgroep","data":[v if v is not None else 0 for v in rest_vals],"color":"#f97316"},
+                ], y_label="%", y_max=100), height=340)
 
             # Grafiek 2: Plantaardig vs dierlijk
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardige vs dierlijke voeding (% kcal per dag)</div>', unsafe_allow_html=True)
@@ -4386,7 +4405,7 @@ def _render_analyses(user: dict):
             if heeft_micro:
                 mi1, mi2 = st.columns([4,1])
                 with mi1:
-                    st.markdown(f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten — gem per dag (op basis van {len(kwal_met)} dag(en) met data)</div>', unsafe_allow_html=True)
+                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten</div>', unsafe_allow_html=True)
                 with mi2:
                     st.markdown("<br>", unsafe_allow_html=True)
                     with st.expander("ℹ️"):
@@ -4502,10 +4521,10 @@ def _render_analyses(user: dict):
                 doel_lijn=kh_doel_g, y_label="gram"), height=260)
 
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Toegevoegde suikers vs totale KH per dag</div>', unsafe_allow_html=True)
-            _chart(_lijn_chart(labels_d, [
-                {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
-                {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
-                y_label="gram"), height=260)
+            _chart(_bar_chart(labels_d, [
+                {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e"},
+                {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316"},
+            ], y_label="gram"), height=280)
 
             # Meldingen >10%
             meldingen_su = [(d["datum"][5:], s, round(s/d["kh"]*100))
@@ -4632,6 +4651,24 @@ def _render_analyses(user: dict):
                     pid = it.get("product_id","") or ""
                     cat = (it.get("categorie") or
                            bib_cat_lookup.get(pid,{}).get("categorie") or "Overige")
+                    # Naam-gebaseerde herkenning voor producten zonder categorie
+                    if cat == "Overige":
+                        naam_l = (it.get("naam","") or "").lower()
+                        if any(w in naam_l for w in ["garnaal","garna","krab","kreeft","mossel","oester","inktvis",
+                               "scampi","langoustine","zeevruchten","vis","zalm","tonijn","kabeljauw",
+                               "kipfilet","kip","vlees","gehakt","varken","rund","lam","steak",
+                               "bacon","ham","worst","salami","filet"]):
+                            cat = "Vlees & vis"
+                        elif any(w in naam_l for w in ["melk","yoghurt","kwark","kaas","room","boter"]):
+                            cat = "Zuivel"
+                        elif any(w in naam_l for w in ["ei","omelet"]):
+                            cat = "Eieren"
+                        elif any(w in naam_l for w in ["brood","pasta","rijst","meel","havermout","graan","crackers"]):
+                            cat = "Granen & brood"
+                        elif any(w in naam_l for w in ["appel","peer","banaan","aardbei","fruit","druif","sinaas","mango"]):
+                            cat = "Fruit"
+                        elif any(w in naam_l for w in ["groente","sla","spinazie","broccoli","wortel","tomaat","paprika","courgette"]):
+                            cat = "Groenten"
                     ei_g = float(it.get("eiwit_g",0) or 0)
                     if cat in PLANTAARDIG: ei_pl += ei_g
                     elif cat in DIERLIJK:  ei_di += ei_g
