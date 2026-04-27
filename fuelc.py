@@ -3905,7 +3905,7 @@ def _render_analyses(user: dict):
             options: {{
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: {duration:0},
+                animation: {{duration:0}},
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }},
                     title: {{ display: {'true' if title else 'false'}, text: '{title}', color: '#f8fafc', font: {{ size: 13, weight: 'bold' }} }}
@@ -3944,7 +3944,7 @@ def _render_analyses(user: dict):
             options: {{
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: {duration:0},
+                animation: {{duration:0}},
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }}
                 }},
