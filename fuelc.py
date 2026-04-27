@@ -3447,8 +3447,12 @@ def _render_voedingsdagboek(user: dict):
         for mi in range(6):
             alle_items += _laad_dagboek_items(user_id, dag_str, mi)
         tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items)
-        pct = min(100, round(tot_kcal/energie_doel*100)) if energie_doel > 0 else 0
-        k = "#22c55e" if pct>=80 else ("#fbbf24" if pct>=40 else "#334155")
+        tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items)
+        # Voeg training kcal toe aan dagdoel
+        training_kcal_db = sum(t.get("kcal_verbranding",0) or 0
+            for t in _laad_trainingen(user_id) if (t.get("datum","") or "")[:10]==dag_str)
+        energie_doel_dag = energie_doel + training_kcal_db
+        pct = min(100, round(tot_kcal/energie_doel_dag*100)) if energie_doel_dag > 0 else 0
 
         # Welzijn data
         w = week_welzijn.get(dag_str, {})
@@ -3476,7 +3480,9 @@ def _render_voedingsdagboek(user: dict):
                 f'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">' +
                 f'<div style="flex:1;background:#1e293b;border-radius:3px;height:6px;">' +
                 f'<div style="width:{pct}%;height:100%;background:{k};border-radius:3px;"></div></div>' +
-                f'<div style="font-size:0.75rem;color:{k};min-width:70px;text-align:right;">{round(tot_kcal)} kcal</div>' +
+                f'<div style="font-size:0.75rem;color:{k};min-width:70px;text-align:right;">'
+                f'{round(tot_kcal)} / {energie_doel_dag} kcal'
+                + (f" · 🏃+{training_kcal_db}" if training_kcal_db > 0 else "") + '</div>' +
                 f'</div>', unsafe_allow_html=True)
         with dh4:
             # Welzijn score dot
