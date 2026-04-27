@@ -4071,12 +4071,16 @@ def _render_analyses(user: dict):
                     tdee_n = round(bmr_n * pal)
                     try:
                         _get_supabase().table("fuelc_profiel").update({
-                            "gewicht_kg": laatste, "bmr": bmr_n,
-                            "tdee": tdee_n, "energie_doel": tdee_n,
+                            "gewicht_kg": laatste,
+                            "bmr": bmr_n,
+                            "tdee_basis": tdee_n,
+                            "energie_doel": tdee_n,
                         }).eq("user_id", user_id).execute()
                         st.session_state.fc_profiel.update({
-                            "gewicht_kg": laatste, "bmr": bmr_n,
-                            "tdee": tdee_n, "energie_doel": tdee_n,
+                            "gewicht_kg": laatste,
+                            "bmr": bmr_n,
+                            "tdee_basis": tdee_n,
+                            "energie_doel": tdee_n,
                         })
                         st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {tdee_n} kcal")
                         st.cache_data.clear(); st.rerun()
