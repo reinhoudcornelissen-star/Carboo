@@ -4255,9 +4255,9 @@ def _render_analyses(user: dict):
                     "vitd":round(vitd,1),"vitb12":round(vitb12,2),"omega3":round(omega3,2),
                     "kcal_plant":kcal_plant,"kcal_dier":kcal_dier,"kcal_dag":kcal_dag,
                     "n_cats":len(cats_dag),"cats":cats_dag,"heeft_micro":n_micro>0,
-                })
-
-            kwal_met  = [d for d in kwal_dagen if d["kcal_dag"]>0]
+                     "n_cats":len(cats_dag),"cats":cats_dag,"heeft_micro":n_micro>0,
+                     "cat_kcal":dd.get("cat_kcal",{}),
+                 })
             n_met     = max(len(kwal_met),1)
             gem_nd   = round(sum(d["nd_score"] for d in kwal_met)/n_met,1) if kwal_met else 0
             gem_rest = round(sum(d["rest_pct"] for d in kwal_met)/n_met) if kwal_met else 0
@@ -4350,7 +4350,7 @@ def _render_analyses(user: dict):
                 if d["kcal_dag"] <= 0:
                     rest_vals.append(None)
                 else:
-                    kcal_rest = sum(v for k,v in d["cat_kcal"].items() if k in RESTGROEP_NAMEN)
+                    kcal_rest = sum(v for k,v in d.get("cat_kcal",{}).items() if k in RESTGROEP_NAMEN)
                     rest_vals.append(round(kcal_rest / d["kcal_dag"] * 100))
             heeft_restgroep = any(v is not None and v > 0 for v in rest_vals)
             if heeft_restgroep:
