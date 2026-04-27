@@ -3846,35 +3846,6 @@ def _render_analyses(user: dict):
     welzijn_data   = _laad_welzijn_week(user_id, start, einde)
     gewicht_punten = _laad_gewicht_all(user_id)
 
-    # Automatisch profiel gewicht updaten als dagboek gewicht afwijkt
-    if gewicht_punten:
-        nieuwste_gew = gewicht_punten[-1][1]
-        profiel_gew  = float(profiel.get("gewicht_kg") or 0)
-        if profiel_gew > 0 and abs(nieuwste_gew - profiel_gew) >= 0.1:
-            # Herbereken BMR en TDEE met nieuw gewicht
-            import math as _math
-            geslacht = profiel.get("geslacht","man")
-            leeftijd = int(profiel.get("leeftijd",30) or 30)
-            lengte_cm_p = float(profiel.get("lengte_cm",175) or 175)
-            pal = float(profiel.get("pal",1.55) or 1.55)
-            if geslacht == "man":
-                bmr_nieuw = round(10*nieuwste_gew + 6.25*lengte_cm_p - 5*leeftijd + 5)
-            else:
-                bmr_nieuw = round(10*nieuwste_gew + 6.25*lengte_cm_p - 5*leeftijd - 161)
-            tdee_nieuw = round(bmr_nieuw * pal)
-            try:
-                _get_supabase().table("fuelc_profiel").update({
-                    "gewicht_kg": nieuwste_gew,
-                    "bmr": bmr_nieuw,
-                    "tdee": tdee_nieuw,
-                    "energie_doel": tdee_nieuw,
-                }).eq("user_id", user_id).execute()
-                st.session_state.fc_profiel["gewicht_kg"] = nieuwste_gew
-                st.session_state.fc_profiel["bmr"] = bmr_nieuw
-                st.session_state.fc_profiel["tdee"] = tdee_nieuw
-                st.session_state.fc_profiel["energie_doel"] = tdee_nieuw
-                profiel = st.session_state.fc_profiel
-            except: pass
 
 
     PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
@@ -4068,7 +4039,8 @@ def _render_analyses(user: dict):
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not gewicht_punten:
-            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek om je gewicht in te voeren.")
+            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek en open een dag om je gewicht in te voeren.")
+        else:
             laatste = gewicht_punten[-1][1]
             eerste  = gewicht_punten[0][1]
             bmi     = round(laatste/((lengte_prof/100)**2),1) if lengte_prof > 0 else 0
@@ -4078,6 +4050,38 @@ def _render_analyses(user: dict):
             trend_t = "→ Stabiel" if abs(trend_g)<0.1 else (f"▲ +{round(trend_g,1)} kg" if trend_g>0 else f"▼ {round(trend_g,1)} kg")
             trend_k = "#64748b" if abs(trend_g)<0.1 else ("#ef4444" if trend_g>0.3 else ("#22c55e" if trend_g<-0.3 else "#fbbf24"))
 
+            # Optie 2: melding als gewicht afwijkt van profiel
+            profiel_gew = float(profiel.get("gewicht_kg") or 0)
+            if profiel_gew > 0 and abs(laatste - profiel_gew) >= 0.5:
+                richting = "gedaald" if laatste < profiel_gew else "gestegen"
+                st.markdown(
+                    f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">' +
+                    f'<div style="font-size:0.78rem;color:#fbbf24;">⚠️ Je gewicht is {richting} naar <b>{laatste} kg</b>. Wil je je energiebehoefte herberekenen?</div>',
+                    unsafe_allow_html=True)
+                if st.button("✓ Ja, update energiebehoefte", key="gew_update_profiel", type="primary"):
+                    geslacht    = profiel.get("geslacht","man")
+                    leeftijd    = int(profiel.get("leeftijd",30) or 30)
+                    lengte_cm_p = float(profiel.get("lengte_cm",175) or 175)
+                    pal         = float(profiel.get("pal",1.55) or 1.55)
+                    if geslacht == "man":
+                        bmr_n = round(10*laatste + 6.25*lengte_cm_p - 5*leeftijd + 5)
+                    else:
+                        bmr_n = round(10*laatste + 6.25*lengte_cm_p - 5*leeftijd - 161)
+                    tdee_n = round(bmr_n * pal)
+                    try:
+                        _get_supabase().table("fuelc_profiel").update({
+                            "gewicht_kg": laatste, "bmr": bmr_n,
+                            "tdee": tdee_n, "energie_doel": tdee_n,
+                        }).eq("user_id", user_id).execute()
+                        st.session_state.fc_profiel.update({
+                            "gewicht_kg": laatste, "bmr": bmr_n,
+                            "tdee": tdee_n, "energie_doel": tdee_n,
+                        })
+                        st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {tdee_n} kcal")
+                        st.cache_data.clear(); st.rerun()
+                    except Exception as e: st.error(str(e))
+
+            # KPI badges
             k1,k2,k3,k4 = st.columns(4)
             for col,lbl,val,kl in [
                 (k1,"HUIDIG",f"{round(laatste,1)} kg","#f8fafc"),
@@ -4086,43 +4090,43 @@ def _render_analyses(user: dict):
                 (k4,"TREND",trend_t,trend_k)]:
                 with col:
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
-                        f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">{lbl}</div>'
-                        f'<div style="font-size:0.9rem;font-weight:800;color:{kl};">{val}</div>'
+                        f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">{lbl}</div>' +
+                        f'<div style="font-size:0.9rem;font-weight:800;color:{kl};">{val}</div>' +
                         f'</div>', unsafe_allow_html=True)
 
             # Grafiek
             from datetime import datetime as _dtt
             labels_g = [_dtt.strptime(p[0],"%Y-%m-%d").strftime("%d %b") for p in gewicht_punten[-60:]]
             vals_g   = [p[1] for p in gewicht_punten[-60:]]
-            chart_html = _lijn_chart(
+            _chart(_lijn_chart(
                 labels_g,
                 [{"label":"Gewicht (kg)","data":vals_g,"color":"#22c55e","fill":True}],
                 y_label="kg",
                 y_min=max(0, round(min(vals_g)-10)),
-                y_max=round(max(vals_g)+10))
-            _chart(chart_html, height=420)
+                y_max=round(max(vals_g)+10)), height=420)
+
             # Statistieken
             if len(vals_g) >= 2:
                 gem_gew = round(sum(vals_g)/len(vals_g),1)
                 min_gew = round(min(vals_g),1)
                 max_gew = round(max(vals_g),1)
                 st.markdown(
-                    f'<div style="display:flex;gap:12px;margin-top:8px;">'
-                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;">GEMIDDELD</div>'
-                    f'<div style="font-size:0.9rem;font-weight:700;color:#f8fafc;">{gem_gew} kg</div></div>'
-                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;">LAAGST</div>'
-                    f'<div style="font-size:0.9rem;font-weight:700;color:#22c55e;">{min_gew} kg</div></div>'
-                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;">HOOGST</div>'
-                    f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{max_gew} kg</div></div>'
-                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;">METINGEN</div>'
-                    f'<div style="font-size:0.9rem;font-weight:700;color:#f8fafc;">{len(vals_g)}</div></div>'
-                    f'</div>',
-                    unsafe_allow_html=True)
+                    f'<div style="display:flex;gap:12px;margin-top:8px;">' +
+                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">GEMIDDELD</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#f8fafc;">{gem_gew} kg</div></div>' +
+                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">LAAGST</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#22c55e;">{min_gew} kg</div></div>' +
+                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">HOOGST</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#f97316;">{max_gew} kg</div></div>' +
+                    f'<div style="flex:1;background:#1e293b;border-radius:8px;padding:10px;text-align:center;">' +
+                    f'<div style="font-size:0.6rem;color:#64748b;">METINGEN</div>' +
+                    f'<div style="font-size:0.9rem;font-weight:700;color:#f8fafc;">{len(vals_g)}</div></div>' +
+                    f'</div>', unsafe_allow_html=True)
+
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 2 — VOEDINGSKWALITEIT
