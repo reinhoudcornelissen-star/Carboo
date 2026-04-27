@@ -4247,10 +4247,10 @@ def _render_analyses(user: dict):
             q1,q3 = st.columns(2)
             with q1:
                 st.markdown(
-                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
-                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:3px;">NUTRIËNTDENSITEIT</div>'
+                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;height:110px;display:flex;flex-direction:column;justify-content:center;">'
+                    f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:6px;">NUTRIËNTDENSITEIT</div>'
                     f'<div style="font-size:1.4rem;font-weight:900;color:{k_nd};">{gem_nd}/10</div>'
-                    f'<div style="font-size:0.65rem;color:#475569;">gem per dag</div>'
+                    f'<div style="font-size:0.65rem;color:#475569;margin-top:4px;">gem per dag</div>'
                     f'</div>', unsafe_allow_html=True)
 
             with q3:
@@ -4268,11 +4268,11 @@ def _render_analyses(user: dict):
                     for g, kl in ALLE_GROEPEN_V)
                 adv_var = "Goede variatie" if gem_cats>=5 else ("Matige variatie" if gem_cats>=3 else "Weinig variatie")
                 st.markdown(
-                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;">'
+                    f'<div style="background:#1e293b;border-radius:8px;padding:14px;text-align:center;margin-bottom:14px;height:110px;display:flex;flex-direction:column;justify-content:center;">'
                     f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:6px;">VARIATIE VOEDINGSGROEPEN</div>'
                     f'<div style="margin-bottom:6px;line-height:1;">{blokjes}</div>'
                     f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var}</div>'
-                    f'<div style="font-size:0.62rem;color:#475569;">{round(gem_cats)}/8 groepen per dag</div>'
+                    f'<div style="font-size:0.62rem;color:#475569;">{len(alle_cats_w & {g for g,_ in ALLE_GROEPEN_V})}/8 groepen · gekleurd = gegeten</div>'
                     f'</div>', unsafe_allow_html=True)
             if ontbrekend:
                 st.markdown(
@@ -4307,14 +4307,14 @@ def _render_analyses(user: dict):
                         'Score 0-3 = veel lege calorieën<br><br>'
                         'Tip: meer groenten, fruit, peulvruchten en volkoren verhogen je score.'
                         '</div>', unsafe_allow_html=True)
-            nd_vals   = [d["nd_score"] for d in kwal_dagen]
+            nd_vals   = [d["nd_score"] if d["kcal_dag"]>0 else None for d in kwal_dagen]
             _chart(_lijn_chart(nd_labels, [
                 {"label":"Nutriëntdensiteit /10","data":nd_vals,"color":"#22c55e","fill":True},
             ], doel_lijn=7, y_label="Score /10", y_max=10), height=380)
 
-            # Grafiek 1b: % Restgroep per dag (schaal 0-100%)
-            rest_vals = [d["rest_pct"] for d in kwal_dagen]
-            if any(v > 0 for v in rest_vals):
+            # Grafiek 1b: % Restgroep per dag - enkel dagen met data
+            rest_vals = [d["rest_pct"] if d["kcal_dag"]>0 else None for d in kwal_dagen]
+            if any(v is not None and v > 0 for v in rest_vals):
                 st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">% Restgroep per dag (lager is beter — doel: max 20%)</div>', unsafe_allow_html=True)
                 _chart(_lijn_chart(nd_labels, [
                     {"label":"% Restgroep","data":rest_vals,"color":"#f97316","fill":True},
@@ -4346,13 +4346,12 @@ def _render_analyses(user: dict):
                 k_pl = "#22c55e" if gem_plant>=50 else ("#fbbf24" if gem_plant>=30 else "#ef4444")
                 adv_pl = "Goed" if gem_plant>=50 else ("Matig" if gem_plant>=30 else "Te laag")
                 st.markdown(
-                    f'<div style="background:#1e293b;border-radius:10px;padding:16px;text-align:center;">'
+                    f'<div style="background:#1e293b;border-radius:10px;padding:16px;text-align:center;height:360px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">'
                     f'<div style="font-size:0.62rem;color:#64748b;margin-bottom:8px;">GEM PLANTAARDIG</div>'
                     f'<div style="font-size:2.2rem;font-weight:900;color:{k_pl};">{gem_plant}%</div>'
                     f'<div style="font-size:0.72rem;color:{k_pl};margin-top:4px;">{adv_pl}</div>'
                     f'<div style="font-size:0.65rem;color:#475569;margin-top:10px;line-height:1.5;">Doel: min 50% plantaardig</div>'
                     f'</div>', unsafe_allow_html=True)
-
             # Grafiek 3: Vezels
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Vezelinname per dag (ADH = 30g)</div>', unsafe_allow_html=True)
             vez_vals = [d["vezels"] for d in kwal_dagen]
@@ -4485,20 +4484,36 @@ def _render_analyses(user: dict):
                     st.markdown(f'<div style="font-size:0.78rem;color:#94a3b8;padding:2px 0;">· {datum_m}: {su_m}g = {pct_m}%</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            # Top suikerproducten
+            # Top suikerproducten met GI
             if suiker_producten:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met suikers (deze periode)</div>', unsafe_allow_html=True)
-                top_su = sorted(suiker_producten.items(), key=lambda x:-x[1])[:6]
-                max_su = top_su[0][1] if top_su else 1
-                for naam_su, gram_su in top_su:
-                    pct_bar = round(gram_su/max_su*100)
+                st.markdown(
+                    '<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 4px;">🍬 Voedingsmiddelen met toegevoegde suikers — top deze periode</div>',
+                    unsafe_allow_html=True)
+                st.markdown(
+                    '<div style="font-size:0.7rem;color:#64748b;margin-bottom:10px;">GI: laag &lt;55 · matig 55-70 · hoog &gt;70 · — = niet bekend</div>',
+                    unsafe_allow_html=True)
+                top_su = sorted(suiker_producten.items(), key=lambda x: -x[1]["su"] if isinstance(x[1], dict) else -x[1])[:8]
+                max_su_val = top_su[0][1]["su"] if isinstance(top_su[0][1], dict) else top_su[0][1] if top_su else 1
+                for naam_su, data_su in top_su:
+                    gram_su = data_su["su"] if isinstance(data_su, dict) else data_su
+                    gi_su   = data_su.get("gi") if isinstance(data_su, dict) else None
+                    pct_bar = round(gram_su/max(max_su_val,1)*100)
+                    if gi_su:
+                        gi_int = int(gi_su)
+                        gi_lbl = str(gi_int)
+                        gi_kl  = "#22c55e" if gi_int<55 else ("#fbbf24" if gi_int<=70 else "#ef4444")
+                    else:
+                        gi_lbl = "—"; gi_kl = "#475569"
                     st.markdown(
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">'
-                        f'<div style="min-width:140px;font-size:0.78rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
-                        f'<div style="flex:1;background:#1e293b;border-radius:3px;height:7px;">'
-                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div></div>'
-                        f'<div style="min-width:50px;font-size:0.75rem;color:#f97316;text-align:right;">{round(gram_su,1)}g</div>'
-                        f'</div>', unsafe_allow_html=True)
+                        f'<div style="background:#1e293b;border-radius:8px;padding:9px 12px;margin-bottom:5px;">'
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">'
+                        f'<div style="flex:1;font-size:0.78rem;color:#f1f5f9;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
+                        f'<div style="font-size:0.72rem;color:#f97316;font-weight:700;min-width:40px;text-align:right;">{round(gram_su,1)}g</div>'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:{gi_kl};min-width:52px;text-align:right;">GI {gi_lbl}</div>'
+                        f'</div>'
+                        f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
+                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
+                        f'</div></div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
