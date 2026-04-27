@@ -3854,11 +3854,20 @@ def _render_analyses(user: dict):
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
 
     def _chart(html_body: str, height: int = 320):
-        st.components.v1.html(
-            f'<html><head><script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
-            f'<style>body{{margin:0;background:#0a0f1e;}}canvas{{border-radius:10px;}}</style></head>'
-            f'<body>{html_body}</body></html>',
-            height=height)
+        # Chart.js via CDN met stable render - height exact instellen voorkomt fade
+        html_full = (
+            '<!DOCTYPE html><html><head>'
+            '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
+            f'<style>'
+            f'*{{box-sizing:border-box;margin:0;padding:0;}}'
+            f'html,body{{width:100%;height:{height}px;overflow:hidden;background:#0f172a;}}'
+            f'canvas{{border-radius:10px;display:block;}}'
+            f'</style></head>'
+            f'<body style="height:{height}px;padding:8px;">'
+            f'{html_body}'
+            f'</body></html>'
+        )
+        st.components.v1.html(html_full, height=height, scrolling=False)
 
     def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title=""):
         ds_js = []
@@ -3886,7 +3895,7 @@ def _render_analyses(user: dict):
                 tension: 0,
             }}''')
         return f'''
-        <canvas id="c" style="width:100%;max-height:300px;"></canvas>
+        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
         <script>
         new Chart(document.getElementById('c'), {{
             type: 'line',
@@ -3895,7 +3904,8 @@ def _render_analyses(user: dict):
                 datasets: [{",".join(ds_js)}]
             }},
             options: {{
-                responsive: true,
+                responsive: false,
+                maintainAspectRatio: false,
                 animation: false,
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }},
@@ -3922,7 +3932,7 @@ def _render_analyses(user: dict):
                 borderRadius: 4,
             }}''')
         return f'''
-        <canvas id="c" style="width:100%;max-height:280px;"></canvas>
+        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
         <script>
         new Chart(document.getElementById('c'), {{
             type: 'bar',
@@ -3931,7 +3941,8 @@ def _render_analyses(user: dict):
                 datasets: [{",".join(ds_js)}]
             }},
             options: {{
-                responsive: true,
+                responsive: false,
+                maintainAspectRatio: false,
                 animation: false,
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }}
@@ -3947,7 +3958,7 @@ def _render_analyses(user: dict):
 
     def _donut_chart(labels, values, colors):
         return f'''
-        <canvas id="c" style="width:100%;max-height:220px;"></canvas>
+        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
         <script>
         new Chart(document.getElementById('c'), {{
             type: 'doughnut',
