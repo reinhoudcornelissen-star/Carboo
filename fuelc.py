@@ -3872,7 +3872,16 @@ def _render_analyses(user: dict):
         eiwit  = sum(it.get("eiwit_g",0) or 0 for it in items)
         vet    = sum(it.get("vet_g",0) or 0 for it in items)
         vezels = sum(it.get("vezels_g",0) or 0 for it in items)
-        n_mom  = len(set(it.get("moment",0) for it in items)) if items else 0
+        vezels  = sum(it.get("vezels_g",0) or 0 for it in items)
+        suikers = sum(it.get("suikers_g",0) or 0 for it in items)
+        verz    = sum(it.get("verz_g",0) or 0 for it in items)
+        natrium = sum(it.get("natrium_mg",0) or 0 for it in items)
+        kalium  = sum(it.get("kalium_mg",0) or 0 for it in items)
+        calcium = sum(it.get("calcium_mg",0) or 0 for it in items)
+        ijzer   = sum(it.get("ijzer_mg",0) or 0 for it in items)
+        vitd    = sum(it.get("vitd_mcg",0) or 0 for it in items)
+        vitb12  = sum(it.get("vitb12_mcg",0) or 0 for it in items)
+        omega3  = sum(it.get("omega3_g",0) or 0 for it in items)
         cat_kcal = {}
         for it in items:
             # Haal categorie op via product_id uit bibliotheek
