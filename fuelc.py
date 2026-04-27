@@ -4426,19 +4426,39 @@ def _render_analyses(user: dict):
             # Suikers per dag + top producten
             suikers_per_dag = []
             suiker_producten = {}  # naam -> {"su": gram, "gi": waarde}
+            # Laad suikers + GI uit bibliotheek als fallback voor oude items
+            @st.cache_data(ttl=300)
+            def _laad_su_gi_bib(uid):
+                try:
+                    r1 = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,naam,suikers_100g,gi").eq("user_id",uid).execute()
+                    r2 = _get_supabase().table("fuelc_bibliotheek")\
+                        .select("id,naam,suikers_100g,gi").is_("user_id","null").execute()
+                    return {row["id"]: row for row in (r1.data or [])+(r2.data or [])}
+                except: return {}
+            su_gi_bib = _laad_su_gi_bib(user_id)
+
             for dd in dagen_data:
                 dag_su = dd.get("suikers", 0) or 0
                 for it in dd.get("items",[]):
-                    su   = float(it.get("suikers_g",0) or 0)
-                    gi   = it.get("gi") or None
-                    if su > 2:
+                    hg  = float(it.get("hoeveelheid_g",100) or 100)
+                    su  = float(it.get("suikers_g",0) or 0)
+                    gi  = it.get("gi") or None
+                    # Fallback via bibliotheek voor oude items zonder suikers_g
+                    if su == 0:
+                        pid  = it.get("product_id","") or ""
+                        prod = su_gi_bib.get(pid, {})
+                        su   = float(prod.get("suikers_100g") or 0) * hg / 100
+                        if not gi: gi = prod.get("gi") or None
+                    if su > 0:
                         naam = it.get("naam","Onbekend") or "Onbekend"
                         if naam not in suiker_producten:
                             suiker_producten[naam] = {"su": 0, "gi": gi}
                         suiker_producten[naam]["su"] += su
                         if gi and not suiker_producten[naam]["gi"]:
                             suiker_producten[naam]["gi"] = gi
-                suikers_per_dag.append(round(dag_su,1))
+                suikers_per_dag.append(round(dag_su if dag_su > 0 else sum(
+                    float(it.get("suikers_g",0) or 0) for it in dd.get("items",[])), 1))
             gem_kh = round(sum(d["kh"] for d in dagen_met)/len(dagen_met),1)
             gem_su = round(sum(s for s,d in zip(suikers_per_dag,dagen_data) if d["kcal"]>0)/max(len(dagen_met),1),1)
             pct_kh = round(gem_kh/max(kh_doel_g,1)*100)
@@ -4465,7 +4485,7 @@ def _render_analyses(user: dict):
                 [{"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":True}],
                 doel_lijn=kh_doel_g, y_label="gram"), height=260)
 
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Suikers vs totale KH per dag</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Toegevoegde suikers vs totale KH per dag</div>', unsafe_allow_html=True)
             _chart(_lijn_chart(labels_d, [
                 {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
                 {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
@@ -4591,10 +4611,14 @@ def _render_analyses(user: dict):
             PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
             DIERLIJK = {"Vlees & vis","Zuivel","Eieren"}
             for dd in dagen_met:
-                for cat,kk in dd.get("cat_kcal",{}).items():
-                    eg = kk * EIWIT_PCT.get(cat,8) / 100 / 4
-                    if cat in PLANTAARDIG: ei_pl += eg
-                    elif cat in DIERLIJK:  ei_di += eg
+                for it in dd.get("items",[]):
+                    # Haal categorie op: eerst uit item, dan uit bibliotheek
+                    pid = it.get("product_id","") or ""
+                    cat = (it.get("categorie") or
+                           bib_cat_lookup.get(pid,{}).get("categorie") or "Overige")
+                    ei_g = float(it.get("eiwit_g",0) or 0)
+                    if cat in PLANTAARDIG: ei_pl += ei_g
+                    elif cat in DIERLIJK:  ei_di += ei_g
             ei_tot = ei_pl + ei_di
             if ei_tot > 0:
                 pct_pl = round(ei_pl/ei_tot*100)
@@ -4609,10 +4633,13 @@ def _render_analyses(user: dict):
                     # Bouw overzicht per categorie
                     cat_ei_detail = {}
                     for dd in dagen_met:
-                        for cat,kk in dd.get("cat_kcal",{}).items():
-                            eg = kk * EIWIT_PCT.get(cat,8) / 100 / 4
+                        for it in dd.get("items",[]):
+                            pid_d = it.get("product_id","") or ""
+                            cat_d = (it.get("categorie") or
+                                     bib_cat_lookup.get(pid_d,{}).get("categorie") or "Overige")
+                            eg = float(it.get("eiwit_g",0) or 0)
                             if eg > 0:
-                                cat_ei_detail[cat] = cat_ei_detail.get(cat,0) + eg
+                                cat_ei_detail[cat_d] = cat_ei_detail.get(cat_d,0) + eg
                     top_cats = sorted(cat_ei_detail.items(), key=lambda x:-x[1])[:6]
                     max_ei_cat = top_cats[0][1] if top_cats else 1
                     max_ei_cat = top_cats[0][1] if top_cats else 1
