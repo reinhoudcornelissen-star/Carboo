@@ -3854,22 +3854,21 @@ def _render_analyses(user: dict):
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
 
     def _chart(html_body: str, height: int = 320):
-        # Chart.js via CDN met stable render - height exact instellen voorkomt fade
+        h_inner = height - 20
         html_full = (
             '<!DOCTYPE html><html><head>'
             '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>'
             f'<style>'
             f'*{{box-sizing:border-box;margin:0;padding:0;}}'
             f'html,body{{width:100%;height:{height}px;overflow:hidden;background:#0f172a;}}'
-            f'canvas{{border-radius:10px;display:block;}}'
             f'</style></head>'
-            f'<body style="height:{height}px;padding:8px;">'
-            f'{html_body}'
+            f'<body style="padding:4px 8px;">'
+            f'<div style="position:relative;width:100%;height:{h_inner}px;">{html_body}</div>'
             f'</body></html>'
         )
         st.components.v1.html(html_full, height=height, scrolling=False)
 
-    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title=""):
+    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title="", y_max=None):
         ds_js = []
         for ds in datasets:
             ds_js.append(f'''{{
@@ -3895,18 +3894,18 @@ def _render_analyses(user: dict):
                 tension: 0,
             }}''')
         return f'''
-        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
+        <canvas id="chart__lijn_chart"></canvas>
         <script>
-        new Chart(document.getElementById('c'), {{
+        new Chart(document.getElementById('chart__lijn_chart'), {{
             type: 'line',
             data: {{
                 labels: {_json.dumps(labels)},
                 datasets: [{",".join(ds_js)}]
             }},
             options: {{
-                responsive: false,
+                responsive: true,
                 maintainAspectRatio: false,
-                animation: false,
+                animation: {duration:0},
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }},
                     title: {{ display: {'true' if title else 'false'}, text: '{title}', color: '#f8fafc', font: {{ size: 13, weight: 'bold' }} }}
@@ -3914,13 +3913,15 @@ def _render_analyses(user: dict):
                 scales: {{
                     x: {{ ticks: {{ color: '#64748b', maxTicksLimit: 10 }}, grid: {{ color: '#1e293b' }} }},
                     y: {{ ticks: {{ color: '#64748b' }}, grid: {{ color: '#1e293b' }},
+                          min: 0,
+                          {('max: ' + str(y_max) + ',') if y_max else ''}
                           title: {{ display: {'true' if y_label else 'false'}, text: '{y_label}', color: '#64748b' }} }}
                 }}
             }}
         }});
         </script>'''
 
-    def _bar_chart(labels, datasets, y_label=""):
+    def _bar_chart(labels, datasets, y_label="", y_max=None):
         ds_js = []
         for ds in datasets:
             ds_js.append(f'''{{
@@ -3932,24 +3933,26 @@ def _render_analyses(user: dict):
                 borderRadius: 4,
             }}''')
         return f'''
-        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
+        <canvas id="chart__bar_chart"></canvas>
         <script>
-        new Chart(document.getElementById('c'), {{
+        new Chart(document.getElementById('chart__bar_chart'), {{
             type: 'bar',
             data: {{
                 labels: {_json.dumps(labels)},
                 datasets: [{",".join(ds_js)}]
             }},
             options: {{
-                responsive: false,
+                responsive: true,
                 maintainAspectRatio: false,
-                animation: false,
+                animation: {duration:0},
                 plugins: {{
                     legend: {{ labels: {{ color: '#94a3b8', font: {{ size: 11 }} }} }}
                 }},
                 scales: {{
                     x: {{ ticks: {{ color: '#64748b', maxTicksLimit: 12 }}, grid: {{ color: '#1e293b' }} }},
                     y: {{ ticks: {{ color: '#64748b' }}, grid: {{ color: '#1e293b' }},
+                          min: 0,
+                          {('max: ' + str(y_max) + ',') if y_max else ''}
                           title: {{ display: {'true' if y_label else 'false'}, text: '{y_label}', color: '#64748b' }} }}
                 }}
             }}
@@ -3958,9 +3961,9 @@ def _render_analyses(user: dict):
 
     def _donut_chart(labels, values, colors):
         return f'''
-        <div style="position:relative;width:100%;height:100%;"><canvas id="c"></canvas></div>
+        <canvas id="chart__donut_chart"></canvas>
         <script>
-        new Chart(document.getElementById('c'), {{
+        new Chart(document.getElementById('chart__donut_chart'), {{
             type: 'doughnut',
             data: {{
                 labels: {_json.dumps(labels)},
@@ -4183,14 +4186,35 @@ def _render_analyses(user: dict):
 
             nd_labels = [d["datum"][5:] for d in kwal_dagen]
 
-            # Grafiek 1: Nutriëntdensiteit per dag
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Nutriëntdensiteit per dag (/10)</div>', unsafe_allow_html=True)
+            # Grafiek 1a: Nutriëntdensiteit per dag (schaal 0-10)
+            nd_col1, nd_col2 = st.columns([8,1])
+            with nd_col1:
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:2px;">Nutriëntdensiteit per dag (/10)</div>', unsafe_allow_html=True)
+            with nd_col2:
+                with st.expander("ℹ️"):
+                    st.markdown(
+                        '<div style="font-size:0.78rem;color:#94a3b8;line-height:1.7;">'
+                        '<b style="color:#f8fafc;">Wat is nutriëntdensiteit?</b><br><br>'
+                        'Niet alle calorieën zijn gelijk. 100 kcal uit broccoli levert veel meer vitaminen, '
+                        'mineralen en vezels dan 100 kcal uit koekjes. '
+                        'De nutriëntdensiteit score meet hoe <b style="color:#22c55e;">voedingsrijk</b> je eten is per calorie.<br><br>'
+                        'Score 8-10 = rijke voeding vol micronutriënten<br>'
+                        'Score 4-7 = redelijk, ruimte voor verbetering<br>'
+                        'Score 0-3 = veel lege calorieën<br><br>'
+                        'Tip: meer groenten, fruit, peulvruchten en volkoren verhogen je score.'
+                        '</div>', unsafe_allow_html=True)
             nd_vals   = [d["nd_score"] for d in kwal_dagen]
-            rest_vals = [d["rest_pct"] for d in kwal_dagen]
             _chart(_lijn_chart(nd_labels, [
-                {"label":"Nutriëntdensiteit /10","data":nd_vals,"color":"#22c55e","fill":False},
-                {"label":"% Restgroep (lager=beter)","data":rest_vals,"color":"#f97316","fill":False},
-            ], doel_lijn=7, y_label="Score"), height=420)
+                {"label":"Nutriëntdensiteit /10","data":nd_vals,"color":"#22c55e","fill":True},
+            ], doel_lijn=7, y_label="Score /10", y_max=10), height=380)
+
+            # Grafiek 1b: % Restgroep per dag (schaal 0-100%)
+            rest_vals = [d["rest_pct"] for d in kwal_dagen]
+            if any(v > 0 for v in rest_vals):
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">% Restgroep per dag (lager is beter — doel: max 20%)</div>', unsafe_allow_html=True)
+                _chart(_lijn_chart(nd_labels, [
+                    {"label":"% Restgroep","data":rest_vals,"color":"#f97316","fill":True},
+                ], doel_lijn=20, y_label="%", y_max=100), height=340)
 
             # Grafiek 2: Plantaardig vs dierlijk
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardige vs dierlijke voeding (% kcal per dag)</div>', unsafe_allow_html=True)
@@ -4210,7 +4234,7 @@ def _render_analyses(user: dict):
                 _chart(_bar_chart(nd_labels, [
                     {"label":"Plantaardig %","data":plant_pct,"color":"#22c55e"},
                     {"label":"Dierlijk %","data":dier_pct,"color":"#3b82f6"},
-                ], y_label="%"), height=360)
+                ], y_label="%", y_max=100), height=360)
             with pa2:
                 k_pl = "#22c55e" if gem_plant>=50 else ("#fbbf24" if gem_plant>=30 else "#ef4444")
                 adv_pl = "Goed" if gem_plant>=50 else ("Matig" if gem_plant>=30 else "Te laag")
@@ -4335,10 +4359,10 @@ def _render_analyses(user: dict):
                 [{"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":True}],
                 doel_lijn=kh_doel_g, y_label="gram"), height=260)
 
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Toegevoegde suikers vs totale KH per dag</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Suikers vs totale KH per dag</div>', unsafe_allow_html=True)
             _chart(_lijn_chart(labels_d, [
                 {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
-                {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
+                {"label":"Suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
                 y_label="gram"), height=260)
 
             # Meldingen >10%
@@ -4356,7 +4380,7 @@ def _render_analyses(user: dict):
 
             # Top suikerproducten
             if suiker_producten:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met toegevoegde suikers (deze periode)</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met suikers (deze periode)</div>', unsafe_allow_html=True)
                 top_su = sorted(suiker_producten.items(), key=lambda x:-x[1])[:6]
                 max_su = top_su[0][1] if top_su else 1
                 for naam_su, gram_su in top_su:
@@ -4406,13 +4430,6 @@ def _render_analyses(user: dict):
 
             # Eiwitverdeling over maaltijdmomenten
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 4px;">Eiwitverdeling over maaltijdmomenten</div>', unsafe_allow_html=True)
-            # Literatuur: 20-25g per hoofdmaaltijd (Mamerow 2014, GSSIWEB),
-            # tussendoortjes: 10-15g is zinvol voor MPS-stimulatie (ISSN 2017)
-            st.markdown(
-                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                'ℹ️ Literatuur (Mamerow et al. 2014, ISSN 2017): hoofdmaaltijden ideaal 20-25g eiwit voor optimale MPS. '
-                'Tussendoortjes: 10-15g is zinvol als aanvulling, hoeven niet even hoog te zijn als hoofdmaaltijden.</div>',
-                unsafe_allow_html=True)
             MOMENT_NAMEN = ["Ontbijt","Tussend. vm","Lunch","Tussend. nm","Avondmaal","Avondsnack"]
             MOMENT_TYPES = ["hoofd","tussen","hoofd","tussen","hoofd","tussen"]
             ei_per_mom = [0.0]*6
@@ -4466,19 +4483,50 @@ def _render_analyses(user: dict):
                         [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
                         [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=220)
                 with ep2:
+                    kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#fbbf24"
+                    # Bouw overzicht per categorie
+                    cat_ei_detail = {}
+                    for dd in dagen_met:
+                        for cat,kk in dd.get("cat_kcal",{}).items():
+                            eg = kk * EIWIT_PCT.get(cat,8) / 100 / 4
+                            if eg > 0:
+                                cat_ei_detail[cat] = cat_ei_detail.get(cat,0) + eg
+                    top_cats = sorted(cat_ei_detail.items(), key=lambda x:-x[1])[:6]
+                    max_ei_cat = top_cats[0][1] if top_cats else 1
+                    CAT_KL = {"Vlees & vis":"#ef4444","Zuivel":"#3b82f6","Eieren":"#fbbf24",
+                              "Granen & brood":"#f97316","Groenten":"#22c55e","Peulvruchten":"#22c55e",
+                              "Noten & zaden":"#f59e0b","Fruit":"#a78bfa","Sportvoeding":"#14b8a6","Overige":"#64748b"}
                     adv_pl = ("✓ Goede mix plantaardig/dierlijk eiwit." if 30<=pct_pl<=70 else
                               "⚠️ Weinig plantaardig eiwit. Voeg peulvruchten, noten of tofu toe." if pct_pl<30 else
                               "✓ Overwegend plantaardig. Check B12, ijzer en zink.")
-                    kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#fbbf24"
-                    st.markdown(
+                    html_detail = (
                         f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
-                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:8px;">ANALYSE</div>'
-                        f'<div style="font-size:0.85rem;color:{kl_pl};line-height:1.6;">{adv_pl}</div>'
-                        f'<br><div style="font-size:0.75rem;color:#64748b;line-height:1.6;">'
-                        f'Aanbeveling duursporters: 1.4–1.7g eiwit/kg/dag.<br>'
-                        f'Jouw gemiddelde: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
-                        f'{"✓ voldoende" if ei_per_kg>=1.4 else "⚠️ mogelijk te laag"}'
-                        f'</div></div>', unsafe_allow_html=True)
+                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:10px;">EIWITBRONNEN (gem/dag)</div>'
+                    )
+                    for cat_n, ei_g in top_cats:
+                        ei_gem_dag = round(ei_g/len(dagen_met),1)
+                        pct_b = round(ei_g/max_ei_cat*100)
+                        kl_c = CAT_KL.get(cat_n,"#64748b")
+                        is_plant = cat_n in PLANTAARDIG
+                        tag = "🌱" if is_plant else "🥩"
+                        html_detail += (
+                            f'<div style="margin-bottom:7px;">'
+                            f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px;">'
+                            f'<span style="color:#f1f5f9;">{tag} {cat_n}</span>'
+                            f'<span style="color:{kl_c};font-weight:700;">{ei_gem_dag}g/dag</span>'
+                            f'</div>'
+                            f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
+                            f'<div style="width:{pct_b}%;height:100%;background:{kl_c};border-radius:3px;"></div>'
+                            f'</div></div>'
+                        )
+                    html_detail += (
+                        f'<div style="border-top:1px solid #334155;margin-top:10px;padding-top:10px;">'
+                        f'<div style="font-size:0.75rem;color:{kl_pl};margin-bottom:4px;">{adv_pl}</div>'
+                        f'<div style="font-size:0.72rem;color:#64748b;">Gem eiwit: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
+                        f'{"✓ voldoende (doel ≥1.4g/kg)" if ei_per_kg>=1.4 else "⚠️ onder aanbeveling (doel 1.4–1.7g/kg)"}'
+                        f'</div></div></div>'
+                    )
+                    st.markdown(html_detail, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4B — VETTEN (als extra tab)
@@ -4564,24 +4612,24 @@ def _render_analyses(user: dict):
                 k_verz = "#22c55e" if verz_pct_kcal<=10 else "#ef4444"
 
                 # Donut verz/onverz gemiddelde
+                gem_onverz = round(gem_vet - gem_verz, 1)
+                adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
+                            else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
+                k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
                 vd1, vd2 = st.columns([1,2])
                 with vd1:
-                    gem_onverz = round(gem_vet - gem_verz, 1)
                     _chart(_donut_chart(
-                        [f"Onverzadigd {round(gem_onverz,1)}g",f"Verzadigd {gem_verz}g"],
-                        [max(0,round(gem_onverz,1)), gem_verz],
-                        ["#22c55e","#ef4444"]), height=200)
+                        [f"Onverzadigd {gem_onverz}g",f"Verzadigd {gem_verz}g"],
+                        [max(0,gem_onverz), gem_verz],
+                        ["#22c55e","#ef4444"]), height=220)
                 with vd2:
-                    adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
-                                else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
-                    k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;margin-top:8px;">'
-                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:8px;">ANALYSE</div>'
-                        f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;">{adv_verz}</div>'
-                        f'<br><div style="font-size:0.75rem;color:#64748b;line-height:1.5;">'
-                        f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
-                        f'WHO max: 10% van kcal = {round(gem_kcal_v*0.10/9)}g/dag bij {gem_kcal_v}kcal'
+                        f'<div style="background:#1e293b;border-radius:10px;padding:20px;height:220px;display:flex;flex-direction:column;justify-content:center;">'
+                        f'<div style="font-size:0.68rem;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:12px;">ANALYSE</div>'
+                        f'<div style="font-size:0.88rem;color:{k_adv_v};line-height:1.6;margin-bottom:12px;">{adv_verz}</div>'
+                        f'<div style="font-size:0.75rem;color:#64748b;line-height:1.7;">'
+                        f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> ({verz_pct_kcal}% van kcal)<br>'
+                        f'WHO max 10% = <b style="color:#94a3b8">{round(gem_kcal_v*0.10/9)}g/dag</b> bij {gem_kcal_v} kcal'
                         f'</div></div>', unsafe_allow_html=True)
             else:
                 st.markdown(
@@ -4637,6 +4685,11 @@ def _render_analyses(user: dict):
 
                 # Breakdown laatste dag
                 bd = scores_per_dag[-1]
+                st.markdown(
+                    '<div style="background:#1e293b;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;margin:12px 0;font-size:0.78rem;color:#64748b;line-height:1.6;">'
+                    '💡 De performance score geeft een dagelijkse inschatting van je voedingsstatus om optimaal te sporten. '
+                    'Een score van 75+ betekent dat je voeding goed afgestemd is op training en herstel.'
+                    '</div>', unsafe_allow_html=True)
                 st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Breakdown laatste dag</div>', unsafe_allow_html=True)
                 PIJLERS = {
                     "energiebalans":    ("⚡ Energiebalans",20),
@@ -4651,18 +4704,12 @@ def _render_analyses(user: dict):
                     if isinstance(pts,dict): pts = pts.get("score",0)
                     pct_p = round(pts/maxp*100)
                     kl_p = "#22c55e" if pct_p>=80 else ("#fbbf24" if pct_p>=50 else "#ef4444")
-                    detail = ""
-                    if isinstance(bd["breakdown"].get(k),dict):
-                        detail = bd["breakdown"][k].get("detail","")
-                    detail_html = f'<div style="font-size:0.68rem;color:#64748b;margin-top:3px;">{detail}</div>' if detail else ""
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:6px;">'
-                        f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-                        f'<span style="font-size:0.82rem;color:#f8fafc;">{lbl}</span>'
-                        f'<span style="font-size:0.82rem;font-weight:700;color:{kl_p};">{pts}/{maxp}</span></div>'
-                        f'<div style="background:#0f172a;border-radius:3px;height:5px;margin-bottom:4px;">'
-                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:3px;"></div></div>'
-                        + detail_html + '</div>',
+                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin-bottom:5px;">'
+                        f'<div style="font-size:0.8rem;color:#f1f5f9;margin-bottom:6px;">{lbl}</div>'
+                        f'<div style="background:#0f172a;border-radius:4px;height:7px;">'
+                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:4px;"></div>'
+                        f'</div></div>',
                         unsafe_allow_html=True)
 
                 # Pre/post training macro inzicht
