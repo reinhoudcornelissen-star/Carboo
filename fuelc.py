@@ -1356,7 +1356,7 @@ def _product_formulier(prefix: str, defaults: dict = None) -> dict:
         kh = st.number_input("Koolhydraten (g)", 0.0, 100.0,
             float(d.get("kh_100g",0) or 0), 0.1, key=f"{prefix}_kh")
     with m3:
-        suikers = st.number_input("waarvan suikers (g)", 0.0, 100.0,
+        suikers = st.number_input("waarvan toegevoegde suikers (g)", 0.0, 100.0,
             float(d.get("suikers_100g",0) or 0), 0.1, key=f"{prefix}_suikers")
 
     m4, m5, m6 = st.columns(3)
@@ -2988,7 +2988,7 @@ def _laad_dagboek_items(user_id, datum, moment):
         cache_key = f"dagboek_cache_{datum}"
         if cache_key not in st.session_state:
             r = _get_supabase().table("fuelc_dagboek")\
-                .select("id,datum,moment,naam,hoeveelheid_g,kcal,kh_g,eiwit_g,vet_g,vezels_g,product_id")\
+                .select("id,datum,moment,naam,hoeveelheid_g,kcal,kh_g,eiwit_g,vet_g,vezels_g,suikers_g,verz_g,natrium_mg,kalium_mg,calcium_mg,ijzer_mg,vitd_mcg,vitb12_mcg,omega3_g,gi,categorie,product_id")\
                 .eq("user_id",user_id).eq("datum",datum).execute()
             st.session_state[cache_key] = r.data or []
         return [i for i in st.session_state[cache_key] if i.get("moment") == moment]
@@ -3027,11 +3027,22 @@ def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
             "user_id":user_id,"datum":datum,"moment":moment,
             "product_id":prod_id,"naam":product["naam"],
             "hoeveelheid_g":hoeveelheid,
-            "kcal":    round((product.get("kcal_100g") or 0)*f, 1),
-            "kh_g":    round((product.get("kh_100g") or 0)*f, 1),
-            "eiwit_g": round((product.get("eiwit_100g") or 0)*f, 1),
-            "vet_g":   round((product.get("vet_100g") or 0)*f, 1),
-            "vezels_g":round((product.get("vezels_100g") or 0)*f, 1),
+            "kcal":      round((product.get("kcal_100g") or 0)*f, 1),
+            "kh_g":      round((product.get("kh_100g") or 0)*f, 1),
+            "eiwit_g":   round((product.get("eiwit_100g") or 0)*f, 1),
+            "vet_g":     round((product.get("vet_100g") or 0)*f, 1),
+            "vezels_g":  round((product.get("vezels_100g") or 0)*f, 1),
+            "suikers_g": round((product.get("suikers_100g") or 0)*f, 2),
+            "verz_g":    round((product.get("verzadigd_100g") or 0)*f, 2),
+            "natrium_mg":round((product.get("natrium_100g") or 0)*f, 1),
+            "kalium_mg": round((product.get("kalium_100g") or 0)*f, 1),
+            "calcium_mg":round((product.get("calcium_100g") or 0)*f, 1),
+            "ijzer_mg":  round((product.get("ijzer_100g") or 0)*f, 3),
+            "vitd_mcg":  round((product.get("vitd_100g") or 0)*f, 3),
+            "vitb12_mcg":round((product.get("vitb12_100g") or 0)*f, 3),
+            "omega3_g":  round((product.get("omega3_100g") or 0)*f, 3),
+            "gi":        product.get("gi") or None,
+            "categorie": product.get("categorie") or product.get("cat") or None,
         }).execute()
         _invalideer_dagboek_cache(datum)
         return True
@@ -3040,15 +3051,26 @@ def _sla_dagboek_item(user_id, datum, moment, product, hoeveelheid):
         return False
 
 
-def _update_dagboek_item(item_id, datum, hoeveelheid, kcal_100, kh_100, ei_100, vt_100):
+def _update_dagboek_item(item_id, datum, hoeveelheid, kcal_100, kh_100, ei_100, vt_100,
+                         su_100=0, verz_100=0, na_100=0, ka_100=0, ca_100=0,
+                         ij_100=0, vd_100=0, b12_100=0, om3_100=0):
     try:
         f = hoeveelheid / 100
         _get_supabase().table("fuelc_dagboek").update({
             "hoeveelheid_g":hoeveelheid,
-            "kcal":    round((kcal_100 or 0)*f, 1),
-            "kh_g":    round((kh_100 or 0)*f, 1),
-            "eiwit_g": round((ei_100 or 0)*f, 1),
-            "vet_g":   round((vt_100 or 0)*f, 1),
+            "kcal":      round((kcal_100 or 0)*f, 1),
+            "kh_g":      round((kh_100 or 0)*f, 1),
+            "eiwit_g":   round((ei_100 or 0)*f, 1),
+            "vet_g":     round((vt_100 or 0)*f, 1),
+            "suikers_g": round((su_100 or 0)*f, 2),
+            "verz_g":    round((verz_100 or 0)*f, 2),
+            "natrium_mg":round((na_100 or 0)*f, 1),
+            "kalium_mg": round((ka_100 or 0)*f, 1),
+            "calcium_mg":round((ca_100 or 0)*f, 1),
+            "ijzer_mg":  round((ij_100 or 0)*f, 3),
+            "vitd_mcg":  round((vd_100 or 0)*f, 3),
+            "vitb12_mcg":round((b12_100 or 0)*f, 3),
+            "omega3_g":  round((om3_100 or 0)*f, 3),
         }).eq("id", item_id).execute()
         _invalideer_dagboek_cache(datum)
         return True
@@ -3826,6 +3848,16 @@ def _render_analyses(user: dict):
     PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
     DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
 
+    # Laad categorie lookup voor cat_kcal
+    @st.cache_data(ttl=300)
+    def _laad_bib_cat(uid):
+        try:
+            r1 = _get_supabase().table("fuelc_bibliotheek")                .select("id,categorie").eq("user_id",uid).execute()
+            r2 = _get_supabase().table("fuelc_bibliotheek")                .select("id,categorie").is_("user_id","null").execute()
+            return {row["id"]: row for row in (r1.data or [])+(r2.data or [])}
+        except: return {}
+    bib_cat_lookup = _laad_bib_cat(user_id)
+
     # Voedingsdata per dag
     dagen_data = []
     for i in range(n_dagen):
@@ -3843,12 +3875,17 @@ def _render_analyses(user: dict):
         n_mom  = len(set(it.get("moment",0) for it in items)) if items else 0
         cat_kcal = {}
         for it in items:
-            cat = it.get("categorie","Overige") or "Overige"
+            # Haal categorie op via product_id uit bibliotheek
+            pid = it.get("product_id","") or ""
+            prod_bib = bib_cat_lookup.get(pid, {})
+            cat = prod_bib.get("categorie","Overige") or it.get("categorie","Overige") or "Overige"
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         dagen_data.append({
             "datum":dag_str,"kcal":kcal,"kh":kh,"eiwit":eiwit,
-            "vet":vet,"vezels":vezels,"n_mom":n_mom,
-            "cat_kcal":cat_kcal,"items":items,
+            "vet":vet,"vezels":vezels,"suikers":suikers,"verz":verz,
+            "natrium":natrium,"kalium":kalium,"calcium":calcium,
+            "ijzer":ijzer,"vitd":vitd,"vitb12":vitb12,"omega3":omega3,
+            "n_mom":n_mom,"cat_kcal":cat_kcal,"items":items,
         })
 
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
@@ -3868,7 +3905,7 @@ def _render_analyses(user: dict):
         )
         st.components.v1.html(html_full, height=height, scrolling=False)
 
-    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title="", y_max=None):
+    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title="", y_max=None, y_min=None):
         ds_js = []
         for ds in datasets:
             ds_js.append(f'''{{
@@ -3913,7 +3950,7 @@ def _render_analyses(user: dict):
                 scales: {{
                     x: {{ ticks: {{ color: '#64748b', maxTicksLimit: 10 }}, grid: {{ color: '#1e293b' }} }},
                     y: {{ ticks: {{ color: '#64748b' }}, grid: {{ color: '#1e293b' }},
-                          min: 0,
+                          {('min: ' + str(y_min) + ',') if y_min is not None else 'min: 0,'}
                           {('max: ' + str(y_max) + ',') if y_max else ''}
                           title: {{ display: {'true' if y_label else 'false'}, text: '{y_label}', color: '#64748b' }} }}
                 }}
@@ -3951,7 +3988,7 @@ def _render_analyses(user: dict):
                 scales: {{
                     x: {{ ticks: {{ color: '#64748b', maxTicksLimit: 12 }}, grid: {{ color: '#1e293b' }} }},
                     y: {{ ticks: {{ color: '#64748b' }}, grid: {{ color: '#1e293b' }},
-                          min: 0,
+                          {('min: ' + str(y_min) + ',') if y_min is not None else 'min: 0,'}
                           {('max: ' + str(y_max) + ',') if y_max else ''}
                           title: {{ display: {'true' if y_label else 'false'}, text: '{y_label}', color: '#64748b' }} }}
                 }}
@@ -4024,8 +4061,9 @@ def _render_analyses(user: dict):
             chart_html = _lijn_chart(
                 labels_g,
                 [{"label":"Gewicht (kg)","data":vals_g,"color":"#22c55e","fill":True}],
-                y_label="kg")
-            _chart(chart_html, height=440)
+                y_label="kg",
+                y_min=max(0, round(min(vals_g)-10)),
+                y_max=round(max(vals_g)+10))
 
             # Statistieken
             if len(vals_g) >= 2:
@@ -4077,26 +4115,38 @@ def _render_analyses(user: dict):
             kwal_dagen = []
             for dd in dagen_met:
                 kcal_dag = dd["kcal"] or 1
-                vezels=0; kalium=0; calcium=0; ijzer=0; vitd=0; vitb12=0; omega3=0
+                # Haal micronutriënten direct uit dd (al geaggregeerd)
+                vezels = dd.get("vezels",0) or 0
+                kalium = dd.get("kalium",0) or 0
+                calcium = dd.get("calcium",0) or 0
+                ijzer  = dd.get("ijzer",0) or 0
+                vitd   = dd.get("vitd",0) or 0
+                vitb12 = dd.get("vitb12",0) or 0
+                omega3 = dd.get("omega3",0) or 0
+                n_micro = 1 if (vezels or kalium or calcium or ijzer or vitd or vitb12 or omega3) else 0
                 kcal_plant=0; kcal_dier=0; kcal_rest=0
-                n_micro=0; cats_dag=set()
+                cats_dag=set()
                 for it in dd.get("items",[]):
-                    hg   = float(it.get("hoeveelheid_g",100) or 100)
-                    kc   = float(it.get("kcal",0) or 0)
-                    cat  = it.get("categorie","Overige") or "Overige"
-                    pid  = it.get("product_id","") or ""
+                    kc  = float(it.get("kcal",0) or 0)
+                    cat = it.get("categorie","Overige") or "Overige"
                     cats_dag.add(cat)
-                    prod = micro_bib.get(pid,{})
-                    if prod:
+                    # Gebruik waarden direct uit dagboek (opgeslagen bij invoer)
+                    vz  = float(it.get("vezels_g",0) or 0)
+                    ka  = float(it.get("kalium_mg",0) or 0)
+                    ca  = float(it.get("calcium_mg",0) or 0)
+                    ij  = float(it.get("ijzer_mg",0) or 0)
+                    vd  = float(it.get("vitd_mcg",0) or 0)
+                    b12 = float(it.get("vitb12_mcg",0) or 0)
+                    om3 = float(it.get("omega3_g",0) or 0)
+                    if vz or ka or ca or ij or vd or b12 or om3:
                         n_micro += 1
-                        factor = hg/100
-                        vezels  += float(prod.get("vezels_100g") or 0)*factor
-                        kalium  += float(prod.get("kalium_100g") or 0)*factor
-                        calcium += float(prod.get("calcium_100g") or 0)*factor
-                        ijzer   += float(prod.get("ijzer_100g") or 0)*factor
-                        vitd    += float(prod.get("vitd_100g") or 0)*factor
-                        vitb12  += float(prod.get("vitb12_100g") or 0)*factor
-                        omega3  += float(prod.get("omega3_100g") or 0)*factor
+                    vezels  += vz
+                    kalium  += ka
+                    calcium += ca
+                    ijzer   += ij
+                    vitd    += vd
+                    vitb12  += b12
+                    omega3  += om3
                     if cat in PLANTAARDIG_K: kcal_plant += kc
                     elif cat in DIERLIJK_K:  kcal_dier  += kc
                     else:                    kcal_rest  += kc
@@ -4145,16 +4195,7 @@ def _render_analyses(user: dict):
             k_cat = "#22c55e" if gem_cats>=5 else ("#fbbf24" if gem_cats>=3 else "#ef4444")
 
             # Info expander
-            with st.expander("ℹ️ Hoe worden deze scores berekend?"):
-                st.markdown(
-                    '<div style="font-size:0.78rem;color:#94a3b8;line-height:1.7;">'
-                    '<b style="color:#22c55e;">Nutriëntdensiteit:</b> score 0-10 per dag. Per 100 kcal: '
-                    'vezels ≥3g=2pt, kalium ≥300mg=2pt, calcium ≥100mg=1pt, ijzer ≥1mg=1pt, '
-                    'vitD ≥1µg=1pt, B12 ≥0.5µg=1pt, omega-3 ≥0.2g=2pt. '
-                    'Groenten &amp; fruit ≥15% van kcal = +2pt bonus.<br><br>'
-                    '<b style="color:#22c55e;">% Restgroep:</b> aandeel kcal uit sauzen, dranken, '
-                    'sportvoeding, vetten &amp; oliën en overige. Lager = beter. Doel: max 20%.'
-                    '</div>', unsafe_allow_html=True)
+
 
             # KPI badges
             q1,q2,q3 = st.columns(3)
@@ -4319,20 +4360,20 @@ def _render_analyses(user: dict):
 
             # Suikers per dag + top producten
             suikers_per_dag = []
-            suiker_producten = {}  # naam -> totale suikers over periode
+            suiker_producten = {}  # naam -> {"su": gram, "gi": waarde}
             for dd in dagen_data:
-                dag_su = 0
+                dag_su = dd.get("suikers", 0) or 0
                 for it in dd.get("items",[]):
-                    hg = float(it.get("hoeveelheid_g",100) or 100)
-                    pid = it.get("product_id","") or ""
-                    prod = su_bib.get(pid,{})
-                    su = float(prod.get("suikers_100g") or 0) * hg / 100
-                    dag_su += su
+                    su   = float(it.get("suikers_g",0) or 0)
+                    gi   = it.get("gi") or None
                     if su > 2:
-                        naam = it.get("naam","") or prod.get("naam","Onbekend")
-                        suiker_producten[naam] = suiker_producten.get(naam,0) + su
+                        naam = it.get("naam","Onbekend") or "Onbekend"
+                        if naam not in suiker_producten:
+                            suiker_producten[naam] = {"su": 0, "gi": gi}
+                        suiker_producten[naam]["su"] += su
+                        if gi and not suiker_producten[naam]["gi"]:
+                            suiker_producten[naam]["gi"] = gi
                 suikers_per_dag.append(round(dag_su,1))
-
             gem_kh = round(sum(d["kh"] for d in dagen_met)/len(dagen_met),1)
             gem_su = round(sum(s for s,d in zip(suikers_per_dag,dagen_data) if d["kcal"]>0)/max(len(dagen_met),1),1)
             pct_kh = round(gem_kh/max(kh_doel_g,1)*100)
@@ -4344,7 +4385,7 @@ def _render_analyses(user: dict):
             for col,lbl,val,kl in [
                 (m1,"GEM KH/DAG",f"{gem_kh}g",k_kh),
                 (m2,"KH DOEL",f"{kh_doel_g}g","#64748b"),
-                (m3,"GEM TOEGEV. SUIKERS",f"{gem_su}g",k_su),
+                (m3,"TOEGEV. SUIKERS/DAG",f"{gem_su}g",k_su),
                 (m4,"SUIKERS % VAN KH",f"{su_pct}%",k_su)]:
                 with col:
                     st.markdown(
@@ -4362,7 +4403,7 @@ def _render_analyses(user: dict):
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Suikers vs totale KH per dag</div>', unsafe_allow_html=True)
             _chart(_lijn_chart(labels_d, [
                 {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
-                {"label":"Suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
+                {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
                 y_label="gram"), height=260)
 
             # Meldingen >10%
@@ -4570,10 +4611,6 @@ def _render_analyses(user: dict):
 
             # Verzadigde vs onverzadigde vetten
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Verzadigde vs onverzadigde vetten</div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                'ℹ️ Verzadigde vetten max 10% van totale kcal (WHO). Onverzadigde vetten (olijfolie, noten, vis) zijn gunstig voor herstel en inflammatie.</div>',
-                unsafe_allow_html=True)
 
             @st.cache_data(ttl=300)
             def _laad_vet_bib(uid):
@@ -4590,15 +4627,10 @@ def _render_analyses(user: dict):
             onverz_per_dag = []
             heeft_verz_data = False
             for dd in dagen_data:
-                dag_verz = 0
+                dag_verz = round(dd.get("verz",0) or 0, 1)
                 dag_vet  = dd["vet"]
-                for it in dd.get("items",[]):
-                    hg  = float(it.get("hoeveelheid_g",100) or 100)
-                    pid = it.get("product_id","") or ""
-                    verz_100 = vet_bib.get(pid, 0)
-                    dag_verz += verz_100 * hg / 100
-                    if verz_100 > 0: heeft_verz_data = True
-                verz_per_dag.append(round(dag_verz,1))
+                if dag_verz > 0: heeft_verz_data = True
+                verz_per_dag.append(dag_verz)
                 onverz_per_dag.append(round(max(0, dag_vet - dag_verz),1))
 
             if heeft_verz_data:
