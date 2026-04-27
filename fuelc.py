@@ -4602,10 +4602,12 @@ def _render_analyses(user: dict):
                 ep1, ep2 = st.columns([1,2])
                 with ep1:
                     _chart(_donut_chart(
+                    _chart(_donut_chart(
                         [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
+                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=260)
                         [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=220)
                 with ep2:
-                    kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#fbbf24"
+                    kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#3b82f6" if pct_di>70 else "#fbbf24"
                     # Bouw overzicht per categorie
                     cat_ei_detail = {}
                     for dd in dagen_met:
@@ -4615,14 +4617,12 @@ def _render_analyses(user: dict):
                                 cat_ei_detail[cat] = cat_ei_detail.get(cat,0) + eg
                     top_cats = sorted(cat_ei_detail.items(), key=lambda x:-x[1])[:6]
                     max_ei_cat = top_cats[0][1] if top_cats else 1
+                    max_ei_cat = top_cats[0][1] if top_cats else 1
                     CAT_KL = {"Vlees & vis":"#ef4444","Zuivel":"#3b82f6","Eieren":"#fbbf24",
                               "Granen & brood":"#f97316","Groenten":"#22c55e","Peulvruchten":"#22c55e",
                               "Noten & zaden":"#f59e0b","Fruit":"#a78bfa","Sportvoeding":"#14b8a6","Overige":"#64748b"}
-                    adv_pl = ("✓ Goede mix plantaardig/dierlijk eiwit." if 30<=pct_pl<=70 else
-                              "⚠️ Weinig plantaardig eiwit. Voeg peulvruchten, noten of tofu toe." if pct_pl<30 else
-                              "✓ Overwegend plantaardig. Check B12, ijzer en zink.")
                     html_detail = (
-                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
+                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:260px;box-sizing:border-box;overflow-y:auto;">'
                         f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:10px;">EIWITBRONNEN (gem/dag)</div>'
                     )
                     for cat_n, ei_g in top_cats:
@@ -4630,7 +4630,8 @@ def _render_analyses(user: dict):
                         pct_b = round(ei_g/max_ei_cat*100)
                         kl_c = CAT_KL.get(cat_n,"#64748b")
                         is_plant = cat_n in PLANTAARDIG
-                        tag = "🌱" if is_plant else "🥩"
+                        is_dier  = cat_n in DIERLIJK
+                        tag = "🌱" if is_plant else ("🥩" if is_dier else "○")
                         html_detail += (
                             f'<div style="margin-bottom:7px;">'
                             f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px;">'
@@ -4643,7 +4644,12 @@ def _render_analyses(user: dict):
                         )
                     html_detail += (
                         f'<div style="border-top:1px solid #334155;margin-top:10px;padding-top:10px;">'
-                        f'<div style="font-size:0.75rem;color:{kl_pl};margin-bottom:4px;">{adv_pl}</div>'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+                        f'<span style="font-size:0.75rem;color:#22c55e;">🌱 Plantaardig</span>'
+                        f'<span style="font-size:0.75rem;font-weight:700;color:#22c55e;">{pct_pl}%</span></div>'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                        f'<span style="font-size:0.75rem;color:#3b82f6;">🥩 Dierlijk</span>'
+                        f'<span style="font-size:0.75rem;font-weight:700;color:#3b82f6;">{pct_di}%</span></div>'
                         f'<div style="font-size:0.72rem;color:#64748b;">Gem eiwit: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
                         f'{"✓ voldoende (doel ≥1.4g/kg)" if ei_per_kg>=1.4 else "⚠️ onder aanbeveling (doel 1.4–1.7g/kg)"}'
                         f'</div></div></div>'
