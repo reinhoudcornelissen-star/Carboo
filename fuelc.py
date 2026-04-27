@@ -4602,10 +4602,8 @@ def _render_analyses(user: dict):
                 ep1, ep2 = st.columns([1,2])
                 with ep1:
                     _chart(_donut_chart(
-                    _chart(_donut_chart(
                         [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
                         [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=260)
-                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=220)
                 with ep2:
                     kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#3b82f6" if pct_di>70 else "#fbbf24"
                     # Bouw overzicht per categorie
