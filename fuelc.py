@@ -3633,6 +3633,37 @@ def _render_voedingsdagboek(user: dict):
 
 
 
+def _herken_categorie(naam: str, bib_cat: str = "") -> str:
+    """Herken categorie op basis van productnaam als bibliotheek categorie ontbreekt."""
+    cat = bib_cat or ""
+    if cat and cat != "Overige":
+        return cat
+    n = (naam or "").lower()
+    if any(w in n for w in ["garnaal","garna","krab","kreeft","mossel","oester","scampi",
+           "inktvis","zeevruchten","coquille","langoustine","vis","zalm","tonijn",
+           "kabeljauw","tilapia","forel","sardine","makreel","haring",
+           "kip","vlees","gehakt","varken","rund","lam","steak","bacon",
+           "ham","worst","salami","filet","pulled","kipfilet","kalkoен"]):
+        return "Vlees & vis"
+    if any(w in n for w in ["melk","yoghurt","kwark","kaas","room","boter","skyr","cottage"]):
+        return "Zuivel"
+    if any(w in n for w in ["ei ","eieren","omelet"]):
+        return "Eieren"
+    if any(w in n for w in ["brood","pasta","rijst","havermout","graan","wrap","pita","tortilla","crackers"]):
+        return "Granen & brood"
+    if any(w in n for w in ["boon","linze","kikker","hummus","tofu","tempeh","edamame","soja"]):
+        return "Peulvruchten"
+    if any(w in n for w in ["noot","amandel","cashew","walnoot","pinda","pompoen","zaad","chiazaad","lijnzaad"]):
+        return "Noten & zaden"
+    if any(w in n for w in ["appel","peer","banaan","aardbei","bosbes","mango","kiwi","sinaas","druif","meloen","ananas"]):
+        return "Fruit"
+    if any(w in n for w in ["broccoli","spinazie","wortel","tomaat","paprika","courgette","sla","komkommer","champignon","avocado"]):
+        return "Groenten"
+    if any(w in n for w in ["shake","proteine","whey","bcaa","gel","energiereep","sportdrank","recovery"]):
+        return "Sportvoeding"
+    return "Overige"
+
+
 def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
                                 items_detail: list = None) -> dict:
     """
@@ -3911,22 +3942,10 @@ def _render_analyses(user: dict):
         for it in items:
             pid      = it.get("product_id","") or ""
             prod_bib = bib_cat_lookup.get(pid, {})
-            cat      = prod_bib.get("categorie","") or it.get("categorie","") or ""
-            if not cat or cat == "Overige":
-                naam_l = (it.get("naam","") or "").lower()
-                if any(w in naam_l for w in ["garnaal","garna","krab","kreeft","mossel","oester","scampi",
-                       "inktvis","zeevruchten","vis","zalm","tonijn","kabeljauw","kipfilet","kip",
-                       "vlees","gehakt","varken","rund","lam","steak","bacon","ham","worst","salami","filet"]):
-                    cat = "Vlees & vis"
-                elif any(w in naam_l for w in ["melk","yoghurt","kwark","kaas","room","boter"]):
-                    cat = "Zuivel"
-                elif any(w in naam_l for w in ["ei","omelet"]):
-                    cat = "Eieren"
-                elif any(w in naam_l for w in ["snoep","chips","koek","gebak","chocola","candy",
-                       "frisdrank","cola","fanta","bier","wijn","alcohol","taart","cake","biscuit"]):
-                    cat = "Zoetwaren & snacks"
-                else:
-                    cat = "Overige"
+            cat      = _herken_categorie(
+                it.get("naam",""),
+                prod_bib.get("categorie","") or it.get("categorie",""))
+
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         dagen_data.append({
             "datum":dag_str, "kcal":kcal,   "kh":kh,      "eiwit":eiwit,
@@ -4659,26 +4678,10 @@ def _render_analyses(user: dict):
                 for it in dd.get("items",[]):
                     # Haal categorie op: eerst uit item, dan uit bibliotheek
                     pid = it.get("product_id","") or ""
-                    cat = (it.get("categorie") or
-                           bib_cat_lookup.get(pid,{}).get("categorie") or "Overige")
-                    # Naam-gebaseerde herkenning voor producten zonder categorie
-                    if cat == "Overige":
-                        naam_l = (it.get("naam","") or "").lower()
-                        if any(w in naam_l for w in ["garnaal","garna","krab","kreeft","mossel","oester","inktvis",
-                               "scampi","langoustine","zeevruchten","vis","zalm","tonijn","kabeljauw",
-                               "kipfilet","kip","vlees","gehakt","varken","rund","lam","steak",
-                               "bacon","ham","worst","salami","filet"]):
-                            cat = "Vlees & vis"
-                        elif any(w in naam_l for w in ["melk","yoghurt","kwark","kaas","room","boter"]):
-                            cat = "Zuivel"
-                        elif any(w in naam_l for w in ["ei","omelet"]):
-                            cat = "Eieren"
-                        elif any(w in naam_l for w in ["brood","pasta","rijst","meel","havermout","graan","crackers"]):
-                            cat = "Granen & brood"
-                        elif any(w in naam_l for w in ["appel","peer","banaan","aardbei","fruit","druif","sinaas","mango"]):
-                            cat = "Fruit"
-                        elif any(w in naam_l for w in ["groente","sla","spinazie","broccoli","wortel","tomaat","paprika","courgette"]):
-                            cat = "Groenten"
+                    cat = _herken_categorie(
+                        it.get("naam",""),
+                        it.get("categorie") or bib_cat_lookup.get(pid,{}).get("categorie",""))
+
                     ei_g = float(it.get("eiwit_g",0) or 0)
                     if cat in PLANTAARDIG: ei_pl += ei_g
                     elif cat in DIERLIJK:  ei_di += ei_g
@@ -4698,228 +4701,9 @@ def _render_analyses(user: dict):
                     for dd in dagen_met:
                         for it in dd.get("items",[]):
                             pid_d = it.get("product_id","") or ""
-                            cat_d = (it.get("categorie") or
-                                     bib_cat_lookup.get(pid_d,{}).get("categorie") or "Overige")
-                            eg = float(it.get("eiwit_g",0) or 0)
-                            if eg > 0:
-                                cat_ei_detail[cat_d] = cat_ei_detail.get(cat_d,0) + eg
-                    top_cats = sorted(cat_ei_detail.items(), key=lambda x:-x[1])[:6]
-                    max_ei_cat = top_cats[0][1] if top_cats else 1
-                    max_ei_cat = top_cats[0][1] if top_cats else 1
-                    CAT_KL = {"Vlees & vis":"#ef4444","Zuivel":"#3b82f6","Eieren":"#fbbf24",
-                              "Granen & brood":"#f97316","Groenten":"#22c55e","Peulvruchten":"#22c55e",
-                              "Noten & zaden":"#f59e0b","Fruit":"#a78bfa","Sportvoeding":"#14b8a6","Overige":"#64748b"}
-                    html_detail = (
-                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:260px;box-sizing:border-box;overflow-y:auto;">'
-                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:10px;">EIWITBRONNEN (gem/dag)</div>'
-                    )
-                    for cat_n, ei_g in top_cats:
-                        ei_gem_dag = round(ei_g/len(dagen_met),1)
-                        pct_b = round(ei_g/max_ei_cat*100)
-                        kl_c = CAT_KL.get(cat_n,"#64748b")
-                        is_plant = cat_n in PLANTAARDIG
-                        is_dier  = cat_n in DIERLIJK
-                        tag = "🌱" if is_plant else ("🥩" if is_dier else "○")
-                        html_detail += (
-                            f'<div style="margin-bottom:7px;">'
-                            f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px;">'
-                            f'<span style="color:#f1f5f9;">{tag} {cat_n}</span>'
-                            f'<span style="color:{kl_c};font-weight:700;">{ei_gem_dag}g/dag</span>'
-                            f'</div>'
-                            f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
-                            f'<div style="width:{pct_b}%;height:100%;background:{kl_c};border-radius:3px;"></div>'
-                            f'</div></div>'
-                        )
-                    html_detail += (
-                        f'<div style="border-top:1px solid #334155;margin-top:10px;padding-top:10px;">'
-                        f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
-                        f'<span style="font-size:0.75rem;color:#22c55e;">🌱 Plantaardig</span>'
-                        f'<span style="font-size:0.75rem;font-weight:700;color:#22c55e;">{pct_pl}%</span></div>'
-                        f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-                        f'<span style="font-size:0.75rem;color:#3b82f6;">🥩 Dierlijk</span>'
-                        f'<span style="font-size:0.75rem;font-weight:700;color:#3b82f6;">{pct_di}%</span></div>'
-                        f'<div style="font-size:0.72rem;color:#64748b;">Gem eiwit: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
-                        f'{"✓ voldoende (doel ≥1.4g/kg)" if ei_per_kg>=1.4 else "⚠️ onder aanbeveling (doel 1.4–1.7g/kg)"}'
-                        f'</div></div></div>'
-                    )
-                    st.markdown(html_detail, unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # TAB 4B — VETTEN (als extra tab)
-    # Wordt later injecteerd als tab5, performance wordt tab6
-    # ══════════════════════════════════════════════════════════════════════════
-
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # TAB 5 — VETTEN
-    # ══════════════════════════════════════════════════════════════════════════
-    with tab5:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if not dagen_met:
-            st.info("Nog geen voedingsdata.")
-        else:
-            labels_d = [d["datum"][5:] for d in dagen_data]
-            gem_vet = round(sum(d["vet"] for d in dagen_met)/len(dagen_met),1)
-            pct_vet = round(gem_vet/max(vt_doel_g,1)*100)
-            k_vet   = "#22c55e" if 85<=pct_vet<=115 else ("#fbbf24" if 70<=pct_vet<=130 else "#ef4444")
-            # Vet als % van kcal
-            gem_kcal_v = round(sum(d["kcal"] for d in dagen_met)/len(dagen_met))
-            vet_pct_kcal = round(gem_vet*9/max(gem_kcal_v,1)*100)
-
-            v1,v2,v3 = st.columns(3)
-            for col,lbl,val,kl in [
-                (v1,"GEM VET/DAG",f"{gem_vet}g",k_vet),
-                (v2,"DOEL",f"{vt_doel_g}g","#64748b"),
-                (v3,"% VAN KCAL",f"{vet_pct_kcal}%",k_vet)]:
-                with col:
-                    st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
-                        f'<div style="font-size:0.6rem;color:#64748b;">{lbl}</div>'
-                        f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>'
-                        f'</div>', unsafe_allow_html=True)
-
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Vetinname per dag vs doel</div>', unsafe_allow_html=True)
-            vet_vals = [round(d["vet"],1) for d in dagen_data]
-            _chart(_lijn_chart(labels_d,
-                [{"label":"Vet (g)","data":vet_vals,"color":"#8b5cf6","fill":True}],
-                doel_lijn=vt_doel_g, y_label="gram"), height=260)
-
-            # Verzadigde vs onverzadigde vetten
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Verzadigde vs onverzadigde vetten</div>', unsafe_allow_html=True)
-
-            @st.cache_data(ttl=300)
-            def _laad_vet_bib(uid):
-                try:
-                    r1 = _get_supabase().table("fuelc_bibliotheek")\
-                        .select("id,verzadigd_100g").eq("user_id",uid).execute()
-                    r2 = _get_supabase().table("fuelc_bibliotheek")\
-                        .select("id,verzadigd_100g").is_("user_id","null").execute()
-                    return {row["id"]: float(row.get("verzadigd_100g") or 0) for row in (r1.data or [])+(r2.data or [])}
-                except: return {}
-
-            vet_bib = _laad_vet_bib(user_id)
-            verz_per_dag = []
-            onverz_per_dag = []
-            heeft_verz_data = False
-            for dd in dagen_data:
-                dag_verz = round(dd.get("verz",0) or 0, 1)
-                dag_vet  = dd["vet"]
-                if dag_verz > 0: heeft_verz_data = True
-                verz_per_dag.append(dag_verz)
-                onverz_per_dag.append(round(max(0, dag_vet - dag_verz),1))
-
-            if heeft_verz_data:
-                _chart(_bar_chart(labels_d, [
-                    {"label":"Onverzadigd (g)","data":onverz_per_dag,"color":"#22c55e"},
-                    {"label":"Verzadigd (g)","data":verz_per_dag,"color":"#ef4444"},
-                ], y_label="gram"), height=260)
-
-                gem_verz = round(sum(verz_per_dag)/max(len([x for x in verz_per_dag if x>0]),1),1)
-                verz_pct_kcal = round(gem_verz*9/max(gem_kcal_v,1)*100)
-                k_verz = "#22c55e" if verz_pct_kcal<=10 else "#ef4444"
-
-                # Donut verz/onverz gemiddelde
-                gem_onverz = round(gem_vet - gem_verz, 1)
-                adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
-                            else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
-                k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
-                vd1, vd2 = st.columns([1,2])
-                with vd1:
-                    _chart(_donut_chart(
-                        [f"Onverzadigd {gem_onverz}g",f"Verzadigd {gem_verz}g"],
-                        [max(0,gem_onverz), gem_verz],
-                        ["#22c55e","#ef4444"]), height=220)
-                with vd2:
-                    st.markdown(
-                        f'<div style="background:#1e293b;border-radius:10px;padding:20px;height:220px;display:flex;flex-direction:column;justify-content:center;">'
-                        f'<div style="font-size:0.68rem;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:12px;">ANALYSE</div>'
-                        f'<div style="font-size:0.88rem;color:{k_adv_v};line-height:1.6;margin-bottom:12px;">{adv_verz}</div>'
-                        f'<div style="font-size:0.75rem;color:#64748b;line-height:1.7;">'
-                        f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> ({verz_pct_kcal}% van kcal)<br>'
-                        f'WHO max 10% = <b style="color:#94a3b8">{round(gem_kcal_v*0.10/9)}g/dag</b> bij {gem_kcal_v} kcal'
-                        f'</div></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(
-                    '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
-                    '<div style="font-size:0.78rem;color:#64748b;">ℹ️ Verzadigde vetten niet beschikbaar. '
-                    'Voeg "Verzadigd vet (per 100g)" toe aan producten in de bibliotheek voor dit inzicht.</div>'
-                    '</div>', unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # TAB 6 — PERFORMANCE
-    # ══════════════════════════════════════════════════════════════════════════
-    with tab6:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if not dagen_met:
-            st.info("Vul je dagschema in om je performance score te berekenen.")
-        else:
-            scores_per_dag = []
-            for dd in dagen_data:
-                if dd["kcal"] > 0:
-                    w = welzijn_data.get(dd["datum"], {})
-                    result = _bereken_performance_score(dd, profiel, w, dd["items"])
-                    scores_per_dag.append({
-                        "datum": dd["datum"],
-                        "score": result["score"],
-                        "breakdown": result["breakdown"]})
-
-            if scores_per_dag:
-                gem_score = round(sum(s["score"] for s in scores_per_dag)/len(scores_per_dag))
-                beste     = max(scores_per_dag, key=lambda s:s["score"])
-                slechtste = min(scores_per_dag, key=lambda s:s["score"])
-                n_goed    = sum(1 for s in scores_per_dag if s["score"]>=75)
-                k_gem     = "#22c55e" if gem_score>=75 else ("#fbbf24" if gem_score>=50 else "#ef4444")
-
-                p1,p2,p3,p4 = st.columns(4)
-                for col,lbl,val,kl in [
-                    (p1,"GEM SCORE",f"{gem_score}/100",k_gem),
-                    (p2,"BESTE DAG",f"{beste['score']} ({beste['datum'][5:]})", "#22c55e"),
-                    (p3,"SLECHTSTE",f"{slechtste['score']} ({slechtste['datum'][5:]})", "#ef4444"),
-                    (p4,"GOEDE DAGEN",f"{n_goed}/{len(scores_per_dag)}","#22c55e")]:
-                    with col:
-                        st.markdown(
-                            f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">'
-                            f'<div style="font-size:0.6rem;color:#64748b;">{lbl}</div>'
-                            f'<div style="font-size:0.9rem;font-weight:800;color:{kl};">{val}</div>'
-                            f'</div>', unsafe_allow_html=True)
-
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Performance score per dag</div>', unsafe_allow_html=True)
-                perf_labels = [s["datum"][5:] for s in scores_per_dag]
-                perf_vals   = [s["score"] for s in scores_per_dag]
-                _chart(_lijn_chart(perf_labels,
-                    [{"label":"Score","data":perf_vals,"color":"#22c55e","fill":True}],
-                    doel_lijn=75, y_label="Score /100"), height=260)
-
-                # Breakdown laatste dag
-                bd = scores_per_dag[-1]
-                st.markdown(
-                    '<div style="background:#1e293b;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;margin:12px 0;font-size:0.78rem;color:#64748b;line-height:1.6;">'
-                    '💡 De performance score geeft een dagelijkse inschatting van je voedingsstatus om optimaal te sporten. '
-                    'Een score van 75+ betekent dat je voeding goed afgestemd is op training en herstel.'
-                    '</div>', unsafe_allow_html=True)
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Breakdown laatste dag</div>', unsafe_allow_html=True)
-                PIJLERS = {
-                    "energiebalans":    ("⚡ Energiebalans",20),
-                    "macrokwaliteit":   ("🥗 Macrokwaliteit",25),
-                    "micronutriënten":  ("💊 Micronutriënten",20),
-                    "maaltijdregelmaat":("📅 Maaltijdtiming",15),
-                    "voedingskwaliteit":("🌿 Voedingskwaliteit",15),
-                    "hydratatie":       ("💧 Hydratatie",5),
-                }
-                for k,(lbl,maxp) in PIJLERS.items():
-                    pts = bd["breakdown"].get(k,{})
-                    if isinstance(pts,dict): pts = pts.get("score",0)
-                    pct_p = round(pts/maxp*100)
-                    kl_p = "#22c55e" if pct_p>=80 else ("#fbbf24" if pct_p>=50 else "#ef4444")
-                    st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin-bottom:5px;">'
-                        f'<div style="font-size:0.8rem;color:#f1f5f9;margin-bottom:6px;">{lbl}</div>'
-                        f'<div style="background:#0f172a;border-radius:4px;height:7px;">'
-                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:4px;"></div>'
-                        f'</div></div>',
-                        unsafe_allow_html=True)
-
-
+                            cat_d = _herken_categorie(
+                                it.get("naam",""),
+                                it.get("categorie") or bib_cat_lookup.get(pid_d,{}).get("categorie",""))
 
 
 def _stap_dashboard(user: dict):
