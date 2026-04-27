@@ -3979,7 +3979,7 @@ def _render_analyses(user: dict):
 
     # ── TABS ─────────────────────────────────────────────────────────────────
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "⚖️ Gewicht","🌿 Voedingskwaliteit","🍬 KH & Toegevoegde suikers","🥩 Eiwit","🫙 Vetten","📈 Performance"])
+        "⚖️ Gewicht","🌿 Voedingskwaliteit","🍬 Koolhydraten","🥩 Eiwit","🫙 Vetten","📈 Performance"])
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 1 — GEWICHT
@@ -3987,22 +3987,8 @@ def _render_analyses(user: dict):
     with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Invoer
-        vandaag_str = str(_da.today())
-        c1, c2 = st.columns([3,1])
-        with c1:
-            start_g = float(gewicht_punten[-1][1] if gewicht_punten else profiel.get("gewicht_kg") or 70)
-            nieuw_g = st.number_input("Gewicht vandaag (kg)", 30.0, 250.0, start_g, 0.1,
-                key="an_gew", label_visibility="collapsed")
-        with c2:
-            if st.button("💾 Opslaan", key="an_gew_ops", use_container_width=True):
-                try:
-                    _get_supabase().table("fuelc_dagboek_welzijn").upsert(
-                        {"user_id":user_id,"datum":vandaag_str,"gewicht_kg":nieuw_g},
-                        on_conflict="user_id,datum").execute()
-                    st.success("✅"); st.cache_data.clear(); st.rerun()
-                except Exception as e: st.error(str(e))
-
+        if not gewicht_punten:
+            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek en open een dag om je gewicht in te voeren.")
         if not gewicht_punten:
             st.info("Nog geen gewicht ingevoerd. Voer je gewicht in via het dagboek of hierboven.")
         else:
@@ -4029,13 +4015,14 @@ def _render_analyses(user: dict):
                         f'</div>', unsafe_allow_html=True)
 
             # Grafiek
-            labels_g = [p[0][5:] for p in gewicht_punten[-60:]]  # MM-DD
+            from datetime import datetime as _dtt
+            labels_g = [_dtt.strptime(p[0],"%Y-%m-%d").strftime("%d %b") for p in gewicht_punten[-60:]]
             vals_g   = [p[1] for p in gewicht_punten[-60:]]
             chart_html = _lijn_chart(
                 labels_g,
                 [{"label":"Gewicht (kg)","data":vals_g,"color":"#22c55e","fill":True}],
                 y_label="kg")
-            _chart(chart_html, height=320)
+            _chart(chart_html, height=440)
 
             # Statistieken
             if len(vals_g) >= 2:
@@ -4074,7 +4061,7 @@ def _render_analyses(user: dict):
             kcal_vals = [d["kcal"] for d in dagen_data]
             _chart(_lijn_chart(labels_d,
                 [{"label":"Ingenomen kcal","data":kcal_vals,"color":"#22c55e","fill":True}],
-                doel_lijn=energie_doel, y_label="kcal"), height=280)
+                doel_lijn=energie_doel, y_label="kcal"), height=400)
 
             # Macro verdeling donut (gemiddelde over periode)
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Gemiddelde macroverdeling</div>', unsafe_allow_html=True)
@@ -4086,12 +4073,12 @@ def _render_analyses(user: dict):
                 _chart(_donut_chart(
                     [f"KH {round(gem_kh_d)}%", f"Eiwit {round(gem_ei_d)}%", f"Vet {round(gem_vt_d)}%"],
                     [round(gem_kh_d), round(gem_ei_d), round(gem_vt_d)],
-                    ["#22c55e","#3b82f6","#8b5cf6"]), height=240)
+                    ["#22c55e","#3b82f6","#8b5cf6"]), height=380)
             with dc2:
                 _chart(_donut_chart(
                     [f"KH doel {round(kh_doel_pct)}%", f"Eiwit doel {round(ei_doel_pct)}%", f"Vet doel {round(vt_doel_pct)}%"],
                     [round(kh_doel_pct), round(ei_doel_pct), round(vt_doel_pct)],
-                    ["#22c55e88","#3b82f688","#8b5cf688"]), height=240)
+                    ["#22c55e88","#3b82f688","#8b5cf688"]), height=380)
             st.markdown('<div style="font-size:0.7rem;color:#64748b;text-align:center;">Links: werkelijk · Rechts: doel</div>', unsafe_allow_html=True)
 
             # Voedingsgroepen
@@ -4110,14 +4097,14 @@ def _render_analyses(user: dict):
                 cat_labels  = [c for c,_ in sorted_cats if alle_cats[c]/totaal_ck*100 >= 2]
                 cat_vals    = [round(alle_cats[c]/totaal_ck*100) for c in cat_labels]
                 cat_colors  = [CAT_K.get(c,"#64748b") for c in cat_labels]
-                _chart(_donut_chart(cat_labels, cat_vals, cat_colors), height=260)
+                _chart(_donut_chart(cat_labels, cat_vals, cat_colors), height=380)
 
             # Vezels
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Vezelinname per dag (ADH = 30g)</div>', unsafe_allow_html=True)
             vez_vals = [round(d["vezels"],1) for d in dagen_data]
             _chart(_bar_chart(labels_d,
                 [{"label":"Vezels (g)","data":vez_vals,"color":"#22c55e"}],
-                y_label="g"), height=240)
+                y_label="g"), height=380)
 
     # TAB 3 — KOOLHYDRATEN
     # ══════════════════════════════════════════════════════════════════════════
@@ -4167,7 +4154,7 @@ def _render_analyses(user: dict):
             for col,lbl,val,kl in [
                 (m1,"GEM KH/DAG",f"{gem_kh}g",k_kh),
                 (m2,"KH DOEL",f"{kh_doel_g}g","#64748b"),
-                (m3,"GEM TOEGEV. SUIKERS",f"{gem_su}g",k_su),
+                (m3,"GEM SUIKERS",f"{gem_su}g",k_su),
                 (m4,"SUIKERS % VAN KH",f"{su_pct}%",k_su)]:
                 with col:
                     st.markdown(
@@ -4180,13 +4167,13 @@ def _render_analyses(user: dict):
             kh_vals = [round(d["kh"],1) for d in dagen_data]
             _chart(_lijn_chart(labels_d,
                 [{"label":"KH (g)","data":kh_vals,"color":"#22c55e","fill":True}],
-                doel_lijn=kh_doel_g, y_label="gram"), height=260)
+                doel_lijn=kh_doel_g, y_label="gram"), height=380)
 
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Toegevoegde suikers vs totale KH per dag</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Suikers vs totale KH per dag</div>', unsafe_allow_html=True)
             _chart(_lijn_chart(labels_d, [
                 {"label":"Totale KH (g)","data":kh_vals,"color":"#22c55e","fill":False},
-                {"label":"Toegevoegde suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
-                y_label="gram"), height=260)
+                {"label":"Suikers (g)","data":suikers_per_dag,"color":"#f97316","fill":True}],
+                y_label="gram"), height=380)
 
             # Meldingen >10%
             meldingen_su = [(d["datum"][5:], s, round(s/d["kh"]*100))
@@ -4203,7 +4190,7 @@ def _render_analyses(user: dict):
 
             # Top suikerproducten
             if suiker_producten:
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met toegevoegde suikers (deze periode)</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Top producten met suikers (periode)</div>', unsafe_allow_html=True)
                 top_su = sorted(suiker_producten.items(), key=lambda x:-x[1])[:6]
                 max_su = top_su[0][1] if top_su else 1
                 for naam_su, gram_su in top_su:
@@ -4249,17 +4236,8 @@ def _render_analyses(user: dict):
             ei_vals = [round(d["eiwit"],1) for d in dagen_data]
             _chart(_lijn_chart(labels_d,
                 [{"label":"Eiwit (g)","data":ei_vals,"color":"#3b82f6","fill":True}],
-                doel_lijn=ei_doel_g, y_label="gram"), height=260)
-
-            # Eiwitverdeling over maaltijdmomenten
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 4px;">Eiwitverdeling over maaltijdmomenten</div>', unsafe_allow_html=True)
-            # Literatuur: 20-25g per hoofdmaaltijd (Mamerow 2014, GSSIWEB),
-            # tussendoortjes: 10-15g is zinvol voor MPS-stimulatie (ISSN 2017)
-            st.markdown(
-                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                'ℹ️ Literatuur (Mamerow et al. 2014, ISSN 2017): hoofdmaaltijden ideaal 20-25g eiwit voor optimale MPS. '
-                'Tussendoortjes: 10-15g is zinvol als aanvulling, hoeven niet even hoog te zijn als hoofdmaaltijden.</div>',
-                unsafe_allow_html=True)
+                doel_lijn=ei_doel_g, y_label="gram"), height=380)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Eiwitverdeling over maaltijdmomenten</div>', unsafe_allow_html=True)
             MOMENT_NAMEN = ["Ontbijt","Tussend. vm","Lunch","Tussend. nm","Avondmaal","Avondsnack"]
             MOMENT_TYPES = ["hoofd","tussen","hoofd","tussen","hoofd","tussen"]
             ei_per_mom = [0.0]*6
@@ -4274,7 +4252,7 @@ def _render_analyses(user: dict):
             _chart(_bar_chart(MOMENT_NAMEN, [
                 {"label":"Gem eiwit (g)","data":ei_gem_mom,"color":"#3b82f6"},
                 {"label":"Aanbevolen (g)","data":[round(x,1) for x in ei_doel_mom],"color":"#f97316"},
-            ], y_label="gram"), height=260)
+            ], y_label="gram"), height=380)
 
             # Analyse spreiding hoofdmaaltijden
             hoofd_ei = [ei_gem_mom[i] for i in [0,2,4]]
@@ -4311,7 +4289,7 @@ def _render_analyses(user: dict):
                 with ep1:
                     _chart(_donut_chart(
                         [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
-                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=220)
+                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=380)
                 with ep2:
                     adv_pl = ("✓ Goede mix plantaardig/dierlijk eiwit." if 30<=pct_pl<=70 else
                               "⚠️ Weinig plantaardig eiwit. Voeg peulvruchten, noten of tofu toe." if pct_pl<30 else
@@ -4364,49 +4342,6 @@ def _render_analyses(user: dict):
 
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Eiwitinname per dag vs doel</div>', unsafe_allow_html=True)
             ei_vals = [round(d["eiwit"],1) for d in dagen_data]
-            _chart(_lijn_chart(labels_d,
-                [{"label":"Eiwit (g)","data":ei_vals,"color":"#3b82f6","fill":True}],
-                doel_lijn=ei_doel_g, y_label="gram"), height=260)
-
-            # Eiwitverdeling over maaltijdmomenten
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 4px;">Eiwitverdeling over maaltijdmomenten</div>', unsafe_allow_html=True)
-            # Literatuur: 20-25g per hoofdmaaltijd (Mamerow 2014, GSSIWEB),
-            # tussendoortjes: 10-15g is zinvol voor MPS-stimulatie (ISSN 2017)
-            st.markdown(
-                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                'ℹ️ Literatuur (Mamerow et al. 2014, ISSN 2017): hoofdmaaltijden ideaal 20-25g eiwit voor optimale MPS. '
-                'Tussendoortjes: 10-15g is zinvol als aanvulling, hoeven niet even hoog te zijn als hoofdmaaltijden.</div>',
-                unsafe_allow_html=True)
-            MOMENT_NAMEN = ["Ontbijt","Tussend. vm","Lunch","Tussend. nm","Avondmaal","Avondsnack"]
-            MOMENT_TYPES = ["hoofd","tussen","hoofd","tussen","hoofd","tussen"]
-            ei_per_mom = [0.0]*6
-            for dd in dagen_met:
-                for it in dd.get("items",[]):
-                    mi = int(it.get("moment",0) or 0)
-                    if 0<=mi<6:
-                        ei_per_mom[mi] += float(it.get("eiwit_g",0) or 0)
-            ei_gem_mom = [round(ei_per_mom[i]/max(len(dagen_met),1),1) for i in range(6)]
-            # Doel per moment: hoofdmaaltijd = ei_doel_g/3, tussendoor = 12g
-            ei_doel_mom = [ei_doel_g/3 if MOMENT_TYPES[i]=="hoofd" else 12.0 for i in range(6)]
-            _chart(_bar_chart(MOMENT_NAMEN, [
-                {"label":"Gem eiwit (g)","data":ei_gem_mom,"color":"#3b82f6"},
-                {"label":"Aanbevolen (g)","data":[round(x,1) for x in ei_doel_mom],"color":"#f97316"},
-            ], y_label="gram"), height=260)
-
-            # Analyse spreiding hoofdmaaltijden
-            hoofd_ei = [ei_gem_mom[i] for i in [0,2,4]]
-            hoofd_ok = all(e>=20 for e in hoofd_ei if e>0)
-            tussen_ei = [ei_gem_mom[i] for i in [1,3,5]]
-            tussen_ok = all(e>=8 for e in tussen_ei if e>0)
-            if hoofd_ok:
-                adv_ei = "✓ Goede eiwitverdeling over hoofdmaaltijden (≥20g per maaltijd). Optimale MPS-stimulatie."
-                adv_k = "#22c55e"
-            else:
-                lage = [MOMENT_NAMEN[i] for i in [0,2,4] if 0<ei_gem_mom[i]<20]
-                adv_ei = f"⚠️ Te weinig eiwit bij: {', '.join(lage)}. Streef naar min. 20g per hoofdmaaltijd voor optimale spiereiwitsynthese."
-                adv_k = "#fbbf24"
-            st.markdown(f'<div style="background:#1e293b;border-radius:8px;padding:12px;margin-top:6px;font-size:0.82rem;color:{adv_k};">{adv_ei}</div>', unsafe_allow_html=True)
-
             # Plantaardig vs dierlijk
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Herkomst eiwit (plantaardig vs dierlijk)</div>', unsafe_allow_html=True)
             ei_pl=0; ei_di=0
@@ -4428,7 +4363,7 @@ def _render_analyses(user: dict):
                 with ep1:
                     _chart(_donut_chart(
                         [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
-                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=220)
+                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=380)
                 with ep2:
                     adv_pl = ("✓ Goede mix plantaardig/dierlijk eiwit." if 30<=pct_pl<=70 else
                               "⚠️ Weinig plantaardig eiwit. Voeg peulvruchten, noten of tofu toe." if pct_pl<30 else
@@ -4482,7 +4417,7 @@ def _render_analyses(user: dict):
             vet_vals = [round(d["vet"],1) for d in dagen_data]
             _chart(_lijn_chart(labels_d,
                 [{"label":"Vet (g)","data":vet_vals,"color":"#8b5cf6","fill":True}],
-                doel_lijn=vt_doel_g, y_label="gram"), height=260)
+                doel_lijn=vt_doel_g, y_label="gram"), height=380)
 
             # Verzadigde vs onverzadigde vetten
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Verzadigde vs onverzadigde vetten</div>', unsafe_allow_html=True)
@@ -4521,7 +4456,7 @@ def _render_analyses(user: dict):
                 _chart(_bar_chart(labels_d, [
                     {"label":"Onverzadigd (g)","data":onverz_per_dag,"color":"#22c55e"},
                     {"label":"Verzadigd (g)","data":verz_per_dag,"color":"#ef4444"},
-                ], y_label="gram"), height=260)
+                ], y_label="gram"), height=380)
 
                 gem_verz = round(sum(verz_per_dag)/max(len([x for x in verz_per_dag if x>0]),1),1)
                 verz_pct_kcal = round(gem_verz*9/max(gem_kcal_v,1)*100)
@@ -4534,7 +4469,7 @@ def _render_analyses(user: dict):
                     _chart(_donut_chart(
                         [f"Onverzadigd {round(gem_onverz,1)}g",f"Verzadigd {gem_verz}g"],
                         [max(0,round(gem_onverz,1)), gem_verz],
-                        ["#22c55e","#ef4444"]), height=200)
+                        ["#22c55e","#ef4444"]), height=300)
                 with vd2:
                     adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
                                 else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
@@ -4597,11 +4532,11 @@ def _render_analyses(user: dict):
                 perf_vals   = [s["score"] for s in scores_per_dag]
                 _chart(_lijn_chart(perf_labels,
                     [{"label":"Score","data":perf_vals,"color":"#22c55e","fill":True}],
-                    doel_lijn=75, y_label="Score /100"), height=260)
+                    doel_lijn=75, y_label="Score /100"), height=380)
 
                 # Breakdown laatste dag
                 bd = scores_per_dag[-1]
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Breakdown laatste dag</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Breakdown</div>', unsafe_allow_html=True)
                 PIJLERS = {
                     "energiebalans":    ("⚡ Energiebalans",20),
                     "macrokwaliteit":   ("🥗 Macrokwaliteit",25),
@@ -4620,13 +4555,13 @@ def _render_analyses(user: dict):
                         detail = bd["breakdown"][k].get("detail","")
                     detail_html = f'<div style="font-size:0.68rem;color:#64748b;margin-top:3px;">{detail}</div>' if detail else ""
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:6px;">'
-                        f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-                        f'<span style="font-size:0.82rem;color:#f8fafc;">{lbl}</span>'
-                        f'<span style="font-size:0.82rem;font-weight:700;color:{kl_p};">{pts}/{maxp}</span></div>'
-                        f'<div style="background:#0f172a;border-radius:3px;height:5px;margin-bottom:4px;">'
-                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:3px;"></div></div>'
-                        + detail_html + '</div>',
+                        f'<div style="background:#1e293b;border-radius:8px;padding:8px 14px;margin-bottom:5px;">'
+                        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+                        f'<span style="font-size:0.8rem;color:#94a3b8;">{lbl}</span>'
+                        f'<span style="font-size:0.75rem;color:{kl_p};">{pct_p}%</span></div>'
+                        f'<div style="background:#0f172a;border-radius:4px;height:7px;">'
+                        f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:4px;"></div></div>'
+                        '</div>',
                         unsafe_allow_html=True)
 
                 # Pre/post training macro inzicht
