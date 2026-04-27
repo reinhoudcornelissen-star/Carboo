@@ -4257,8 +4257,8 @@ def _render_analyses(user: dict):
                      "n_cats":len(cats_dag),"cats":cats_dag,"heeft_micro":n_micro>0,
                      "cat_kcal":dd.get("cat_kcal",{}),
                  })
-            n_met     = max(len(kwal_met),1)
             kwal_met  = [d for d in kwal_dagen if d["kcal_dag"]>0]
+            n_met     = max(len(kwal_met),1)
             gem_nd   = round(sum(d["nd_score"] for d in kwal_met)/n_met,1) if kwal_met else 0
             gem_rest = round(sum(d["rest_pct"] for d in kwal_met)/n_met) if kwal_met else 0
             gem_cats = round(sum(d["n_cats"] for d in kwal_met)/n_met,1) if kwal_met else 0
