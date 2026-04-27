@@ -4386,17 +4386,17 @@ def _render_analyses(user: dict):
             if heeft_micro:
                 mi1, mi2 = st.columns([4,1])
                 with mi1:
-                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten — gemiddelde vs ADH</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Micronutriënten — gem per dag (op basis van {len(kwal_met)} dag(en) met data)</div>', unsafe_allow_html=True)
                 with mi2:
                     st.markdown("<br>", unsafe_allow_html=True)
                     with st.expander("ℹ️"):
                         st.markdown('<div style="font-size:0.75rem;color:#94a3b8;line-height:1.6;">Gebaseerd op producten in de NEVO-databank of waarvoor je micronutriënten hebt ingevuld in de bibliotheek.</div>', unsafe_allow_html=True)
-                gem_kal = round(sum(d["kalium"] for d in kwal_dagen)/len(kwal_dagen))
-                gem_cal = round(sum(d["calcium"] for d in kwal_dagen)/len(kwal_dagen))
-                gem_ij  = round(sum(d["ijzer"] for d in kwal_dagen)/len(kwal_dagen),1)
-                gem_vd  = round(sum(d["vitd"] for d in kwal_dagen)/len(kwal_dagen),1)
-                gem_b12 = round(sum(d["vitb12"] for d in kwal_dagen)/len(kwal_dagen),2)
-                gem_om3 = round(sum(d["omega3"] for d in kwal_dagen)/len(kwal_dagen),2)
+                gem_kal = round(sum(d["kalium"] for d in kwal_met)/n_met)
+                gem_cal = round(sum(d["calcium"] for d in kwal_met)/n_met)
+                gem_ij  = round(sum(d["ijzer"] for d in kwal_met)/n_met,1)
+                gem_vd  = round(sum(d["vitd"] for d in kwal_met)/n_met,1)
+                gem_b12 = round(sum(d["vitb12"] for d in kwal_met)/n_met,2)
+                gem_om3 = round(sum(d["omega3"] for d in kwal_met)/n_met,2)
                 MICROS = [
                     ("🥬 Kalium",gem_kal,3500,"mg"),
                     ("🦴 Calcium",gem_cal,1000,"mg"),
