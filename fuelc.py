@@ -3966,7 +3966,7 @@ def _render_analyses(user: dict):
         }});
         </script>'''
 
-    def _bar_chart(labels, datasets, y_label="", y_max=None):
+    def _bar_chart(labels, datasets, y_label="", y_max=None, y_min=None):
         ds_js = []
         for ds in datasets:
             ds_js.append(f'''{{
