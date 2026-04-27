@@ -3843,6 +3843,7 @@ def _render_analyses(user: dict):
         except: return {}
 
     gewicht_punten = _laad_gewicht_all(user_id)
+    welzijn_data   = _laad_welzijn_week(user_id, start, einde)
     gewicht_punten = _laad_gewicht_all(user_id)
 
     # Automatisch profiel gewicht updaten als dagboek gewicht afwijkt
