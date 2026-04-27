@@ -3601,6 +3601,7 @@ def _render_voedingsdagboek(user: dict):
                             .upsert(data, on_conflict="user_id,datum").execute()
                         st.success("✅ Opgeslagen!")
                         _laad_week_welzijn.clear()
+                        st.cache_data.clear()
                         st.rerun()
                     except Exception as e:
                         st.error(f"Fout: {e}")
