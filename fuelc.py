@@ -3915,6 +3915,9 @@ def _render_analyses(user: dict):
                     cat = "Zuivel"
                 elif any(w in naam_l for w in ["ei","omelet"]):
                     cat = "Eieren"
+                elif any(w in naam_l for w in ["snoep","chips","koek","gebak","chocola","candy",
+                       "frisdrank","cola","fanta","bier","wijn","alcohol","taart","cake","biscuit"]):
+                    cat = "Zoetwaren & snacks"
                 else:
                     cat = "Overige"
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
@@ -4182,7 +4185,7 @@ def _render_analyses(user: dict):
             micro_bib = _laad_micro_bibliotheek(user_id)
             PLANTAARDIG_K = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
             DIERLIJK_K    = {"Vlees & vis","Zuivel","Eieren"}
-            RESTGROEP_K   = {"Sauzen & spreads","Dranken","Sportvoeding","Vetten & oliën","Overige"}
+            RESTGROEP_K   = {"Sauzen & spreads","Dranken","Zoetwaren & snacks"}
 
             kwal_dagen = []
             for dd in dagen_met:
@@ -4340,20 +4343,21 @@ def _render_analyses(user: dict):
                 {"label":"Nutriëntdensiteit /10","data":nd_vals,"color":"#22c55e","fill":True},
             ], doel_lijn=7, y_label="Score /10", y_max=10), height=380)
 
-            # Grafiek 1b: % Restgroep per dag - enkel dagen met data
-            rest_vals = [d["rest_pct"] if d["kcal_dag"]>0 else None for d in kwal_dagen]
-            if any(v is not None and v > 0 for v in rest_vals):
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">% Restgroep per dag (lager is beter — doel: max 20%)</div>', unsafe_allow_html=True)
-                # Kleur per staaf: groen als <=20%, oranje als <=40%, rood als >40%
-                rest_kleuren = []
-                for v in rest_vals:
-                    if v is None: rest_kleuren.append('#334155')
-                    elif v<=20:   rest_kleuren.append('#22c55e')
-                    elif v<=40:   rest_kleuren.append('#fbbf24')
-                    else:         rest_kleuren.append('#ef4444')
+            # Grafiek 1b: % Restgroep - enkel echte restgroep (snoep, frisdrank, alcohol)
+            RESTGROEP_NAMEN = {"Sauzen & spreads","Dranken","Zoetwaren & snacks"}
+            rest_vals = []
+            for d in kwal_dagen:
+                if d["kcal_dag"] <= 0:
+                    rest_vals.append(None)
+                else:
+                    kcal_rest = sum(v for k,v in d["cat_kcal"].items() if k in RESTGROEP_NAMEN)
+                    rest_vals.append(round(kcal_rest / d["kcal_dag"] * 100))
+            heeft_restgroep = any(v is not None and v > 0 for v in rest_vals)
+            if heeft_restgroep:
+                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">% Restgroep per dag (snoep · frisdrank · alcohol · koek)</div>', unsafe_allow_html=True)
                 _chart(_bar_chart(nd_labels, [
-                    {"label":"% Restgroep","data":[v if v is not None else 0 for v in rest_vals],"color":"#f97316"},
-                ], y_label="%", y_max=100), height=340)
+                    {"label":"% Restgroep","data":[v if v is not None else 0 for v in rest_vals],"color":"#ef4444"},
+                ], y_label="%", y_max=100), height=300)
 
             # Grafiek 2: Plantaardig vs dierlijk
             st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Plantaardige vs dierlijke voeding (% kcal per dag)</div>', unsafe_allow_html=True)
@@ -4908,99 +4912,6 @@ def _render_analyses(user: dict):
                         f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:4px;"></div>'
                         f'</div></div>',
                         unsafe_allow_html=True)
-
-                # Pre/post training macro inzicht
-                st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Macro-inname voor en na training</div>', unsafe_allow_html=True)
-                st.markdown(
-                    '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                    'ℹ️ Pre-training (2-3u voor): focus op KH voor energie. Post-training (0-2u na): combinatie eiwit + KH voor herstel en MPS.</div>',
-                    unsafe_allow_html=True)
-
-                # Training momenten detecteren uit dagboek items
-                trainingen_dag = _laad_trainingen(user_id)
-                training_dagen = set(t.get("datum","")[:10] for t in trainingen_dag)
-
-                # Gemiddeld pre/post macro voor trainings- vs rustdagen
-                pre_kh=[]; pre_ei=[]; pre_vet=[]
-                post_kh=[]; post_ei=[]; post_vet=[]
-                rust_kh=[]; rust_ei=[]; rust_vet=[]
-
-                for dd in dagen_met:
-                    dag_str_p = dd["datum"]
-                    if dag_str_p in training_dagen:
-                        items = dd.get("items",[])
-                        if not items: continue
-                        # Schat: voor training = momenten 0,1,2 (ochtend/middag)
-                        # na training = momenten 3,4,5 (nm/avond)
-                        pre_items  = [it for it in items if int(it.get("moment",0) or 0) <= 2]
-                        post_items = [it for it in items if int(it.get("moment",0) or 0) >= 3]
-                        if pre_items:
-                            pre_kh.append(sum(it.get("kh_g",0) or 0 for it in pre_items))
-                            pre_ei.append(sum(it.get("eiwit_g",0) or 0 for it in pre_items))
-                            pre_vet.append(sum(it.get("vet_g",0) or 0 for it in pre_items))
-                        if post_items:
-                            post_kh.append(sum(it.get("kh_g",0) or 0 for it in post_items))
-                            post_ei.append(sum(it.get("eiwit_g",0) or 0 for it in post_items))
-                            post_vet.append(sum(it.get("vet_g",0) or 0 for it in post_items))
-                    else:
-                        items = dd.get("items",[])
-                        if items:
-                            rust_kh.append(dd["kh"]); rust_ei.append(dd["eiwit"]); rust_vet.append(dd["vet"])
-
-                if pre_kh or post_kh:
-                    def gem(lst): return round(sum(lst)/max(len(lst),1),1)
-                    pp1, pp2, pp3 = st.columns(3)
-                    for col, lbl_pp, kh_v, ei_v, vet_v, bg in [
-                        (pp1, "PRE-TRAINING\n(mom. 1-3)", gem(pre_kh), gem(pre_ei), gem(pre_vet), "#0f172a"),
-                        (pp2, "POST-TRAINING\n(mom. 4-6)", gem(post_kh), gem(post_ei), gem(post_vet), "#0f172a"),
-                        (pp3, "RUSTDAG GEM", gem(rust_kh), gem(rust_ei), gem(rust_vet), "#0f172a"),
-                    ]:
-                        with col:
-                            st.markdown(
-                                f'<div style="background:{bg};border:1px solid #1e293b;border-radius:10px;padding:14px;text-align:center;">'
-                                f'<div style="font-size:0.6rem;font-weight:700;color:#64748b;margin-bottom:8px;white-space:pre-line;">{lbl_pp}</div>'
-                                f'<div style="display:flex;justify-content:center;gap:12px;">'
-                                f'<div><div style="font-size:0.55rem;color:#64748b;">KH</div>'
-                                f'<div style="font-size:0.9rem;font-weight:800;color:#22c55e;">{kh_v}g</div></div>'
-                                f'<div><div style="font-size:0.55rem;color:#64748b;">Eiwit</div>'
-                                f'<div style="font-size:0.9rem;font-weight:800;color:#3b82f6;">{ei_v}g</div></div>'
-                                f'<div><div style="font-size:0.55rem;color:#64748b;">Vet</div>'
-                                f'<div style="font-size:0.9rem;font-weight:800;color:#8b5cf6;">{vet_v}g</div></div>'
-                                f'</div></div>',
-                                unsafe_allow_html=True)
-
-                    # Advies pre/post
-                    adv_pre = "✓ Goede KH-inname voor training." if gem(pre_kh)>=80 else "⚠️ Weinig KH voor training. Streef naar 1-4g/kg KH in de 2-3u voor training."
-                    adv_post = "✓ Goede combinatie eiwit+KH na training." if gem(post_ei)>=20 and gem(post_kh)>=40 else "⚠️ Post-training: combineer minstens 20g eiwit + 40g KH voor optimaal herstel."
-                    k_pre  = "#22c55e" if gem(pre_kh)>=80 else "#fbbf24"
-                    k_post = "#22c55e" if gem(post_ei)>=20 and gem(post_kh)>=40 else "#fbbf24"
-                    st.markdown(
-                        f'<div style="display:flex;flex-direction:column;gap:6px;margin-top:10px;">'
-                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:{k_pre};">{adv_pre}</div>'
-                        f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;font-size:0.8rem;color:{k_post};">{adv_post}</div>'
-                        f'</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
-                        '<div style="font-size:0.78rem;color:#64748b;">Log trainingen in het trainingsblok en vul je dagschema in voor dit inzicht.</div>'
-                        '</div>', unsafe_allow_html=True)
-
-                # Verbeterpunt
-                zwak = min(PIJLERS.keys(), key=lambda k2: (bd["breakdown"].get(k2,{}).get("score",0) if isinstance(bd["breakdown"].get(k2),dict) else bd["breakdown"].get(k2,0)) / PIJLERS[k2][1])
-                ADVIEZEN = {
-                    "energiebalans":    "Zorg dat je dagelijkse kcal-inname dichter bij je doel zit.",
-                    "macrokwaliteit":   "Check je KH/eiwit/vet verhouding — spreiding en timing verbeteren.",
-                    "micronutriënten":  "Meer vezels (groenten, volkoren) en vette vis voor omega-3 en vitamine D.",
-                    "maaltijdregelmaat":"Vul alle maaltijdmomenten in. Regelmatig eten stabiliseert herstel.",
-                    "voedingskwaliteit":"Meer variatie in voedingsgroepen — groenten, fruit, peulvruchten.",
-                    "hydratatie":       "Drink min. 35ml/kg/dag. Op trainingsdag meer.",
-                }
-                st.markdown(
-                    f'<div style="background:#0f172a;border-radius:10px;padding:14px;margin-top:8px;">'
-                    f'<div style="font-size:0.7rem;font-weight:700;color:#f97316;margin-bottom:6px;">💡 VERBETERPUNT</div>'
-                    f'<div style="font-size:0.85rem;color:#94a3b8;line-height:1.6;">'
-                    f'<b style="color:#f8fafc">{PIJLERS[zwak][0]}</b> scoort het laagst. {ADVIEZEN.get(zwak,"")}'
-                    f'</div></div>', unsafe_allow_html=True)
 
 
 
