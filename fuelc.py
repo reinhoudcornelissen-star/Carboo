@@ -3861,40 +3861,39 @@ def _render_analyses(user: dict):
     # Voedingsdata per dag
     dagen_data = []
     for i in range(n_dagen):
-        dag = start + _ta(days=i)
+        dag     = start + _ta(days=i)
         dag_str = str(dag)
-        items = []
+        items   = []
         for mi in range(6):
             for it in _laad_dagboek_items(user_id, dag_str, mi):
                 items.append({**it, "moment": mi})
-        kcal   = sum(it.get("kcal",0) or 0 for it in items)
-        kh     = sum(it.get("kh_g",0) or 0 for it in items)
-        eiwit  = sum(it.get("eiwit_g",0) or 0 for it in items)
-        vet    = sum(it.get("vet_g",0) or 0 for it in items)
-        vezels = sum(it.get("vezels_g",0) or 0 for it in items)
-        vezels  = sum(it.get("vezels_g",0) or 0 for it in items)
-        suikers = sum(it.get("suikers_g",0) or 0 for it in items)
-        verz    = sum(it.get("verz_g",0) or 0 for it in items)
+        kcal    = sum(it.get("kcal",0)       or 0 for it in items)
+        kh      = sum(it.get("kh_g",0)       or 0 for it in items)
+        eiwit   = sum(it.get("eiwit_g",0)    or 0 for it in items)
+        vet     = sum(it.get("vet_g",0)      or 0 for it in items)
+        vezels  = sum(it.get("vezels_g",0)   or 0 for it in items)
+        suikers = sum(it.get("suikers_g",0)  or 0 for it in items)
+        verz    = sum(it.get("verz_g",0)     or 0 for it in items)
         natrium = sum(it.get("natrium_mg",0) or 0 for it in items)
-        kalium  = sum(it.get("kalium_mg",0) or 0 for it in items)
+        kalium  = sum(it.get("kalium_mg",0)  or 0 for it in items)
         calcium = sum(it.get("calcium_mg",0) or 0 for it in items)
-        ijzer   = sum(it.get("ijzer_mg",0) or 0 for it in items)
-        vitd    = sum(it.get("vitd_mcg",0) or 0 for it in items)
+        ijzer   = sum(it.get("ijzer_mg",0)   or 0 for it in items)
+        vitd    = sum(it.get("vitd_mcg",0)   or 0 for it in items)
         vitb12  = sum(it.get("vitb12_mcg",0) or 0 for it in items)
-        omega3  = sum(it.get("omega3_g",0) or 0 for it in items)
+        omega3  = sum(it.get("omega3_g",0)   or 0 for it in items)
+        n_mom   = len(set(it.get("moment",0) for it in items)) if items else 0
         cat_kcal = {}
         for it in items:
-            # Haal categorie op via product_id uit bibliotheek
-            pid = it.get("product_id","") or ""
+            pid      = it.get("product_id","") or ""
             prod_bib = bib_cat_lookup.get(pid, {})
-            cat = prod_bib.get("categorie","Overige") or it.get("categorie","Overige") or "Overige"
+            cat      = prod_bib.get("categorie","Overige") or it.get("categorie","Overige") or "Overige"
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         dagen_data.append({
-            "datum":dag_str,"kcal":kcal,"kh":kh,"eiwit":eiwit,
-            "vet":vet,"vezels":vezels,"suikers":suikers,"verz":verz,
+            "datum":dag_str, "kcal":kcal,   "kh":kh,      "eiwit":eiwit,
+            "vet":vet,       "vezels":vezels,"suikers":suikers,"verz":verz,
             "natrium":natrium,"kalium":kalium,"calcium":calcium,
-            "ijzer":ijzer,"vitd":vitd,"vitb12":vitb12,"omega3":omega3,
-            "n_mom":n_mom,"cat_kcal":cat_kcal,"items":items,
+            "ijzer":ijzer,   "vitd":vitd,   "vitb12":vitb12, "omega3":omega3,
+            "n_mom":n_mom,   "cat_kcal":cat_kcal, "items":items,
         })
 
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
