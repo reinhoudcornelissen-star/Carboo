@@ -3201,22 +3201,39 @@ def _stap_dagschema(user: dict):
             dm1, dm2 = st.columns(2)
             with dm1:
                 st.markdown('<div style="font-size:0.75rem;font-weight:700;color:#22c55e;margin-bottom:6px;">💾 DIT SCHEMA OPSLAAN</div>', unsafe_allow_html=True)
-                dm_naam = st.text_input("Naam", placeholder="bijv. Rustdag, Trainingsdag...", key=f"dm_naam_{dag_str}", label_visibility="collapsed")
-                if st.button("Opslaan", key=f"dm_ops_{dag_str}", use_container_width=True):
-                    if _sla_dag_als_menu(user_id, dag_str, momenten, dm_naam):
-                        st.success("✅ Schema opgeslagen!")
-                        st.session_state.pop(dag_menu_open_key, None); st.rerun()
+                dagmenu_lijst_check = _laad_dagmenu_lijst(user_id)
+                eigen_schemas = [d for d in dagmenu_lijst_check if d.get("user_id") == user_id]
+                if len(eigen_schemas) >= 10:
+                    st.warning("⚠️ Maximum van 10 schema's bereikt. Verwijder een schema om een nieuw op te slaan.")
+                else:
+                    dm_naam = st.text_input("Naam", placeholder="bijv. Rustdag, Trainingsdag...", key=f"dm_naam_{dag_str}", label_visibility="collapsed")
+                    if st.button("Opslaan", key=f"dm_ops_{dag_str}", use_container_width=True):
+                        if _sla_dag_als_menu(user_id, dag_str, momenten, dm_naam):
+                            st.success("✅ Schema opgeslagen!")
+                            st.session_state.pop(dag_menu_open_key, None); st.rerun()
             with dm2:
-                st.markdown('<div style="font-size:0.75rem;font-weight:700;color:#22c55e;margin-bottom:6px;">📂 SCHEMA LADEN</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.75rem;font-weight:700;color:#22c55e;margin-bottom:6px;">📂 Laden &amp; verwijderen</div>', unsafe_allow_html=True)
                 dagmenu_lijst = _laad_dagmenu_lijst(user_id)
                 if dagmenu_lijst:
                     dm_keuze = st.selectbox("Kies schema", ["— kies —"]+[d["naam"] for d in dagmenu_lijst], key=f"dm_keuze_{dag_str}", label_visibility="collapsed")
                     if dm_keuze != "— kies —":
                         gek = next((d for d in dagmenu_lijst if d["naam"]==dm_keuze), None)
-                        if gek and st.button("Laden op deze dag", key=f"dm_laad_{dag_str}", use_container_width=True):
-                            _laad_dagmenu_op_dag(user_id, dag_str, gek, bibliotheek); st.session_state.pop(dag_menu_open_key, None); st.rerun()
+                        col_l, col_v = st.columns(2)
+                        with col_l:
+                            if st.button("📂 Laden", key=f"dm_laad_{dag_str}", use_container_width=True):
+                                _laad_dagmenu_op_dag(user_id, dag_str, gek, bibliotheek)
+                                st.session_state.pop(dag_menu_open_key, None); st.rerun()
+                        with col_v:
+                            if gek and gek.get("user_id") == user_id:  # enkel eigen schemas
+                                if st.button("🗑 Verwijder", key=f"dm_del_{dag_str}", use_container_width=True, type="secondary"):
+                                    try:
+                                        _get_supabase().table("fuelc_dagmenu").delete().eq("id", gek["id"]).execute()
+                                        st.success(f"✅ '{dm_keuze}' verwijderd")
+                                        st.rerun()
+                                    except: st.error("Verwijderen mislukt")
                 else:
                     st.caption("Nog geen schema's opgeslagen.")
+
 
     # Dagdoel balk
     alle_items_dag = []
