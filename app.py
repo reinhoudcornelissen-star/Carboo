@@ -137,7 +137,7 @@ st.markdown(f"""
       <div style="font-size:1.5rem; font-weight:900; letter-spacing:3px; color:#f8fafc;">
         CAR<span style="color:#f97316;">BOO</span>
       </div>
-      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">NUTRITION COACH</div>
+      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">SPORTS NUTRITION COACH</div>
     </div>
   </div>
   <div style="text-align:right; font-size:0.82rem; color:#64748b;">
@@ -185,6 +185,29 @@ if module == "menu":
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Fueling (bovenaan) ────────────────────────────────────────────────────
+    if is_admin:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
+                    border:2px solid #22c55e;border-radius:16px;padding:24px;
+                    margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div style="font-size:2.5rem;">⚡</div>
+                <div>
+                    <div style="font-size:1.2rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">
+                        Fueling — Energie Coach</div>
+                    <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6;">
+                        TDEE · Trainingszone · Voedselbibliotheek · Dagschema · Dashboard
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("⚡  Start Fueling", key="open_fuelc_top", use_container_width=True):
+            st.session_state.module = "fuelc"
+            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+
     # ── Race Nutrition Plan ───────────────────────────────────────────────────
     st.markdown("""
     <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
@@ -211,10 +234,6 @@ if module == "menu":
 
     # ── Admin modules ─────────────────────────────────────────────────────────
     if is_admin:
-        st.markdown(
-            '<div style="font-size:0.65rem;color:#8b5cf6;letter-spacing:2px;'
-            'font-weight:700;margin-bottom:10px;">EXTRA MODULES — ENKEL ADMIN</div>',
-            unsafe_allow_html=True)
 
         # Train the Gut
         st.markdown("""
@@ -260,27 +279,7 @@ if module == "menu":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-    # ── Binnenkort beschikbaar ────────────────────────────────────────────────
-    st.markdown(
-        '<div style="font-size:0.65rem;color:#64748b;letter-spacing:2px;'
-        'margin-bottom:10px;">BINNENKORT BESCHIKBAAR</div>',
-        unsafe_allow_html=True)
-    st.markdown("""
-    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:12px;
-                padding:18px;opacity:0.6;">
-        <div style="display:flex;align-items:center;gap:14px;">
-            <div style="font-size:1.8rem;">🔄</div>
-            <div>
-                <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
-                    Race Weight Plan</div>
-                <div style="font-size:0.78rem;color:#64748b;">
-                    Optimaal gewichtsplan richting je wedstrijd.</div>
-                <div style="font-size:10px;color:#f97316;margin-top:4px;">
-                    Binnenkort beschikbaar</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+
 
 elif module == "coach":
     render_coach(user)
