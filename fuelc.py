@@ -3196,6 +3196,10 @@ def _stap_dagschema(user: dict):
     momenten = _bereken_moment_doelen(energie_dag, momenten_basis, "Geen training", profiel, training_kcal_dag, verdeling_pct)
 
     # Dagmenu panel
+    # Toon verwijder melding indien aanwezig
+    if f"dm_del_ok_{dag_str}" in st.session_state:
+        st.success(f"✅ '{st.session_state.pop(f'dm_del_ok_{dag_str}')}' verwijderd")
+
     if st.session_state.get(dag_menu_open_key, False):
         with st.container():
             dm1, dm2 = st.columns(2)
@@ -3228,9 +3232,10 @@ def _stap_dagschema(user: dict):
                                 if st.button("🗑 Verwijder", key=f"dm_del_{dag_str}", use_container_width=True, type="secondary"):
                                     try:
                                         _get_supabase().table("fuelc_dagmenu").delete().eq("id", gek["id"]).execute()
-                                        st.success(f"✅ '{dm_keuze}' verwijderd")
+                                        st.session_state[f"dm_del_ok_{dag_str}"] = dm_keuze
                                         st.rerun()
-                                    except: st.error("Verwijderen mislukt")
+                                    except Exception as del_e:
+                                        st.error(f"Verwijderen mislukt: {del_e}")
                 else:
                     st.caption("Nog geen schema's opgeslagen.")
 
