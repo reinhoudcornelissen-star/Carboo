@@ -946,6 +946,31 @@ def _stap_trainingen(user: dict):
 # VOEDSEL_DB — NEVO-GEBASEERD, 120+ PRODUCTEN MET HUISHOUDMATEN
 # ═══════════════════════════════════════════════════════════════════════════════
 
+SPORT_EMOJI = {
+    "zwemmen": "🏊", "swim": "🏊", "zwem": "🏊",
+    "fietsen": "🚴", "wielrennen": "🚴", "mtb": "🚴", "cycling": "🚴",
+    "lopen": "🏃", "hardlopen": "🏃", "running": "🏃", "run": "🏃",
+    "wandelen": "🚶", "hiken": "🥾", "hiking": "🥾", "trail": "🏔️",
+    "kracht": "🏋️", "fitness": "🏋️", "gym": "🏋️", "gewichten": "🏋️",
+    "yoga": "🧘", "pilates": "🧘", "stretching": "🧘",
+    "triathlon": "🏊", "duathlon": "🚴",
+    "voetbal": "⚽", "tennis": "🎾", "padel": "🎾",
+    "roeien": "🚣", "kayak": "🚣", "sup": "🚣",
+    "crossfit": "🏋️", "hiit": "⚡", "interval": "⚡",
+    "herstel": "💆", "recovery": "💆",
+}
+
+def _sport_emoji(sport_naam: str) -> str:
+    """Geeft het juiste emoji voor een sporttype terug."""
+    if not sport_naam:
+        return "⚡"
+    nl = sport_naam.lower().strip()
+    for sleutel, emoji in SPORT_EMOJI.items():
+        if sleutel in nl:
+            return emoji
+    return "⚡"
+
+
 VOEDSEL_DB = [
     # ── GRANEN & BROOD ────────────────────────────────────────────────────────
     {"naam":"Volkorenbrood","cat":"Granen & brood","moment":["ontbijt","lunch"],
@@ -3200,7 +3225,9 @@ def _stap_dagschema(user: dict):
     tot_kcal = sum(i.get("kcal",0) or 0 for i in alle_items_dag)
     pct_dag  = min(100, round(tot_kcal/energie_totaal*100)) if energie_totaal > 0 else 0
     k_dag    = "#22c55e" if pct_dag>=80 else ("#fbbf24" if pct_dag>=40 else "#334155")
-    tr_info  = f" · 🏃 +{training_kcal_dag} kcal" if training_kcal_dag > 0 else ""
+    sport_nm  = next((t.get("sport","") for t in alle_trainingen if (t.get("datum","") or "")[:10]==dag_str), "")
+    tr_emoji  = _sport_emoji(sport_nm)
+    tr_info   = f" · {tr_emoji} +{training_kcal_dag} kcal" if training_kcal_dag > 0 else ""
     st.markdown(
         f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin:8px 0 12px;">' +
         f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
@@ -3483,7 +3510,7 @@ def _render_voedingsdagboek(user: dict):
                 f'<div style="width:{pct}%;height:100%;background:{k};border-radius:3px;"></div></div>' +
                 f'<div style="font-size:0.75rem;color:{k};min-width:70px;text-align:right;">'
                 f'{round(tot_kcal)} / {energie_doel_dag} kcal'
-                + (f" · 🏃+{training_kcal_db}" if training_kcal_db > 0 else "") + '</div>' +
+                + (f" · {_sport_emoji(next((t.get("sport","") for t in _laad_trainingen(user_id) if (t.get("datum","") or "")[:10]==dag_str), ""))}+{training_kcal_db}" if training_kcal_db > 0 else "") + '</div>' +
                 f'</div>', unsafe_allow_html=True)
         with dh4:
             # Welzijn score dot
@@ -4911,9 +4938,8 @@ def _render_analyses(user: dict):
                     detail_html = f'<div style="font-size:0.68rem;color:#64748b;margin-top:3px;">{detail}</div>' if detail else ""
                     st.markdown(
                         f'<div style="background:#1e293b;border-radius:8px;padding:10px 12px;margin-bottom:6px;">'
-                        f'<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'
-                        f'<span style="font-size:0.82rem;color:#f8fafc;">{lbl}</span>'
-                        f'<span style="font-size:0.82rem;font-weight:700;color:{kl_p};">{pts}/{maxp}</span></div>'
+                        f'<div style="margin-bottom:5px;">'
+                        f'<span style="font-size:0.82rem;color:#f8fafc;">{lbl}</span></div>'
                         f'<div style="background:#0f172a;border-radius:3px;height:5px;margin-bottom:4px;">'
                         f'<div style="width:{pct_p}%;height:100%;background:{kl_p};border-radius:3px;"></div></div>'
                         + detail_html + '</div>',
@@ -4957,7 +4983,7 @@ def _render_analyses(user: dict):
                         f'<div style="font-size:0.72rem;color:{kl_s};min-width:24px;text-align:right;">{sc}</div></div>'
                     )
                 st.markdown(
-                    f'<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px;align-items:start;">'
+                    f'<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px;align-items:stretch;">'
                     f'<div>'
                     f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Welzijn samenvatting</div>'
                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
@@ -4965,7 +4991,7 @@ def _render_analyses(user: dict):
                     f'</div></div>'
                      f'<div>'
                      f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Performance score</div>'
-                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
+                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:100%;box-sizing:border-box;">'
                      f'<div style="text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #334155;">'
                      f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:4px;">GEMIDDELDE</div>'
                      f'<div style="font-size:2.5rem;font-weight:900;color:{k_gem_d};line-height:1;">{gem_score_disp}</div>'
@@ -4973,11 +4999,6 @@ def _render_analyses(user: dict):
                      f'{score_rows}'
                      f'</div></div></div>',
                      unsafe_allow_html=True)
-
-        _render_voedingsdagboek(user)
-    with tab_an:
-        _render_analyses(user)
-
 
 def render_fuelc(user: dict):
     st.markdown(
