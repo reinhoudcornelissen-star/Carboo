@@ -260,6 +260,84 @@ def _stuur_registratie_mail(naam: str, email: str):
         print(f"Mail fout (niet kritiek): {e}")
 
 # ─── LANDING PAGE ─────────────────────────────────────────────────────────────
+
+def render_disclaimer():
+    """Toont de volledige disclaimer/gebruiksvoorwaarden."""
+    st.markdown("""
+    <style>
+    #MainMenu,header,footer{display:none!important}
+    .block-container{max-width:800px!important;padding-top:2rem!important}
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="margin-bottom:24px;">
+      <a href="/" style="font-size:0.82rem;color:#f97316;text-decoration:none;">← Terug naar Carboo</a>
+    </div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:#f8fafc;letter-spacing:2px;margin-bottom:8px;">
+      Car<span style="color:#f97316;">b</span>oo
+    </div>
+    <div style="font-size:0.7rem;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-bottom:40px;">
+      Gebruiksvoorwaarden & Disclaimer
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    **Laatste update:** april 2026
+
+    ---
+
+    ### 1. Geen medisch advies
+
+    Carboo is een digitale sportvoedingstool ontwikkeld ter ondersteuning van duursporters.
+    De berekeningen, schema's en aanbevelingen in de app zijn **geen vervanging voor professioneel
+    medisch of diëtistisch advies**. Raadpleeg altijd een erkende professional bij gezondheidsproblemen,
+    voedingsstoornissen of specifieke medische aandoeningen.
+
+    ### 2. Gebruik op eigen verantwoordelijkheid
+
+    De gebruiker is zelf verantwoordelijk voor de keuzes die hij of zij maakt op basis van de
+    informatie in de app. Carboo en haar ontwikkelaars zijn niet aansprakelijk voor directe of
+    indirecte schade die voortvloeit uit het gebruik van de applicatie.
+
+    ### 3. Nauwkeurigheid van gegevens
+
+    De voedingswaarden in Carboo zijn gebaseerd op de NEVO-databank en andere wetenschappelijke
+    bronnen. Ondanks onze zorgvuldigheid kunnen afwijkingen voorkomen. Carboo geeft geen garantie
+    op de absolute nauwkeurigheid van de getoonde waarden.
+
+    ### 4. Persoonsgegevens & privacy
+
+    Je persoonlijke gegevens (naam, e-mailadres, voedingsdata) worden uitsluitend gebruikt om
+    de app correct te laten functioneren. We verkopen of delen jouw gegevens **nooit** met derden.
+    Je kan je account en alle bijhorende data op elk moment laten verwijderen via
+    info@sportlab-achterbos.be.
+
+    ### 5. Intellectueel eigendom
+
+    Alle content, algoritmen en ontwerpen in Carboo zijn eigendom van Carboo / Sportlab Achterbos.
+    Het is niet toegestaan om de app of delen ervan te kopiëren, reproduceren of commercieel te
+    gebruiken zonder schriftelijke toestemming.
+
+    ### 6. Wijzigingen
+
+    Carboo behoudt het recht om deze voorwaarden op elk moment te wijzigen. Bij belangrijke
+    wijzigingen word je via e-mail op de hoogte gesteld.
+
+    ### 7. Contact
+
+    Vragen over deze voorwaarden? Neem contact op via **info@sportlab-achterbos.be**.
+
+    ---
+
+    *Door een account aan te maken bij Carboo aanvaard je deze gebruiksvoorwaarden volledig.*
+    """)
+
+    if st.button("← Terug", key="disclaimer_terug"):
+        st.session_state["toon_landing"] = True
+        st.rerun()
+
+
 def render_landing_page():
     """Mooie landing/login pagina in Streamlit."""
     actie = st.query_params.get("actie", "")
@@ -273,6 +351,10 @@ def render_landing_page():
         st.session_state["toon_landing"] = False
         st.session_state["_login_tab"]   = "login"
         st.rerun()
+    elif actie == "disclaimer":
+        st.query_params.clear()
+        render_disclaimer()
+        return
 
     st.markdown("""
     <style>
@@ -513,8 +595,15 @@ def render_login_page():
         r_code  = st.text_input("Promotiecode (optioneel)", key="reg_code",
                                 placeholder="bijv. CARBOO2026",
                                 help="Heb je een promotiecode? Vul die hier in voor een gratis rapport.")
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#64748b;margin:8px 0;">'
+            '<a href="?actie=disclaimer" target="_blank" style="color:#f97316;">Lees onze gebruiksvoorwaarden & disclaimer</a>'
+            '</div>', unsafe_allow_html=True)
+        r_akkoord = st.checkbox("Ik ga akkoord met de gebruiksvoorwaarden & disclaimer", key="reg_akkoord")
         if st.button("Account aanmaken →", key="reg_btn", use_container_width=True):
-            if not all([r_naam, r_email, r_ww, r_ww2]):
+            if not r_akkoord:
+                st.error("Je moet akkoord gaan met de gebruiksvoorwaarden.")
+            elif not all([r_naam, r_email, r_ww, r_ww2]):
                 st.error("Vul alle velden in.")
             elif r_ww != r_ww2:
                 st.error("Wachtwoorden komen niet overeen.")
