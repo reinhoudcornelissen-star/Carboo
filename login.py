@@ -951,6 +951,14 @@ def render_admin_panel():
                     if voeg_credits_toe(user["id"], extra, "Credits toegevoegd door admin"):
                         st.success(f"✅ {extra} credits toegevoegd."); st.rerun()
             with col_c:
+                # Coach instellingen
+                if user.get("rol") == "coach":
+                    max_a = st.number_input("Max. atleten", 0, 700, int(user.get("max_atleten") or 700), key=f"max_a_{user['id']}")
+                    if st.button("💾 Opslaan", key=f"max_a_save_{user['id']}", use_container_width=True):
+                        try:
+                            _get_supabase().table("carboo_users").update({"max_atleten": max_a}).eq("id", user["id"]).execute()
+                            st.success(f"✅ Max. atleten: {max_a}"); st.rerun()
+                        except Exception as e: st.error(f"Fout: {e}")
                 st.markdown("<br>", unsafe_allow_html=True)
                 if st.button("🗑 Verwijderen", key=f"del_{user['id']}", use_container_width=True):
                     try:
