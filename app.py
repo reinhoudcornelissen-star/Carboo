@@ -259,6 +259,27 @@ if module == "menu":
         st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
+    # ── Coach Dashboard ───────────────────────────────────────────────────────
+    if is_admin or user.get("role") == "coach":
+        st.markdown("""
+        <div style="background:#0f172a;border:1px solid #3b82f6;border-radius:12px;
+                    padding:18px;margin-bottom:6px;">
+            <div style="display:flex;align-items:center;gap:14px;">
+                <div style="font-size:1.8rem;">👥</div>
+                <div>
+                    <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
+                        Coach Dashboard</div>
+                    <div style="font-size:0.78rem;color:#64748b;">
+                        Atleten beheren · Welzijn opvolgen · Dagboek check</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👥  Open Coach Dashboard", key="open_coach_dash", use_container_width=True):
+            st.session_state.module = "coaching"
+            st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+
 
     # ── Admin modules ─────────────────────────────────────────────────────────
     if is_admin or _abo.get("gut"):
