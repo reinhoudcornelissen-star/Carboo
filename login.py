@@ -232,7 +232,7 @@ def toggle_code_actief(code_id: str, actief: bool):
 # ─── Mail registratie ─────────────────────────────────────────────────────────
 def _stuur_registratie_mail(naam: str, email: str):
     try:
-        ontvanger = "info@sportlab-achterbos.be"
+        ontvanger = "Carboo"
         afzender  = _get_secrets("MAIL_FROM", "noreply@carboo.app")
         ww_mail   = _get_secrets("MAIL_PASSWORD", "")
         smtp_host = _get_secrets("MAIL_HOST", "smtp.gmail.com")
@@ -310,23 +310,38 @@ def render_disclaimer():
 
     Je persoonlijke gegevens (naam, e-mailadres, voedingsdata) worden uitsluitend gebruikt om
     de app correct te laten functioneren. We verkopen of delen jouw gegevens **nooit** met derden.
-    Je kan je account en alle bijhorende data op elk moment laten verwijderen via
-    info@sportlab-achterbos.be.
+    Je kan je account en alle bijhorende data op elk moment laten verwijderen via een schriftelijk
+    verzoek aan Carboo.
 
     ### 5. Intellectueel eigendom
 
-    Alle content, algoritmen en ontwerpen in Carboo zijn eigendom van Carboo / Sportlab Achterbos.
+    Alle content, algoritmen en ontwerpen in Carboo zijn exclusief eigendom van Carboo.
     Het is niet toegestaan om de app of delen ervan te kopiëren, reproduceren of commercieel te
-    gebruiken zonder schriftelijke toestemming.
+    gebruiken zonder voorafgaande schriftelijke toestemming.
 
-    ### 6. Wijzigingen
+    ### 6. Technische beschikbaarheid & aansprakelijkheid
+
+    Carboo maakt gebruik van externe hosting- en infrastructuurdiensten van derden. Carboo kan
+    niet garanderen dat de applicatie te allen tijde ononderbroken, foutloos of volledig
+    beschikbaar zal zijn.
+
+    Carboo wijst uitdrukkelijk elke aansprakelijkheid af voor schade of verlies die voortvloeit uit:
+
+    - tijdelijke of permanente onderbrekingen van de dienst ten gevolge van storingen, onderhoud
+    of technische defecten bij externe dienstverleners;
+    - verlies of beschadiging van gebruikersgegevens als gevolg van omstandigheden buiten de
+    redelijke controle van Carboo;
+    - schade van welke aard dan ook — direct, indirect, incidenteel of gevolgschade — die verband
+    houdt met de gehele of gedeeltelijke onbeschikbaarheid van de applicatie.
+
+    De gebruiker erkent dat het gebruik van een online applicatie inherent verbonden is aan een
+    zeker risico op technische storingen en aanvaardt dit risico uitdrukkelijk bij aanvang van
+    het gebruik van Carboo.
+
+    ### 7. Wijzigingen
 
     Carboo behoudt het recht om deze voorwaarden op elk moment te wijzigen. Bij belangrijke
     wijzigingen word je via e-mail op de hoogte gesteld.
-
-    ### 7. Contact
-
-    Vragen over deze voorwaarden? Neem contact op via **info@sportlab-achterbos.be**.
 
     ---
 
