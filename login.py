@@ -261,10 +261,7 @@ def _stuur_registratie_mail(naam: str, email: str):
 
 # ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 def render_landing_page():
-    """Toont de volledige Carboo landing page."""
-    import streamlit.components.v1 as components
-    import os
-
+    """Mooie landing/login pagina in Streamlit."""
     actie = st.query_params.get("actie", "")
     if actie == "register":
         st.query_params.clear()
@@ -277,28 +274,203 @@ def render_landing_page():
         st.session_state["_login_tab"]   = "login"
         st.rerun()
 
-    st.markdown(
-        "<style>#MainMenu,header,footer,.stDeployButton,section[data-testid=stSidebar]"
-        "{display:none!important}.block-container{padding:0!important;max-width:100%!important}</style>",
-        unsafe_allow_html=True)
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Sans:wght@400;500;600&display=swap');
+    #MainMenu,header,footer,.stDeployButton{display:none!important}
+    .block-container{padding:0!important;max-width:100%!important}
+    .stApp{background:#0c0c0c!important}
+    </style>
 
-    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "carboo_landing.html")
-    try:
-        with open(html_path, encoding="utf-8") as _f:
-            _html = _f.read()
-    except:
-        _html = _LANDING_HTML
+    <!-- NAV -->
+    <div style="position:sticky;top:0;z-index:100;width:100%;padding:18px 6vw;
+                display:flex;align-items:center;justify-content:space-between;
+                background:rgba(12,12,12,0.92);backdrop-filter:blur(16px);
+                border-bottom:1px solid rgba(255,255,255,0.06);">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;letter-spacing:1px;">
+        Car<span style="color:#f97316;">b</span>oo
+      </div>
+      <div style="font-size:0.62rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+                  color:#888;border:1px solid #2a2a2a;padding:4px 10px;border-radius:100px;">
+        Sports Nutrition Coach
+      </div>
+      <div style="display:flex;gap:10px;">
+        <a href="?actie=login" style="font-size:0.82rem;color:#888;text-decoration:none;padding:8px 16px;">Inloggen</a>
+        <a href="?actie=register" style="font-size:0.82rem;font-weight:600;color:#0c0c0c;
+           background:#f97316;padding:9px 20px;border-radius:8px;text-decoration:none;">Gratis starten →</a>
+      </div>
+    </div>
 
-    # Fix knoppen
-    import re as _re
-    _html = _re.sub(r'href="[^"]*" target="_top" class="nav-login"',
-        'href="javascript:void(0)" onclick="window.top.location.href=window.top.location.pathname+\'?actie=login\'" class="nav-login"', _html)
-    _html = _re.sub(r'href="[^"]*actie[^"]*" target="_top"',
-        'href="javascript:void(0)" onclick="window.top.location.href=window.top.location.pathname+\'?actie=register\'"', _html)
-    _html = _re.sub(r'href="[^"]*carboo[^"]*"',
-        'href="javascript:void(0)" onclick="window.top.location.href=window.top.location.pathname+\'?actie=register\'"', _html)
+    <!-- HERO -->
+    <div style="min-height:100vh;padding:120px 6vw 80px;max-width:1300px;margin:0 auto;
+                display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;">
+      <div>
+        <div style="font-size:0.7rem;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
+                    color:#f97316;margin-bottom:28px;display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-block;width:24px;height:1px;background:#f97316;"></span>
+          Voeding × Prestatie
+        </div>
+        <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,6vw,6rem);
+                   line-height:0.95;letter-spacing:2px;color:#f5f3ef;margin-bottom:28px;">
+          EET ZOALS<br>JE TRAINT.<br><span style="color:#f97316;">MET EEN PLAN.</span>
+        </h1>
+        <p style="font-size:1.05rem;color:#888;line-height:1.75;max-width:420px;margin-bottom:44px;">
+          Periodiseer je voeding op basis van je trainingsbelasting. Stop met gissen. Begin met fuelen.
+        </p>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:32px;">
+          <a href="?actie=register" style="font-family:'Bebas Neue',sans-serif;font-size:1rem;
+             color:#0c0c0c;background:#f97316;padding:14px 28px;border-radius:10px;
+             text-decoration:none;letter-spacing:1px;">GRATIS STARTEN →</a>
+          <a href="?actie=login" style="font-size:0.9rem;color:#666;text-decoration:none;padding:14px 0;
+             border-bottom:1px solid transparent;">Al een account? Inloggen ↗</a>
+        </div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
+            <span style="color:#f97316;font-weight:700;">✓</span> 7 dagen gratis</span>
+          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
+            <span style="color:#f97316;font-weight:700;">✓</span> Geen creditcard</span>
+          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
+            <span style="color:#f97316;font-weight:700;">✓</span> €9,99/maand</span>
+        </div>
+      </div>
 
-    components.html(_html, height=9500, scrolling=True)
+      <!-- APP MOCKUP -->
+      <div style="background:#111;border-radius:16px;overflow:hidden;
+                  box-shadow:0 40px 100px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.06);
+                  transform:perspective(1000px) rotateY(-3deg) rotateX(2deg);">
+        <div style="background:#1a1a1a;padding:12px 16px;display:flex;align-items:center;gap:8px;
+                    border-bottom:1px solid rgba(255,255,255,0.06);">
+          <div style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#28c840;"></div>
+          <div style="flex:1;background:#222;border-radius:6px;padding:4px 12px;
+                      font-size:0.65rem;color:#555;text-align:center;">carboo.app/dagschema</div>
+        </div>
+        <div style="padding:20px;">
+          <div style="font-size:.6rem;font-weight:700;color:#f97316;letter-spacing:2px;margin-bottom:10px;">DAGSCHEMA — WOENSDAG</div>
+          <div style="font-size:1rem;font-weight:700;color:#f5f3ef;margin-bottom:16px;">Zware trainingsdag ⚡</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+            <div style="background:#1e293b;border-radius:8px;padding:10px;">
+              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Kcal</div>
+              <div style="font-size:1rem;font-weight:800;color:#f97316;line-height:1;">2840</div>
+              <div style="height:3px;border-radius:2px;margin-top:6px;background:#f97316;width:82%;"></div>
+            </div>
+            <div style="background:#1e293b;border-radius:8px;padding:10px;">
+              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">KH</div>
+              <div style="font-size:1rem;font-weight:800;color:#22c55e;line-height:1;">348g</div>
+              <div style="height:3px;border-radius:2px;margin-top:6px;background:#22c55e;width:88%;"></div>
+            </div>
+            <div style="background:#1e293b;border-radius:8px;padding:10px;">
+              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Eiwit</div>
+              <div style="font-size:1rem;font-weight:800;color:#3b82f6;line-height:1;">162g</div>
+              <div style="height:3px;border-radius:2px;margin-top:6px;background:#3b82f6;width:91%;"></div>
+            </div>
+          </div>
+          <div style="font-size:.62rem;color:#64748b;margin-bottom:8px;">Energietiming vs trainingsbelasting</div>
+          <div style="display:flex;align-items:flex-end;gap:4px;height:50px;margin-bottom:14px;">
+            <div style="flex:1;height:25%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
+            <div style="flex:1;height:20%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
+            <div style="flex:1;height:90%;border-radius:3px 3px 0 0;background:#f97316;"></div>
+            <div style="flex:1;height:50%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
+            <div style="flex:1;height:72%;border-radius:3px 3px 0 0;background:#f97316;"></div>
+            <div style="flex:1;height:30%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
+            <div style="flex:1;height:20%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
+              🥗 Ontbijt op target <span style="color:#f97316;font-weight:700;">✓</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
+              ⚡ Extra KH na training <span style="color:#f97316;font-weight:700;">+40g</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
+              💪 Eiwit vandaag <span style="color:#f97316;font-weight:700;">162g</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 PIJLERS -->
+    <div style="padding:80px 6vw;background:#141414;border-top:1px solid #2a2a2a;">
+      <div style="max-width:1300px;margin:0 auto;">
+        <div style="font-size:0.68rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+                    color:#f97316;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+          De app <span style="flex:1;height:1px;background:#2a2a2a;display:inline-block;"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;
+                    border:1px solid #2a2a2a;border-radius:16px;overflow:hidden;margin-top:32px;">
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
+                        position:absolute;top:16px;right:24px;line-height:1;">01</div>
+            <div style="font-size:2rem;margin-bottom:20px;">⚡</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
+                        margin-bottom:14px;letter-spacing:1px;">FUELING</div>
+            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
+              Dagschema op maat. Per training, per maaltijdmoment. 100+ NEVO-producten,
+              AI-etiketscan, community recepten en een eigen prestatie-algoritme.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Dagschema</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Analyses</span>
+            </div>
+          </div>
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
+                        position:absolute;top:16px;right:24px;line-height:1;">02</div>
+            <div style="font-size:2rem;margin-bottom:20px;">🏁</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
+                        margin-bottom:14px;letter-spacing:1px;">RACE NUTRITION PLAN</div>
+            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
+              Stap-voor-stap voedingsstrategie voor je wedstrijddag. Van sprint tot Ironman.
+              Gels, bars, dranken en vast voedsel per checkpoint.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">g KH/uur</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Gel timing</span>
+            </div>
+          </div>
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
+                        position:absolute;top:16px;right:24px;line-height:1;">03</div>
+            <div style="font-size:2rem;margin-bottom:20px;">🫀</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
+                        margin-bottom:14px;letter-spacing:1px;">TRAIN THE GUT</div>
+            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
+              Je darmen trainen voor maximale koolhydraatopname. Trapsgewijs protocol,
+              wekelijkse tests, perfecte wedstrijdstrategie.</p>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Protocol</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
+                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Testen</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="background:#f97316;padding:100px 6vw;text-align:center;">
+      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4.5rem);
+                 color:#0c0c0c;margin-bottom:20px;letter-spacing:2px;line-height:1;">
+        KLAAR OM TE FUELEN<br>ZOALS EEN PROF?</h2>
+      <p style="font-size:1rem;color:rgba(12,12,12,0.6);margin-bottom:40px;max-width:400px;
+                margin-left:auto;margin-right:auto;line-height:1.7;">
+        Maak een gratis account aan en ontdek wat Carboo voor jouw prestaties kan doen.</p>
+      <a href="?actie=register" style="font-family:'Bebas Neue',sans-serif;font-size:1rem;
+         font-weight:700;color:#f97316;background:#0c0c0c;padding:16px 36px;border-radius:10px;
+         text-decoration:none;display:inline-block;letter-spacing:1px;">GRATIS STARTEN →</a>
+    </div>
+
+    <!-- FOOTER -->
+    <div style="background:#0c0c0c;border-top:1px solid #2a2a2a;padding:28px 6vw;
+                display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#f5f3ef;letter-spacing:1px;">
+        Car<span style="color:#f97316;">b</span>oo</div>
+      <div style="font-size:.75rem;color:#444;">
+        Sports Nutrition Coach · Eet zoals je traint. Met een plan. · © 2026</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 
