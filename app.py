@@ -205,7 +205,7 @@ if module == "menu":
     """, unsafe_allow_html=True)
 
     # ── Fueling (bovenaan) ────────────────────────────────────────────────────
-    if is_admin:
+    if is_admin or _abo.get("fueling"):
         st.markdown("""
         <div style="background:linear-gradient(135deg,#1e293b,#0f172a);
                     border:2px solid #22c55e;border-radius:16px;padding:24px;
@@ -252,7 +252,7 @@ if module == "menu":
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Admin modules ─────────────────────────────────────────────────────────
-    if is_admin:
+    if is_admin or _abo.get("gut"):
 
         # Train the Gut
         st.markdown("""
