@@ -1650,14 +1650,18 @@ def _update_product(product_id: str, data: dict) -> bool:
 
 def _verwijder_product(product_id: str) -> bool:
     try:
-        _get_supabase().table("fuelc_bibliotheek").delete().eq("id", product_id).execute()
+        sb = _get_supabase()
+        # Ontkoppel eerst dagboek items die naar dit product verwijzen
+        sb.table("fuelc_dagboek").update({"product_id": None})\
+          .eq("product_id", product_id).execute()
+        # Dan verwijder het product
+        sb.table("fuelc_bibliotheek").delete().eq("id", product_id).execute()
         _laad_bibliotheek_raw.clear()
         _laad_gecombineerde_bibliotheek_raw.clear()
         return True
     except Exception as e:
         st.error(f"Fout verwijderen: {e}")
         return False
-
 
 # ─── COMMUNITY FUNCTIES ───────────────────────────────────────────────────────
 
@@ -5087,13 +5091,13 @@ def _render_analyses(user: dict):
                     )
                 st.markdown(
                     f'<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px;align-items:stretch;">'
-                    f'<div>'
+                     f'<div style="height:100%;display:flex;flex-direction:column;">'
                     f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Welzijn samenvatting</div>'
-                    f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
+                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;box-sizing:border-box;height:100%;">'
                     f'{welzijn_rows if welzijn_rows else '<div style="font-size:0.78rem;color:#64748b;">Vul het dagboek in om welzijnsdata te zien.</div>'}'
                     f'</div></div>'
-                     f'<div>'
-                     f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Performance score</div>'
+                     f'</div></div>'
+                     f'<div style="height:100%;display:flex;flex-direction:column;">'
                      f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:100%;box-sizing:border-box;">'
                      f'<div style="text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #334155;">'
                      f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:4px;">GEMIDDELDE</div>'
