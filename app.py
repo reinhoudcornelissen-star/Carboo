@@ -274,31 +274,6 @@ if module == "menu":
             st.session_state.module = "testing"
             st.rerun()
 
-        st.markdown("<br style='margin-bottom:6px;'>", unsafe_allow_html=True)
-
-        # FuelC
-        st.markdown("""
-        <div style="background:#0f172a;border:1px solid #22c55e;border-radius:12px;
-                    padding:18px;margin-bottom:6px;">
-            <div style="display:flex;align-items:center;gap:14px;">
-                <div style="font-size:1.8rem;">⚡</div>
-                <div>
-                    <div style="font-size:0.95rem;font-weight:800;color:#f8fafc;margin-bottom:3px;">
-                        FuelC — Energie Coach</div>
-                    <div style="font-size:0.78rem;color:#64748b;">
-                        TDEE · Trainingszone · Voedselbibliotheek · Dagschema · Dashboard</div>
-                </div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("⚡  Open FuelC", key="open_fuelc",
-                     use_container_width=True):
-            st.session_state.module = "fuelc"
-            st.rerun()
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-
 
 elif module == "coach":
     render_coach(user)
