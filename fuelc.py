@@ -4076,9 +4076,9 @@ def _render_analyses(user: dict):
                     borderColor: '#0a0f1e', borderWidth: 2 }}]
             }},
             options: {{
-                responsive: true, animation: false,
+                responsive: true, maintainAspectRatio: false, animation: false,
                 plugins: {{
-                    legend: {{ position: 'right', labels: {{ color: '#94a3b8', font: {{ size: 11 }}, padding: 12 }} }}
+                    legend: {{ position: 'right', labels: {{ color: '#94a3b8', font: {{ size: 12 }}, padding: 16, boxWidth: 14 }} }}
                 }}
             }}
         }});
@@ -4692,7 +4692,7 @@ def _render_analyses(user: dict):
                 ep1, ep2 = st.columns([1,2])
                 with ep1:
                     _chart(_donut_chart(
-                        [f"🌱 Plantaardig {pct_pl}%",f"🥩 Dierlijk {pct_di}%"],
+                        [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
                         [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=300)
                 with ep2:
                     kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#3b82f6" if pct_di>70 else "#fbbf24"
@@ -4713,7 +4713,7 @@ def _render_analyses(user: dict):
                               "Granen & brood":"#f97316","Groenten":"#22c55e","Peulvruchten":"#22c55e",
                               "Noten & zaden":"#f59e0b","Fruit":"#a78bfa","Sportvoeding":"#14b8a6","Overige":"#64748b"}
                     html_detail = (
-                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:260px;box-sizing:border-box;overflow-y:auto;">'
+                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:300px;box-sizing:border-box;overflow-y:auto;">'
                         f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:10px;">EIWITBRONNEN (gem/dag)</div>'
                     )
                     for cat_n, ei_g in top_cats:
@@ -4844,12 +4844,6 @@ def _render_analyses(user: dict):
                         f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
                         f'WHO max: 10% = <b style="color:#94a3b8">{round(gem_kcal_v*0.10/9)}g/dag</b> bij {gem_kcal_v} kcal'
                         f'</div></div>', unsafe_allow_html=True)
-                st.markdown(
-                    '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
-                    '<div style="font-size:0.78rem;color:#64748b;">ℹ️ Verzadigde vetten niet beschikbaar. '
-                    'Voeg "Verzadigd vet (per 100g)" toe aan producten in de bibliotheek voor dit inzicht.</div>'
-                    '</div>', unsafe_allow_html=True)
-
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 6 — PERFORMANCE
     # ══════════════════════════════════════════════════════════════════════════
@@ -4925,45 +4919,61 @@ def _render_analyses(user: dict):
                         + detail_html + '</div>',
                         unsafe_allow_html=True)
 
-                # Aandachtspunten + score per dag
-                pa1, pa2 = st.columns([2,1])
-                with pa1:
-                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Aandachtspunten</div>', unsafe_allow_html=True)
-                    ADVIEZEN = {
-                        "energiebalans":    "Zorg dat je dagelijkse kcal-inname dichter bij je doel zit.",
-                        "macrokwaliteit":   "Check je KH/eiwit/vet verhouding — spreiding en timing verbeteren.",
-                        "micronutriënten":  "Meer vezels, omega-3 en vitamine D via groenten, vette vis of supplementen.",
-                        "maaltijdregelmaat":"Vul meer maaltijdmomenten in voor beter herstel en stabiel bloedsuiker.",
-                        "voedingskwaliteit":"Meer variatie in voedingsgroepen — groenten, fruit, peulvruchten.",
-                        "hydratatie":       "Drink min. 35ml/kg/dag — meer op trainingsdag.",
-                    }
-                    for k2,(lbl2,maxp2) in PIJLERS.items():
-                        pts2 = bd["breakdown"].get(k2,{})
-                        if isinstance(pts2,dict): pts2 = pts2.get("score",0)
-                        pct2 = round(pts2/maxp2*100)
-                        if pct2 < 80:
-                            kl2 = "#fbbf24" if pct2>=50 else "#ef4444"
-                            st.markdown(
-                                f'<div style="background:#1e293b;border-radius:8px;padding:10px 14px;margin-bottom:6px;">'
-                                f'<div style="font-size:0.78rem;color:#f8fafc;margin-bottom:4px;">{lbl2}</div>'
-                                f'<div style="font-size:0.75rem;color:{kl2};">{ADVIEZEN.get(k2,"")}</div>'
-                                f'</div>', unsafe_allow_html=True)
-                with pa2:
-                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 8px;">Score per dag</div>', unsafe_allow_html=True)
-                    for s in scores_per_dag[-7:]:
-                        sc = s["score"]
-                        kl_s = "#22c55e" if sc>=75 else ("#fbbf24" if sc>=50 else "#ef4444")
-                        st.markdown(
-                            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
-                            f'<div style="font-size:0.72rem;color:#64748b;min-width:40px;">{s["datum"][5:]}</div>'
-                            f'<div style="flex:1;background:#0f172a;border-radius:3px;height:6px;">'
-                            f'<div style="width:{sc}%;height:100%;background:{kl_s};border-radius:3px;"></div></div>'
-                            f'<div style="font-size:0.72rem;color:{kl_s};min-width:30px;text-align:right;">{sc}</div>'
-                            f'</div>', unsafe_allow_html=True)
+                # Welzijn + score in HTML grid voor perfecte uitlijning
+                welzijn_items = [v for v in welzijn_data.values() if v]
+                gem_score_disp = round(sum(s["score"] for s in scores_per_dag)/len(scores_per_dag))
+                k_gem_d = "#22c55e" if gem_score_disp>=75 else ("#fbbf24" if gem_score_disp>=50 else "#ef4444")
+                def gem_w(key): return round(sum(float(w.get(key,0) or 0) for w in welzijn_items)/max(len(welzijn_items),1),1) if welzijn_items else 0
+                WELZIJN_ITEMS = [
+                    ("Energieniveau",  gem_w("energie_score"),   10),
+                    ("Slaapkwaliteit", gem_w("slaap_kwaliteit"), 10),
+                    ("Spierpijn",      gem_w("spierpijn"),        5),
+                    ("Stemming",       gem_w("stemming"),        10),
+                    ("Stress",         gem_w("stress"),           5),
+                    ("Hongergevoel",   gem_w("honger"),           5),
+                ]
+                # Bouw HTML
+                welzijn_rows = ""
+                for lbl_w, val_w, max_w in WELZIJN_ITEMS:
+                    if val_w == 0: continue
+                    pct_w = round(val_w/max_w*100)
+                    kl_w = "#22c55e" if pct_w>=60 else ("#fbbf24" if pct_w>=30 else "#ef4444")
+                    welzijn_rows += (
+                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+                        f'<div style="min-width:120px;font-size:0.75rem;color:#94a3b8;">{lbl_w}</div>'
+                        f'<div style="flex:1;background:#0f172a;border-radius:3px;height:6px;">'
+                        f'<div style="width:{min(100,pct_w)}%;height:100%;background:{kl_w};border-radius:3px;"></div></div>'
+                        f'<div style="min-width:40px;font-size:0.75rem;color:{kl_w};text-align:right;">{val_w}/{max_w}</div></div>'
+                    )
+                score_rows = ""
+                for s in scores_per_dag[-7:]:
+                    sc = s["score"]
+                    kl_s = "#22c55e" if sc>=75 else ("#fbbf24" if sc>=50 else "#ef4444")
+                    score_rows += (
+                        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+                        f'<div style="font-size:0.72rem;color:#64748b;min-width:38px;">{s["datum"][5:]}</div>'
+                        f'<div style="flex:1;background:#0f172a;border-radius:3px;height:5px;">'
+                        f'<div style="width:{sc}%;height:100%;background:{kl_s};border-radius:3px;"></div></div>'
+                        f'<div style="font-size:0.72rem;color:{kl_s};min-width:24px;text-align:right;">{sc}</div></div>'
+                    )
+                st.markdown(
+                    f'<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px;align-items:start;">'
+                    f'<div>'
+                    f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Welzijn samenvatting</div>'
+                    f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
+                    f'{welzijn_rows if welzijn_rows else '<div style="font-size:0.78rem;color:#64748b;">Vul het dagboek in om welzijnsdata te zien.</div>'}'
+                    f'</div></div>'
+                     f'<div>'
+                     f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Performance score</div>'
+                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;">'
+                     f'<div style="text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #334155;">'
+                     f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:4px;">GEMIDDELDE</div>'
+                     f'<div style="font-size:2.5rem;font-weight:900;color:{k_gem_d};line-height:1;">{gem_score_disp}</div>'
+                     f'<div style="font-size:0.65rem;color:#475569;margin-top:2px;">/ 100</div></div>'
+                     f'{score_rows}'
+                     f'</div></div></div>',
+                     unsafe_allow_html=True)
 
-def _stap_dashboard(user: dict):
-    tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
-    with tab_db:
         _render_voedingsdagboek(user)
     with tab_an:
         _render_analyses(user)
@@ -5010,3 +5020,11 @@ def render_fuelc(user: dict):
     elif stap == 3: _stap_bibliotheek(user)
     elif stap == 4: _stap_dagschema(user)
     elif stap == 5: _stap_dashboard(user)
+
+
+def _stap_dashboard(user: dict):
+    tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
+    with tab_db:
+        _render_voedingsdagboek(user)
+    with tab_an:
+        _render_analyses(user)
