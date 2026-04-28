@@ -31,6 +31,161 @@ def _get_user_by_id(user_id: str):
         return r.data[0] if r.data else None
     except: return None
 
+# ─── Abonnement & Trial ───────────────────────────────────────────────────────
+from datetime import date, datetime, timedelta
+
+def get_abonnement(user_id: str) -> dict:
+    """Haal abonnement status op. Geeft dict terug met actieve modules."""
+    user = _get_user_by_id(user_id)
+    if not user:
+        return {"trial": False, "fueling": False, "gut": False, "rapport": False, "alles": False}
+
+    abo       = user.get("abonnement") or "geen"
+    verval    = user.get("abo_verval")
+    abo_cred  = int(user.get("abo_credits") or 0)
+    credits   = int(user.get("credits") or 0)
+
+    # Check of verval nog geldig is
+    actief = False
+    if verval:
+        try:
+            verval_dt = date.fromisoformat(str(verval)[:10])
+            actief = verval_dt >= date.today()
+        except: actief = False
+
+    is_trial   = abo == "trial" and actief
+    is_alles   = abo == "alles" and actief
+    is_fueling = abo in ("alles", "fueling") and actief
+    is_gut     = abo in ("alles", "gut") and actief
+    heeft_rapport = credits > 0 or (is_alles and abo_cred > 0)
+
+    return {
+        "trial":   is_trial,
+        "alles":   is_alles,
+        "fueling": is_fueling or is_trial or is_alles,
+        "gut":     is_gut or is_trial or is_alles,
+        "rapport": heeft_rapport,
+        "abo":     abo,
+        "verval":  str(verval)[:10] if verval else None,
+        "abo_credits": abo_cred,
+        "dagen_resterend": (date.fromisoformat(str(verval)[:10]) - date.today()).days if verval and actief else 0,
+    }
+
+def activeer_trial(user_id: str) -> bool:
+    """Activeer 7-daagse trial bij registratie."""
+    try:
+        verval = (date.today() + timedelta(days=7)).isoformat()
+        _get_supabase().table("carboo_users").update({
+            "abonnement": "trial",
+            "abo_verval": verval,
+            "abo_credits": 0,
+        }).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Trial activatie fout: {e}"); return False
+
+def activeer_abonnement(user_id: str, pakket: str, maanden: int = 1) -> bool:
+    """Activeer een betaald abonnement."""
+    try:
+        # Maandelijks rapport credit bij alles-in-1
+        abo_credits = 1 if pakket == "alles" else 0
+        verval = (date.today() + timedelta(days=30 * maanden)).isoformat()
+        _get_supabase().table("carboo_users").update({
+            "abonnement": pakket,
+            "abo_verval": verval,
+            "abo_credits": abo_credits,
+        }).eq("id", user_id).execute()
+        return True
+    except Exception as e:
+        print(f"Abonnement activatie fout: {e}"); return False
+
+def render_abonnement_keuze(user_id: str, user_email: str):
+    """Toon abonnementskeuze als trial verlopen is."""
+    st.markdown("""
+    <div style="max-width:700px;margin:40px auto 0 auto;text-align:center;">
+      <div style="font-size:2.5rem;font-weight:900;letter-spacing:4px;color:#f8fafc;margin-bottom:8px;">
+        CAR<span style="color:#f97316;">BOO</span>
+      </div>
+      <div style="font-size:0.82rem;color:#64748b;margin-bottom:8px;">Je gratis proefperiode is afgelopen.</div>
+      <div style="font-size:1.1rem;font-weight:700;color:#f8fafc;margin-bottom:32px;">Kies je pakket om verder te gaan.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("""
+        <div style="background:#1e293b;border:2px solid #f97316;border-radius:12px;padding:20px;text-align:center;height:260px;box-sizing:border-box;">
+          <div style="font-size:0.6rem;color:#f97316;font-weight:700;letter-spacing:2px;margin-bottom:8px;">POPULAIRSTE</div>
+          <div style="font-size:0.9rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">Alles-in-1</div>
+          <div style="font-size:1.8rem;font-weight:900;color:#f97316;margin:8px 0;">€9,99</div>
+          <div style="font-size:0.65rem;color:#64748b;margin-bottom:12px;">/maand</div>
+          <div style="font-size:0.72rem;color:#94a3b8;line-height:1.8;">
+            ⚡ Fueling<br>🧪 Train the Gut<br>🏁 1 wedstrijdrapport/maand
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Kies Alles-in-1", key="abo_alles", use_container_width=True, type="primary"):
+            st.session_state["_abo_keuze"] = "alles"
+            st.session_state["_abo_prijs"] = 9.99
+            st.session_state.module = "credits"
+            st.rerun()
+
+    with col2:
+        st.markdown("""
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;text-align:center;height:260px;box-sizing:border-box;">
+          <div style="font-size:0.6rem;color:#64748b;font-weight:700;letter-spacing:2px;margin-bottom:8px;">&nbsp;</div>
+          <div style="font-size:0.9rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">Fueling</div>
+          <div style="font-size:1.8rem;font-weight:900;color:#f97316;margin:8px 0;">€5,99</div>
+          <div style="font-size:0.65rem;color:#64748b;margin-bottom:12px;">/maand</div>
+          <div style="font-size:0.72rem;color:#94a3b8;line-height:1.8;">
+            ⚡ Dagschema<br>📊 Analyses<br>🍽️ Voedselbibliotheek
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Kies Fueling", key="abo_fueling", use_container_width=True):
+            st.session_state["_abo_keuze"] = "fueling"
+            st.session_state["_abo_prijs"] = 5.99
+            st.session_state.module = "credits"
+            st.rerun()
+
+    with col3:
+        st.markdown("""
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;text-align:center;height:260px;box-sizing:border-box;">
+          <div style="font-size:0.6rem;color:#64748b;font-weight:700;letter-spacing:2px;margin-bottom:8px;">&nbsp;</div>
+          <div style="font-size:0.9rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">Train the Gut</div>
+          <div style="font-size:1.8rem;font-weight:900;color:#f97316;margin:8px 0;">€3,99</div>
+          <div style="font-size:0.65rem;color:#64748b;margin-bottom:12px;">/maand</div>
+          <div style="font-size:0.72rem;color:#94a3b8;line-height:1.8;">
+            🧪 Darmprotocol<br>📈 Intensiteitstests<br>🏆 Wedstrijdstrategie
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Kies Train the Gut", key="abo_gut", use_container_width=True):
+            st.session_state["_abo_keuze"] = "gut"
+            st.session_state["_abo_prijs"] = 3.99
+            st.session_state.module = "credits"
+            st.rerun()
+
+    with col4:
+        st.markdown("""
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px;text-align:center;height:260px;box-sizing:border-box;">
+          <div style="font-size:0.6rem;color:#64748b;font-weight:700;letter-spacing:2px;margin-bottom:8px;">&nbsp;</div>
+          <div style="font-size:0.9rem;font-weight:800;color:#f8fafc;margin-bottom:4px;">Wedstrijdrapport</div>
+          <div style="font-size:1.8rem;font-weight:900;color:#f97316;margin:8px 0;">€4,99</div>
+          <div style="font-size:0.65rem;color:#64748b;margin-bottom:12px;">/stuk</div>
+          <div style="font-size:0.72rem;color:#94a3b8;line-height:1.8;">
+            🏁 Race Nutrition Plan<br>📄 PDF rapport<br>⏱️ Uur-per-uur schema
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Koop rapport", key="abo_rapport", use_container_width=True):
+            st.session_state["_abo_keuze"] = "credit"
+            st.session_state["_abo_prijs"] = 4.99
+            st.session_state.module = "credits"
+            st.rerun()
+
+
 # ─── Credits ─────────────────────────────────────────────────────────────────
 def get_credits(user_id: str) -> int:
     user = _get_user_by_id(user_id)
@@ -648,6 +803,7 @@ def render_login_page():
                             gebruik_promo_code(promo_data["id"], new_user["id"], promo_data["credits"])
                         try: _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
                         except: pass
+                        activeer_trial(new_user["id"])
                         st.session_state.logged_in    = True
                         st.session_state.current_user = new_user
                         st.session_state.module       = "menu"
@@ -715,6 +871,17 @@ def render_admin_panel():
     with col2: st.metric("📄 Rapporten", len(trans_gebruik))
     with col3: st.metric("🎟 Credits resterend", totaal_credits)
     with col4: st.metric("💰 Credits verkocht", omzet_credits)
+
+    # Abonnement statistieken
+    from datetime import date as _date
+    actieve_abos = [u for u in users if u.get("abonnement") and u.get("abo_verval") and u["rol"]=="user"
+                    and str(u.get("abo_verval",""))[:10] >= str(_date.today())]
+    trials = [u for u in actieve_abos if u.get("abonnement") == "trial"]
+    betaald = [u for u in actieve_abos if u.get("abonnement") != "trial"]
+    col_a, col_b, col_c = st.columns(3)
+    with col_a: st.metric("🔄 Actieve abos", len(betaald))
+    with col_b: st.metric("⏱️ Trials actief", len(trials))
+    with col_c: st.metric("💶 MRR", f"€{sum(9.99 if u.get('abonnement')=='alles' else 5.99 if u.get('abonnement')=='fueling' else 3.99 for u in betaald):.2f}")
 
     st.markdown("---")
     st.markdown('<div style="font-weight:800;color:#f97316;margin-bottom:8px;">📊 RECENTE ACTIVITEIT</div>', unsafe_allow_html=True)
@@ -784,6 +951,37 @@ def render_admin_panel():
                         sb.table("carboo_transacties").delete().eq("user_id", user["id"]).execute()
                         sb.table("carboo_users").delete().eq("id", user["id"]).execute()
                         st.success("Gebruiker verwijderd."); st.rerun()
+                    except Exception as e: st.error(f"Fout: {e}")
+            # Abonnement beheer
+            st.markdown('<div style="font-size:0.75rem;color:#64748b;margin-top:12px;margin-bottom:6px;">ABONNEMENT</div>', unsafe_allow_html=True)
+            abo_huidig = user.get("abonnement") or "geen"
+            verval_huidig = str(user.get("abo_verval","") or "—")[:10]
+            abo_labels = {"trial":"Proefperiode","alles":"Alles-in-1","fueling":"Fueling","gut":"Train the Gut","geen":"Geen"}
+            st.markdown(
+                f'<div style="font-size:0.78rem;color:#f8fafc;margin-bottom:6px;">Huidig: '
+                f'<b style="color:#f97316;">{abo_labels.get(abo_huidig, abo_huidig)}</b>'
+                f' · Verval: <b>{verval_huidig}</b></div>', unsafe_allow_html=True)
+            col_abo1, col_abo2 = st.columns([2,1])
+            with col_abo1:
+                nieuw_abo = st.selectbox("Abonnement instellen", 
+                    ["trial","alles","fueling","gut","geen"],
+                    index=["trial","alles","fueling","gut","geen"].index(abo_huidig) if abo_huidig in ["trial","alles","fueling","gut","geen"] else 4,
+                    key=f"abo_sel_{user['id']}")
+                maanden = st.number_input("Maanden", 1, 12, 1, key=f"abo_mnd_{user['id']}")
+            with col_abo2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("✓ Activeren", key=f"abo_act_{user['id']}", use_container_width=True):
+                    try:
+                        from datetime import date, timedelta
+                        verval_dt = (date.today() + timedelta(days=30*maanden)).isoformat()
+                        abo_cred = 1 if nieuw_abo == "alles" else 0
+                        _get_supabase().table("carboo_users").update({
+                            "abonnement": nieuw_abo if nieuw_abo != "geen" else None,
+                            "abo_verval": verval_dt if nieuw_abo != "geen" else None,
+                            "abo_credits": abo_cred,
+                        }).eq("id", user["id"]).execute()
+                        st.success(f"✅ {abo_labels.get(nieuw_abo, nieuw_abo)} geactiveerd t/m {verval_dt}")
+                        st.rerun()
                     except Exception as e: st.error(f"Fout: {e}")
             try:
                 trans = sb.table("carboo_transacties").select("*").eq("user_id", user["id"]).order("datum", desc=True).limit(5).execute().data
