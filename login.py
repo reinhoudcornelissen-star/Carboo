@@ -747,7 +747,12 @@ def render_login_page():
         st.session_state["toon_landing"] = True
         st.rerun()
 
+    # Bewaar tab keuze in session_state om terug-naar-register bug te voorkomen
     if tab_voorkeur == "login":
+        st.session_state["_actieve_tab"] = "login"
+    actieve_tab = st.session_state.get("_actieve_tab", "register")
+
+    if actieve_tab == "login":
         tab_inloggen, tab_registreren = st.tabs(["  Inloggen  ", "  Registreren  "])
     else:
         tab_registreren, tab_inloggen = st.tabs(["  Registreren  ", "  Inloggen  "])
@@ -840,6 +845,7 @@ def render_login_page():
                 elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
                     st.error("Verkeerd wachtwoord.")
                 else:
+                    st.session_state.pop("_actieve_tab", None)
                     st.session_state.logged_in    = True
                     st.session_state.current_user = {
                         "id": user["id"], "name": user["naam"],
