@@ -8,6 +8,11 @@ try:
 except ImportError:
     def render_testing(user): st.info("Module nog niet beschikbaar.")
 try:
+    from carboo_coaching import render_coach_dashboard, render_coach_uitnodigingen
+except ImportError:
+    def render_coach_dashboard(u): st.info('Coach module niet beschikbaar.')
+    def render_coach_uitnodigingen(u): pass
+try:
     from fuelc import render_fuelc
 except Exception as _fuelc_err:
     _msg = str(_fuelc_err)
@@ -166,6 +171,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# Toon openstaande coach uitnodigingen
+if not is_admin:
+    render_coach_uitnodigingen(_uid)
+
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
@@ -296,6 +305,9 @@ elif module == "fuelc":
     else:
         st.warning("⚠️ Fueling is niet inbegrepen in je huidig abonnement.")
         render_abonnement_keuze(_uid, user.get("email",""))
+
+elif module == "coaching":
+    render_coach_dashboard(user)
 
 elif module == "testing":
     if is_admin or _abo.get("gut"):
