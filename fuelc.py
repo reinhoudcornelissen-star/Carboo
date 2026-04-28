@@ -1299,8 +1299,89 @@ VOEDSEL_DB = [
      "natrium":300,"kalium":300,"calcium":300,"ijzer":3.0,"magnesium":80,"vitc":20,"vitd":1.0,"vitb12":1.5,"omega3":0.3},
     {"naam":"Energiereep","cat":"Sportvoeding","moment":["tussendoor"],
      "portie":65,"portie_label":"1 reep","gi":65,
-     "kcal":380,"kh":60,"suikers":30,"toegev_suikers":25,"toegev_suikers":25,"vezels":3,"eiwit":10,"vet":10,"verz":3.0,
+     "kcal":380,"kh":60,"suikers":30,"toegev_suikers":25,"vezels":3,"eiwit":10,"vet":10,"verz":3.0,
      "natrium":200,"kalium":200,"calcium":100,"ijzer":2.0,"magnesium":40,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+    # ── NIEUWE PRODUCTEN ─────────────────────────────────────────────────────
+    {"naam":"Goudse kaas 48+","cat":"Zuivel","moment":["lunch","avond"],
+     "portie":30,"portie_label":"1 plak","gi":None,
+     "kcal":356,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":26,"vet":28,"verz":18,
+     "natrium":810,"kalium":100,"calcium":820,"ijzer":0.2,"magnesium":11,"vitc":0,"vitd":0.2,"vitb12":1.5,"omega3":0.3},
+
+    {"naam":"Bruin brood","cat":"Granen & brood","moment":["ontbijt","lunch"],
+     "portie":35,"portie_label":"1 snede","gi":65,
+     "kcal":233,"kh":42,"suikers":3,"toegev_suikers":1,"vezels":5,"eiwit":8,"vet":2,"verz":0.4,
+     "natrium":430,"kalium":220,"calcium":80,"ijzer":2.0,"magnesium":40,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Pasta wit gekookt","cat":"Granen & brood","moment":["lunch","avond"],
+     "portie":200,"portie_label":"1 portie","gi":50,
+     "kcal":131,"kh":26,"suikers":0.5,"toegev_suikers":0,"vezels":1.8,"eiwit":5,"vet":1,"verz":0.2,
+     "natrium":1,"kalium":45,"calcium":7,"ijzer":0.5,"magnesium":18,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Cracker volkoren","cat":"Granen & brood","moment":["snack","lunch"],
+     "portie":11,"portie_label":"1 cracker","gi":45,
+     "kcal":409,"kh":65,"suikers":2,"toegev_suikers":1,"vezels":8,"eiwit":10,"vet":11,"verz":1.5,
+     "natrium":600,"kalium":280,"calcium":40,"ijzer":3.0,"magnesium":70,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
+    {"naam":"Couscous rauw","cat":"Granen & brood","moment":["lunch","avond"],
+     "portie":75,"portie_label":"1 droge portie","gi":65,
+     "kcal":357,"kh":72,"suikers":0.3,"toegev_suikers":0,"vezels":5,"eiwit":13,"vet":2,"verz":0.3,
+     "natrium":10,"kalium":180,"calcium":24,"ijzer":1.4,"magnesium":44,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Muesli naturel","cat":"Granen & brood","moment":["ontbijt"],
+     "portie":60,"portie_label":"1 portie","gi":55,
+     "kcal":364,"kh":59,"suikers":12,"toegev_suikers":2,"vezels":8,"eiwit":10,"vet":7,"verz":1.2,
+     "natrium":50,"kalium":350,"calcium":50,"ijzer":3.5,"magnesium":90,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
+    {"naam":"Cruesli","cat":"Granen & brood","moment":["ontbijt"],
+     "portie":60,"portie_label":"1 portie","gi":60,
+     "kcal":430,"kh":65,"suikers":22,"toegev_suikers":18,"vezels":6,"eiwit":8,"vet":14,"verz":2,
+     "natrium":80,"kalium":280,"calcium":40,"ijzer":3.0,"magnesium":70,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.3},
+
+    {"naam":"Pangasius gebakken","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":150,"portie_label":"1 filet","gi":None,
+     "kcal":105,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":19,"vet":3,"verz":0.8,
+     "natrium":90,"kalium":340,"calcium":18,"ijzer":0.4,"magnesium":25,"vitc":0,"vitd":1.5,"vitb12":1.8,"omega3":0.4},
+
+    {"naam":"Kalkoenfilet gebakken","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":150,"portie_label":"1 stuk","gi":None,
+     "kcal":157,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":30,"vet":3,"verz":0.9,
+     "natrium":65,"kalium":340,"calcium":20,"ijzer":1.0,"magnesium":28,"vitc":0,"vitd":0.2,"vitb12":0.8,"omega3":0.1},
+
+    {"naam":"Rundergehakt normaal","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":125,"portie_label":"1 portie","gi":None,
+     "kcal":213,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":19,"vet":15,"verz":6,
+     "natrium":75,"kalium":320,"calcium":12,"ijzer":2.2,"magnesium":20,"vitc":0,"vitd":0.1,"vitb12":2.0,"omega3":0.2},
+
+    {"naam":"Groentenmix rauw","cat":"Groenten","moment":["lunch","avond","snack"],
+     "portie":100,"portie_label":"1 portie","gi":15,
+     "kcal":35,"kh":5,"suikers":3,"toegev_suikers":0,"vezels":3,"eiwit":2,"vet":0.3,"verz":0,
+     "natrium":40,"kalium":350,"calcium":45,"ijzer":1.2,"magnesium":22,"vitc":40,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Groentenmix warm","cat":"Groenten","moment":["lunch","avond"],
+     "portie":150,"portie_label":"1 portie","gi":15,
+     "kcal":45,"kh":6,"suikers":4,"toegev_suikers":0,"vezels":4,"eiwit":3,"vet":0.5,"verz":0.1,
+     "natrium":30,"kalium":380,"calcium":55,"ijzer":1.5,"magnesium":25,"vitc":25,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Chocolade puur 72%","cat":"Overige","moment":["snack"],
+     "portie":25,"portie_label":"2 blokjes","gi":25,
+     "kcal":546,"kh":46,"suikers":25,"toegev_suikers":23,"vezels":11,"eiwit":5,"vet":35,"verz":21,
+     "natrium":8,"kalium":500,"calcium":60,"ijzer":4.5,"magnesium":140,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Snoepmix","cat":"Overige","moment":["snack"],
+     "portie":40,"portie_label":"1 zakje","gi":80,
+     "kcal":350,"kh":85,"suikers":70,"toegev_suikers":68,"vezels":0,"eiwit":5,"vet":1,"verz":0.5,
+     "natrium":50,"kalium":10,"calcium":5,"ijzer":0.1,"magnesium":2,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Pils bier","cat":"Dranken","moment":["avond"],
+     "portie":250,"portie_label":"1 glas","gi":None,
+     "kcal":43,"kh":3.6,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":0.5,"vet":0,"verz":0,
+     "natrium":10,"kalium":30,"calcium":4,"ijzer":0,"magnesium":6,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Wijn rood","cat":"Dranken","moment":["avond"],
+     "portie":150,"portie_label":"1 glas","gi":None,
+     "kcal":85,"kh":2.6,"suikers":0.6,"toegev_suikers":0,"vezels":0,"eiwit":0.1,"vet":0,"verz":0,
+     "natrium":5,"kalium":115,"calcium":8,"ijzer":0.5,"magnesium":12,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
 ]
 
 CATEGORIE_OPTIES = [
