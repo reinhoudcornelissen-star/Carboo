@@ -287,12 +287,14 @@ def render_landing_page():
                 display:flex;align-items:center;justify-content:space-between;
                 background:rgba(12,12,12,0.92);backdrop-filter:blur(16px);
                 border-bottom:1px solid rgba(255,255,255,0.06);">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;letter-spacing:1px;">
-        Car<span style="color:#f97316;">b</span>oo
-      </div>
-      <div style="font-size:0.62rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
-                  color:#888;border:1px solid #2a2a2a;padding:4px 10px;border-radius:100px;">
-        Sports Nutrition Coach
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#f5f3ef;letter-spacing:2px;line-height:1;">
+          Car<span style="color:#f97316;">b</span>oo
+        </div>
+        <div style="font-size:0.75rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+                    color:#888;border:1px solid #2a2a2a;padding:5px 12px;border-radius:100px;">
+          Sports Nutrition Coach
+        </div>
       </div>
       <div style="display:flex;gap:10px;">
         <a href="?actie=login" style="font-size:0.82rem;color:#888;text-decoration:none;padding:8px 16px;">Inloggen</a>
@@ -397,7 +399,7 @@ def render_landing_page():
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;
                     border:1px solid #2a2a2a;border-radius:16px;overflow:hidden;margin-top:32px;">
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;">
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;display:flex;flex-direction:column;">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
                         position:absolute;top:16px;right:24px;line-height:1;">01</div>
             <div style="font-size:2rem;margin-bottom:20px;">⚡</div>
@@ -406,14 +408,13 @@ def render_landing_page():
             <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
               Dagschema op maat. Per training, per maaltijdmoment. 100+ NEVO-producten,
               AI-etiketscan, community recepten en een eigen prestatie-algoritme.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Dagschema</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Analyses</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Dagschema</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Micronutriënten</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Prestatie-algoritme</span>
             </div>
           </div>
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;">
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
                         position:absolute;top:16px;right:24px;line-height:1;">02</div>
             <div style="font-size:2rem;margin-bottom:20px;">🏁</div>
@@ -422,14 +423,13 @@ def render_landing_page():
             <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
               Stap-voor-stap voedingsstrategie voor je wedstrijddag. Van sprint tot Ironman.
               Gels, bars, dranken en vast voedsel per checkpoint.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">g KH/uur</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Gel timing</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Carboloading</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Pre-racemeal</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Raceplan</span>
             </div>
           </div>
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;">
+          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
                         position:absolute;top:16px;right:24px;line-height:1;">03</div>
             <div style="font-size:2rem;margin-bottom:20px;">🫀</div>
@@ -438,11 +438,10 @@ def render_landing_page():
             <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
               Je darmen trainen voor maximale koolhydraatopname. Trapsgewijs protocol,
               wekelijkse tests, perfecte wedstrijdstrategie.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Protocol</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);
-                           border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Testen</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Darmprotocol</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Intensiteitstests</span>
+              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Wedstrijdstrategie</span>
             </div>
           </div>
         </div>
