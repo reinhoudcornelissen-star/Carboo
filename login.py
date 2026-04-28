@@ -506,9 +506,9 @@ def render_landing_page():
               Dagschema op maat. Per training, per maaltijdmoment. 100+ NEVO-producten,
               AI-etiketscan, community recepten en een eigen prestatie-algoritme.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Dagschema</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Micronutriënten</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Prestatie-algoritme</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Dagschema</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Micronutriënten</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Prestatie-algoritme</span>
             </div>
           </div>
           <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
@@ -521,9 +521,9 @@ def render_landing_page():
               Stap-voor-stap voedingsstrategie voor je wedstrijddag. Van sprint tot Ironman.
               Gels, bars, dranken en vast voedsel per checkpoint.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Carboloading</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Pre-racemeal</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Raceplan</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Carboloading</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Pre-racemeal</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Raceplan</span>
             </div>
           </div>
           <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
@@ -536,9 +536,9 @@ def render_landing_page():
               Je darmen trainen voor maximale koolhydraatopname. Trapsgewijs protocol,
               wekelijkse tests, perfecte wedstrijdstrategie.</p>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Darmprotocol</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Intensiteitstests</span>
-              <span style="font-size:0.68rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 10px;border-radius:100px;">Wedstrijdstrategie</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">KH Protocol</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Intensiteitstests</span>
+              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Wedstrijdstrategie</span>
             </div>
           </div>
         </div>
