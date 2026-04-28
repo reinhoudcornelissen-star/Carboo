@@ -4704,8 +4704,48 @@ def _render_analyses(user: dict):
                             cat_d = _herken_categorie(
                                 it.get("naam",""),
                                 it.get("categorie") or bib_cat_lookup.get(pid_d,{}).get("categorie",""))
-
-
+                            eg = float(it.get("eiwit_g",0) or 0)
+                            if eg > 0:
+                                cat_ei_detail[cat_d] = cat_ei_detail.get(cat_d,0) + eg
+                    top_cats = sorted(cat_ei_detail.items(), key=lambda x:-x[1])[:6]
+                    max_ei_cat = top_cats[0][1] if top_cats else 1
+                    CAT_KL = {"Vlees & vis":"#ef4444","Zuivel":"#3b82f6","Eieren":"#fbbf24",
+                              "Granen & brood":"#f97316","Groenten":"#22c55e","Peulvruchten":"#22c55e",
+                              "Noten & zaden":"#f59e0b","Fruit":"#a78bfa","Sportvoeding":"#14b8a6","Overige":"#64748b"}
+                    html_detail = (
+                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:260px;box-sizing:border-box;overflow-y:auto;">'
+                        f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:10px;">EIWITBRONNEN (gem/dag)</div>'
+                    )
+                    for cat_n, ei_g in top_cats:
+                        ei_gem_dag = round(ei_g/len(dagen_met),1)
+                        pct_b = round(ei_g/max_ei_cat*100)
+                        kl_c = CAT_KL.get(cat_n,"#64748b")
+                        is_plant = cat_n in {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+                        is_dier  = cat_n in {"Vlees & vis","Zuivel","Eieren"}
+                        tag = "🌱" if is_plant else ("🥩" if is_dier else "○")
+                        html_detail += (
+                            f'<div style="margin-bottom:7px;">'
+                            f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px;">'
+                            f'<span style="color:#f1f5f9;">{tag} {cat_n}</span>'
+                            f'<span style="color:{kl_c};font-weight:700;">{ei_gem_dag}g/dag</span>'
+                            f'</div>'
+                            f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
+                            f'<div style="width:{pct_b}%;height:100%;background:{kl_c};border-radius:3px;"></div>'
+                            f'</div></div>'
+                        )
+                    html_detail += (
+                        f'<div style="border-top:1px solid #334155;margin-top:10px;padding-top:10px;">'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
+                        f'<span style="font-size:0.75rem;color:#22c55e;">🌱 Plantaardig</span>'
+                        f'<span style="font-size:0.75rem;font-weight:700;color:#22c55e;">{pct_pl}%</span></div>'
+                        f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
+                        f'<span style="font-size:0.75rem;color:#3b82f6;">🥩 Dierlijk</span>'
+                        f'<span style="font-size:0.75rem;font-weight:700;color:#3b82f6;">{pct_di}%</span></div>'
+                        f'<div style="font-size:0.72rem;color:#64748b;">Gem eiwit: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
+                        f'{"✓ voldoende (doel ≥1.4g/kg)" if ei_per_kg>=1.4 else "⚠️ onder aanbeveling (doel 1.4–1.7g/kg)"}'
+                        f'</div></div></div>'
+                    )
+                    st.markdown(html_detail, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 5 — VETTEN
