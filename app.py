@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1
-from login import render_login_page, render_admin_panel, render_wachtwoord_reset, render_landing_page, render_disclaimer
+from login import render_login_page, render_admin_panel, render_wachtwoord_reset, render_landing_page, render_disclaimer, get_abonnement, render_abonnement_keuze
 from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
 try:
@@ -124,6 +124,25 @@ if not user or not st.session_state.get("logged_in"):
     st.stop()
 naam     = user.get("name", "Atleet") if user else "Atleet"
 is_admin = user.get("role") == "admin" if user else False
+
+# ─── Abonnement check ────────────────────────────────────────────────────────
+_uid = user.get("id", "") if user else ""
+_abo = get_abonnement(_uid) if _uid and not is_admin else {"fueling":True,"gut":True,"rapport":True,"trial":False,"alles":True,"dagen_resterend":999}
+
+# Trial of abonnement verlopen → keuzemenu tonen
+if not is_admin and not any([_abo["fueling"], _abo["gut"], _abo["rapport"]]):
+    _email = user.get("email", "") if user else ""
+    render_abonnement_keuze(_uid, _email)
+    st.stop()
+
+# Trial melding
+if _abo.get("trial") and not is_admin:
+    dagen = _abo.get("dagen_resterend", 0)
+    st.markdown(
+        f'<div style="background:#1a1200;border-left:3px solid #fbbf24;padding:8px 14px;border-radius:0 6px 6px 0;margin-bottom:12px;">'
+        f'<span style="font-size:0.78rem;color:#fbbf24;">⏱️ Gratis proefperiode — nog <b>{dagen} dag(en)</b> resterend.</span></div>',
+        unsafe_allow_html=True)
+
 
 # HEADER
 st.markdown(f"""
@@ -297,10 +316,18 @@ elif module == "admin":
     render_admin_panel()
 
 elif module == "fuelc":
-    render_fuelc(user)
+    if is_admin or _abo.get("fueling"):
+        render_fuelc(user)
+    else:
+        st.warning("⚠️ Fueling is niet inbegrepen in je huidig abonnement.")
+        render_abonnement_keuze(_uid, user.get("email",""))
 
 elif module == "testing":
-    render_testing(user)
+    if is_admin or _abo.get("gut"):
+        render_testing(user)
+    else:
+        st.warning("⚠️ Train the Gut is niet inbegrepen in je huidig abonnement.")
+        render_abonnement_keuze(_uid, user.get("email",""))
 
 elif module == "rapport":
     html = st.session_state.get("rapport_html", "")
