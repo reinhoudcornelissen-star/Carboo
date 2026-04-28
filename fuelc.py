@@ -3799,7 +3799,9 @@ def _herken_categorie(naam: str, bib_cat: str = "") -> str:
 
 
 def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
-                                items_detail: list = None) -> dict:
+                                items_detail: list = None,
+                                training_kcal: int = 0,
+                                is_trainingsdag: bool = False) -> dict:
     """
     Performance score 0-100 op basis van sportvoedingswetenschap.
     6 pijlers, elk wetenschappelijk gewogen.
@@ -3807,7 +3809,8 @@ def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
     score = 0
     breakdown = {}
 
-    energie_doel = int(profiel.get("energie_doel", 2000) or 2000)
+    energie_doel_basis = int(profiel.get("energie_doel", 2000) or 2000)
+    energie_doel = energie_doel_basis + int(training_kcal or 0)
     kh_doel_pct  = float(profiel.get("kh_doel_pct", 50) or 50)
     ei_doel_pct  = float(profiel.get("eiwit_doel_pct", 25) or 25)
     vt_doel_pct  = float(profiel.get("vet_doel_pct", 25) or 25)
@@ -4048,6 +4051,17 @@ def _render_analyses(user: dict):
         except: return {}
     bib_cat_lookup = _laad_bib_cat(user_id)
 
+    # Laad trainingen voor de periode
+    alle_trainingen_raw = _laad_trainingen(user_id)
+    # Maak lookup per datum
+    training_per_dag = {}
+    for t in alle_trainingen_raw:
+        d = (t.get("datum") or "")[:10]
+        if d:
+            if d not in training_per_dag:
+                training_per_dag[d] = []
+            training_per_dag[d].append(t)
+
     # Voedingsdata per dag
     dagen_data = []
     for i in range(n_dagen):
@@ -4081,12 +4095,21 @@ def _render_analyses(user: dict):
                 prod_bib.get("categorie","") or it.get("categorie",""))
 
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
+        # Training data voor deze dag
+        dag_trainingen = training_per_dag.get(dag_str, [])
+        training_kcal  = sum(t.get("kcal_verbranding",0) or 0 for t in dag_trainingen)
+        training_min   = sum(t.get("duur_min",0) or 0 for t in dag_trainingen)
+        sporten        = list(set(t.get("sport","") for t in dag_trainingen if t.get("sport")))
+        is_trainingsdag = len(dag_trainingen) > 0
+
         dagen_data.append({
             "datum":dag_str, "kcal":kcal,   "kh":kh,      "eiwit":eiwit,
             "vet":vet,       "vezels":vezels,"suikers":suikers,"verz":verz,
             "natrium":natrium,"kalium":kalium,"calcium":calcium,
             "ijzer":ijzer,   "vitd":vitd,   "vitb12":vitb12, "omega3":omega3,
             "n_mom":n_mom,   "cat_kcal":cat_kcal, "items":items,
+            "training_kcal":training_kcal, "training_min":training_min,
+            "sporten":sporten, "is_trainingsdag":is_trainingsdag,
         })
 
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
@@ -4320,6 +4343,19 @@ def _render_analyses(user: dict):
                     f'<div style="font-size:0.6rem;color:#64748b;">METINGEN</div>' +
                     f'<div style="font-size:0.9rem;font-weight:700;color:#f8fafc;">{len(vals_g)}</div></div>' +
                     f'</div>', unsafe_allow_html=True)
+
+
+            # ── Kcal inname vs doel (incl. training) ────────────────────────────
+            if dagen_met:
+                labels_kcal = [d["datum"][5:] for d in dagen_data if d["kcal"]>0]
+                kcal_inname = [round(d["kcal"]) for d in dagen_data if d["kcal"]>0]
+                kcal_doel_p = [energie_doel + round(d.get("training_kcal",0)) for d in dagen_data if d["kcal"]>0]
+                if kcal_inname:
+                    st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Kcal inname vs doel (incl. training)</div>', unsafe_allow_html=True)
+                    _chart(_bar_chart(labels_kcal,[
+                        {"label":"Inname (kcal)","data":kcal_inname,"color":"#22c55e"},
+                        {"label":"Doel incl. training (kcal)","data":kcal_doel_p,"color":"#f97316"},
+                    ], y_label="kcal"), height=280)
 
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -4990,7 +5026,10 @@ def _render_analyses(user: dict):
             for dd in dagen_data:
                 if dd["kcal"] > 0:
                     w = welzijn_data.get(dd["datum"], {})
-                    result = _bereken_performance_score(dd, profiel, w, dd["items"])
+                    result = _bereken_performance_score(
+                        dd, profiel, w, dd.get("items",[]),
+                        training_kcal=dd.get("training_kcal",0),
+                        is_trainingsdag=dd.get("is_trainingsdag",False))
                     scores_per_dag.append({
                         "datum": dd["datum"],
                         "score": result["score"],
