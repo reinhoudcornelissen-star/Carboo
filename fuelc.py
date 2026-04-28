@@ -4692,8 +4692,8 @@ def _render_analyses(user: dict):
                 ep1, ep2 = st.columns([1,2])
                 with ep1:
                     _chart(_donut_chart(
-                        [f"Plantaardig {pct_pl}%",f"Dierlijk {pct_di}%"],
-                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=260)
+                        [f"🌱 Plantaardig {pct_pl}%",f"🥩 Dierlijk {pct_di}%"],
+                        [pct_pl, pct_di], ["#22c55e","#3b82f6"]), height=300)
                 with ep2:
                     kl_pl = "#22c55e" if 30<=pct_pl<=70 else "#3b82f6" if pct_di>70 else "#fbbf24"
                     # Bouw overzicht per categorie
@@ -4831,20 +4831,19 @@ def _render_analyses(user: dict):
                     _chart(_donut_chart(
                         [f"Onverzadigd {round(gem_onverz,1)}g",f"Verzadigd {gem_verz}g"],
                         [max(0,round(gem_onverz,1)), gem_verz],
-                        ["#22c55e","#ef4444"]), height=200)
+                        ["#22c55e","#ef4444"]), height=260)
                 with vd2:
                     adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
                                 else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
                     k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;margin-top:8px;">'
+                        f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:260px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;">'
                         f'<div style="font-size:0.7rem;font-weight:700;color:#64748b;margin-bottom:8px;">ANALYSE</div>'
-                        f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;">{adv_verz}</div>'
-                        f'<br><div style="font-size:0.75rem;color:#64748b;line-height:1.5;">'
+                        f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;margin-bottom:12px;">{adv_verz}</div>'
+                        f'<div style="font-size:0.75rem;color:#64748b;line-height:1.7;">'
                         f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
-                        f'WHO max: 10% van kcal = {round(gem_kcal_v*0.10/9)}g/dag bij {gem_kcal_v}kcal'
+                        f'WHO max: 10% = <b style="color:#94a3b8">{round(gem_kcal_v*0.10/9)}g/dag</b> bij {gem_kcal_v} kcal'
                         f'</div></div>', unsafe_allow_html=True)
-            else:
                 st.markdown(
                     '<div style="background:#1e293b;border-radius:8px;padding:12px;">'
                     '<div style="font-size:0.78rem;color:#64748b;">ℹ️ Verzadigde vetten niet beschikbaar. '
