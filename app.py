@@ -1,6 +1,6 @@
 import streamlit as st
 import streamlit.components.v1
-from login import render_login_page, render_admin_panel, render_wachtwoord_reset, render_landing_page
+from login import render_login_page, render_admin_panel, render_wachtwoord_reset, render_landing_page, render_disclaimer
 from mollie_payments import render_credits_kopen, controleer_betaling_url
 from carboo_coach import render_coach
 try:
@@ -105,6 +105,10 @@ for key, default in [
 
 # ─── NIET INGELOGD → LOGIN PAGINA ────────────────────────────────────────────
 if not st.session_state.logged_in:
+    if st.query_params.get("actie") == "disclaimer":
+        st.query_params.clear()
+        render_disclaimer()
+        st.stop()
     if render_wachtwoord_reset():
         st.stop()
     if st.session_state.get("toon_landing", True):
