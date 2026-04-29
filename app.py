@@ -121,12 +121,55 @@ st.markdown(f"""
 
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 for key, default in [
-    ("logged_in", False),
+    ("logged_in",    False),
     ("current_user", None),
-    ("module", "menu"),
+    ("module",       "menu"),
+    ("toon_landing", True),
+    ("_ls_checked",  False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
+
+# ─── AUTO-LOGIN via localStorage ─────────────────────────────────────────────
+if not st.session_state.get("_ls_checked") and not st.session_state.get("logged_in"):
+    _saved_uid = st.query_params.get("_uid", "")
+    if _saved_uid and len(_saved_uid) > 10:
+        try:
+            from login import _get_user_by_id
+            _auto_user = _get_user_by_id(_saved_uid)
+            if _auto_user:
+                st.session_state.logged_in    = True
+                st.session_state.current_user = {
+                    "id":      _auto_user["id"],
+                    "name":    _auto_user["naam"],
+                    "email":   _auto_user["email"],
+                    "role":    _auto_user["rol"],
+                    "credits": _auto_user.get("credits", 0),
+                }
+                st.session_state["toon_landing"] = False
+                st.session_state["_ls_checked"]  = True
+                st.query_params.clear()
+                st.rerun()
+        except: pass
+    st.session_state["_ls_checked"] = True
+
+# JS: lees localStorage en stuur als URL param
+if not st.session_state.get("logged_in"):
+    st.markdown("""
+    <script>
+    (function() {
+        var uid = localStorage.getItem('carboo_uid');
+        if (uid && uid.length > 10) {
+            var url = new URL(window.location.href);
+            if (!url.searchParams.get('_uid')) {
+                url.searchParams.set('_uid', uid);
+                window.location.replace(url.toString());
+            }
+        }
+    })();
+    </script>
+    """, unsafe_allow_html=True)
+
 
 # ─── NIET INGELOGD → LOGIN PAGINA ────────────────────────────────────────────
 if not st.session_state.logged_in:
@@ -195,6 +238,14 @@ st.markdown(f"""
 if not is_admin:
     render_coach_uitnodigingen(_uid)
 
+# Sla user_id op in localStorage voor auto-login
+if st.session_state.get("logged_in") and st.session_state.get("current_user"):
+    _uid_save = st.session_state.current_user.get("id","")
+    if _uid_save:
+        st.markdown(f"""
+        <script>localStorage.setItem('carboo_uid', '{_uid_save}');</script>
+        """, unsafe_allow_html=True)
+
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
@@ -214,6 +265,10 @@ with nav_cols[-2] if is_admin else nav_cols[-1]:
             st.rerun()
 with nav_cols[-1] if is_admin else nav_cols[-1]:
     if st.button("↩️", key="nav_logout_top", help="Uitloggen", use_container_width=True):
+        # Wis localStorage
+        st.markdown("""
+        <script>localStorage.removeItem('carboo_uid');</script>
+        """, unsafe_allow_html=True)
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
