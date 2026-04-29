@@ -3056,6 +3056,99 @@ RECEPT_DB = [
         ],
         "bereiding": "1. Bak makreel 4 min per kant. 2. Kook rijst. 3. Serveer met salade en citroensap."
     },
+
+    # ── BELGISCHE KLASSIEKERS ─────────────────────────────────────────────────
+    {
+        "naam": "Witloof met ham en kaas uit de oven",
+        "type": "avond",
+        "kcal": 580, "kh": 22, "eiwit": 38, "vet": 36,
+        "vezels": 4, "natrium": 1100,
+        "ingredienten": [
+            ("Witloof", 400), ("Kippenham", 120), ("Edammer 30+", 80),
+            ("Halfvolle melk", 200), ("Boter", 20), ("Bloem", 20)
+        ],
+        "bereiding": "1. Blancheer witloof 10 min in gezouten water. 2. Maak bechamelsaus: smelt boter, roer bloem erdoor, voeg melk toe en roer glad. 3. Wikkel witloof in ham, leg in ovenschaal. 4. Giet bechamel erover en bestrooi met geraspte kaas. 5. Oven 200°C, 20 min gratineren."
+    },
+    {
+        "naam": "Macaroni met kaas en ham",
+        "type": "avond",
+        "kcal": 640, "kh": 72, "eiwit": 34, "vet": 22,
+        "vezels": 3, "natrium": 950,
+        "ingredienten": [
+            ("Pasta wit gekookt", 300), ("Kippenham", 100), ("Edammer 30+", 80),
+            ("Halfvolle melk", 200), ("Boter", 20), ("Bloem", 20)
+        ],
+        "bereiding": "1. Kook macaroni al dente. 2. Maak kaassaus: smelt boter, voeg bloem toe, roer melk erdoor en laat indikken. 3. Voeg helft van de kaas toe aan de saus. 4. Meng pasta en ham met saus, doe in ovenschaal. 5. Bestrooi met resterende kaas, 15 min gratineren op 200°C."
+    },
+    {
+        "naam": "Balletjes in tomatensaus met puree",
+        "type": "avond",
+        "kcal": 620, "kh": 52, "eiwit": 34, "vet": 26,
+        "vezels": 5, "natrium": 780,
+        "ingredienten": [
+            ("Rundergehakt normaal", 200), ("Aardappel gekookt", 300),
+            ("Tomatensaus", 200), ("Ui", 80), ("Halfvolle melk", 60), ("Boter", 15)
+        ],
+        "bereiding": "1. Vorm kleine balletjes van gehakt en kruid met peper, zout en nootmuskaat. 2. Bak balletjes rondom bruin. 3. Voeg ui en tomatensaus toe, sudder 20 min. 4. Stamp aardappelen met boter en melk tot puree. 5. Serveer balletjes op puree."
+    },
+    {
+        "naam": "Spaghetti Bolognese",
+        "type": "avond",
+        "kcal": 620, "kh": 72, "eiwit": 36, "vet": 18,
+        "vezels": 6, "natrium": 620,
+        "ingredienten": [
+            ("Pasta volkoren gekookt", 300), ("Rundergehakt mager", 150),
+            ("Tomatensaus", 200), ("Ui", 80), ("Wortel", 80),
+            ("Olijfolie", 10), ("Edammer 30+", 30)
+        ],
+        "bereiding": "1. Fruit ui en wortel aan in olijfolie. 2. Voeg gehakt toe en bak rul, 8 min. 3. Voeg tomatensaus toe en sudder 20 min op laag vuur. 4. Kook spaghetti al dente. 5. Serveer met bolognesesaus en geraspte kaas."
+    },
+    {
+        "naam": "Lasagne",
+        "type": "avond",
+        "kcal": 650, "kh": 58, "eiwit": 38, "vet": 28,
+        "vezels": 5, "natrium": 820,
+        "ingredienten": [
+            ("Pasta wit gekookt", 200), ("Rundergehakt mager", 150),
+            ("Tomatensaus", 200), ("Halfvolle melk", 250), ("Boter", 25),
+            ("Bloem", 25), ("Edammer 30+", 60), ("Ui", 60)
+        ],
+        "bereiding": "1. Maak vleessaus: bak ui en gehakt, voeg tomatensaus toe, sudder 15 min. 2. Maak bechamelsaus: boter smelten, bloem toevoegen, melk erdoor roeren. 3. Leg laagjes: lasagnevellen, vleessaus, bechamel. 4. Eindig met bechamel en kaas. 5. Oven 180°C, 35 min."
+    },
+    {
+        "naam": "Vol-au-vent",
+        "type": "avond",
+        "kcal": 590, "kh": 38, "eiwit": 36, "vet": 30,
+        "vezels": 2, "natrium": 780,
+        "ingredienten": [
+            ("Kipfilet gebakken", 150), ("Rundergehakt mager", 80),
+            ("Champignon", 100), ("Halfvolle melk", 250), ("Boter", 25),
+            ("Bloem", 25), ("Rijst wit gekookt", 150)
+        ],
+        "bereiding": "1. Kook kip en maak balletjes van gehakt. 2. Bak champignons in boter. 3. Maak witte saus: boter, bloem, melk — laat indikken. 4. Voeg kip, balletjes en champignons toe aan saus. 5. Serveer in bladerdeegbakje of op rijst."
+    },
+    {
+        "naam": "Mosselen met friet",
+        "type": "avond",
+        "kcal": 610, "kh": 62, "eiwit": 32, "vet": 22,
+        "vezels": 4, "natrium": 920,
+        "ingredienten": [
+            ("Mosselen", 400), ("Aardappel gekookt", 300),
+            ("Ui", 80), ("Selder", 60), ("Boter", 20), ("Olijfolie", 15)
+        ],
+        "bereiding": "1. Stoof ui en selder aan in boter. 2. Voeg mosselen toe, dek af en kook 8-10 min tot mosselen open zijn. 3. Snijd aardappelen in frieten en bak krokant in olie. 4. Serveer mosselen in kookpot met friet apart. 5. Eventueel met mayonaise."
+    },
+    {
+        "naam": "Stoemp met braadworst",
+        "type": "avond",
+        "kcal": 620, "kh": 54, "eiwit": 26, "vet": 30,
+        "vezels": 7, "natrium": 860,
+        "ingredienten": [
+            ("Aardappel gekookt", 350), ("Wortel", 150),
+            ("Prei", 100), ("Worst", 150), ("Boter", 20), ("Halfvolle melk", 60)
+        ],
+        "bereiding": "1. Kook aardappelen en wortels gaar in gezouten water. 2. Snijd prei fijn en stoof zacht in boter. 3. Stamp aardappelen en wortels grof met boter en melk. 4. Roer gestoofde prei door de stoemp. 5. Bak braadworst 10 min en serveer naast de stoemp."
+    },
 ]
 
 
