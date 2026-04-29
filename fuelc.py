@@ -1441,6 +1441,36 @@ VOEDSEL_DB = [
      "kcal":45,"kh":6,"suikers":4,"toegev_suikers":0,"vezels":4,"eiwit":3,"vet":0.5,"verz":0.1,
      "natrium":30,"kalium":380,"calcium":55,"ijzer":1.5,"magnesium":25,"vitc":25,"vitd":0,"vitb12":0,"omega3":0.1},
 
+    {"naam":"Witloof","cat":"Groenten","moment":["lunch","avond"],
+     "portie":150,"portie_label":"2 stronkjes","gi":15,
+     "kcal":17,"kh":3,"suikers":2,"toegev_suikers":0,"vezels":2,"eiwit":1,"vet":0,"verz":0,
+     "natrium":10,"kalium":270,"calcium":25,"ijzer":0.5,"magnesium":10,"vitc":5,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Ui","cat":"Groenten","moment":["lunch","avond"],
+     "portie":80,"portie_label":"1 ui","gi":10,
+     "kcal":40,"kh":9,"suikers":4,"toegev_suikers":0,"vezels":2,"eiwit":1,"vet":0,"verz":0,
+     "natrium":4,"kalium":157,"calcium":23,"ijzer":0.2,"magnesium":10,"vitc":7,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Prei","cat":"Groenten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 stuk","gi":15,
+     "kcal":29,"kh":6,"suikers":2,"toegev_suikers":0,"vezels":2,"eiwit":2,"vet":0,"verz":0,
+     "natrium":20,"kalium":180,"calcium":59,"ijzer":1.0,"magnesium":14,"vitc":12,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Bloem","cat":"Granen & brood","moment":["avond"],
+     "portie":20,"portie_label":"2 el","gi":70,
+     "kcal":364,"kh":76,"suikers":0,"toegev_suikers":0,"vezels":3,"eiwit":10,"vet":1,"verz":0.2,
+     "natrium":2,"kalium":107,"calcium":15,"ijzer":1.0,"magnesium":22,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Mosselen","cat":"Vlees & vis","moment":["avond"],
+     "portie":300,"portie_label":"1 portie","gi":None,
+     "kcal":86,"kh":4,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":12,"vet":2,"verz":0.4,
+     "natrium":286,"kalium":320,"calcium":26,"ijzer":4.0,"magnesium":34,"vitc":0,"vitd":0,"vitb12":12.0,"omega3":0.5},
+
+    {"naam":"Braadworst","cat":"Vlees & vis","moment":["avond"],
+     "portie":150,"portie_label":"1 worst","gi":None,
+     "kcal":285,"kh":2,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":14,"vet":25,"verz":10,
+     "natrium":800,"kalium":200,"calcium":10,"ijzer":1.2,"magnesium":15,"vitc":0,"vitd":0.1,"vitb12":1.0,"omega3":0.2},
+
     {"naam":"Groentensoep","cat":"Groenten","moment":["lunch","avond"],
      "portie":300,"portie_label":"1 kom","gi":30,
      "kcal":35,"kh":5,"suikers":3,"toegev_suikers":0,"vezels":2,"eiwit":2,"vet":1,"verz":0.1,
@@ -4713,7 +4743,6 @@ def _render_analyses(user: dict):
                             st.cache_data.clear(); st.rerun()
                     else:
                         st.success(f"✅ Gewicht opgeslagen: {nieuw_gew} kg")
-                    _laad_week_welzijn.clear()
                     st.cache_data.clear(); st.rerun()
                 except Exception as e:
                     st.error(f"Fout: {e}")
