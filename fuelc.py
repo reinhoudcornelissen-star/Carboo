@@ -4864,6 +4864,14 @@ def _render_analyses(user: dict):
                     ("🧬 Vitamine B12",gem_b12,2.4,"µg"),
                     ("🐟 Omega-3",gem_om3,1.5,"g"),
                 ]
+                MICRO_TIPS = {
+                    "🥬 Kalium":       "Rijke bronnen: banaan, aardappel, avocado, spinazie, witte bonen, zalm",
+                    "🦴 Calcium":      "Rijke bronnen: melk, yoghurt, kaas, broccoli, amandelen, sardines",
+                    "🩸 IJzer":        "Rijke bronnen: rood vlees, linzen, spinazie, tofu, pompoenpitten — combineer met vitamine C",
+                    "☀️ Vitamine D":   "Rijke bronnen: vette vis (zalm, makreel), eieren, verrijkte zuivel — zon is essentieel",
+                    "🧬 Vitamine B12": "Rijke bronnen: vlees, vis, eieren, melk — bij plantaardig dieet: supplement aanbevolen",
+                    "🐟 Omega-3":      "Rijke bronnen: zalm, makreel, haring, walnoten, lijnzaad, chiazaad",
+                }
                 for lbl_m,waarde_m,adh_m,eenh_m in MICROS:
                     if waarde_m==0: continue
                     pct_m = min(150,round(waarde_m/max(adh_m,0.001)*100))
@@ -4875,6 +4883,16 @@ def _render_analyses(user: dict):
                         f'<div style="width:{min(100,pct_m)}%;height:100%;background:{kl_m};border-radius:3px;"></div></div>'
                         f'<div style="min-width:80px;font-size:0.75rem;color:{kl_m};text-align:right;">{waarde_m}{eenh_m}/{adh_m}{eenh_m}</div>'
                         f'</div>', unsafe_allow_html=True)
+                    if pct_m < 80 and lbl_m in MICRO_TIPS:
+                        kleur_tip = "#ef4444" if pct_m < 50 else "#fbbf24"
+                        st.markdown(
+                            f'<div style="margin-left:140px;margin-bottom:10px;'
+                            f'padding:6px 10px;background:#1e293b;'
+                            f'border-left:2px solid {kleur_tip};border-radius:0 6px 6px 0;">'
+                            f'<div style="font-size:0.7rem;color:{kleur_tip};font-weight:600;margin-bottom:2px;">'  
+                            f'{"🔴 Te laag" if pct_m<50 else "🟡 Net onder ADH"}</div>'
+                            f'<div style="font-size:0.7rem;color:#64748b;">{MICRO_TIPS[lbl_m]}</div>'
+                            f'</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 3 — KOOLHYDRATEN
@@ -5336,3 +5354,6 @@ def _stap_dashboard(user: dict):
         _render_voedingsdagboek(user)
     with tab_an:
         _render_analyses(user)
+def render_fuelc(user: dict):
+    """Publieke entry point voor de FuelC module."""
+    _stap_dashboard(user)
