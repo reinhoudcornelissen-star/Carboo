@@ -5366,6 +5366,3 @@ def render_fuelc(user: dict):
     elif stap == 3: _stap_schema(user)
     elif stap == 4: _stap_training(user)
     elif stap == 5: _stap_dashboard(user)
-def render_fuelc(user: dict):
-    """Publieke entry point voor de FuelC module."""
-    _stap_dashboard(user)
