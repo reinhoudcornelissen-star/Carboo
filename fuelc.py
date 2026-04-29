@@ -2319,6 +2319,62 @@ def _laad_alle_recepten(user_id: str) -> list:
         return []
 
 
+
+def _render_product_rij(p: dict, user_id: str):
+    """Render één product rij in de bibliotheek."""
+    fav_ster = "⭐ " if p.get("favoriet") else ""
+    with st.expander(
+            f"{'⭐ ' if p.get('favoriet') else '🥦 '}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
+            expanded=False):
+        mc1,mc2,mc3,mc4 = st.columns(4)
+        for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH g",kh,"#22c55e"),(mc3,"EIWIT g",eiwit,"#3b82f6"),(mc4,"VET g",vet,"#8b5cf6")]:
+            with col:
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:4px;">' +
+                    f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
+                    f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                    f'</div>', unsafe_allow_html=True)
+        if portie > 0:
+            st.markdown(
+                f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">' +
+                f'Per portie ({p.get("portie_label") or str(portie)+"g"}): ' +
+                f'{round(kcal*portie/100)}kcal · {round(kh*portie/100,1)}g KH · ' +
+                f'{round(eiwit*portie/100,1)}g eiwit · {round(vet*portie/100,1)}g vet</div>',
+                unsafe_allow_html=True)
+
+        # Extra voedingsstoffen
+        extra = []
+        if p.get("vezels_100g"):    extra.append(f'Vezels: {p["vezels_100g"]}g')
+        if p.get("natrium_100g"):   extra.append(f'Natrium: {round(p["natrium_100g"])}mg')
+        if p.get("kalium_100g"):    extra.append(f'Kalium: {round(p["kalium_100g"])}mg')
+        if p.get("calcium_100g"):   extra.append(f'Calcium: {round(p["calcium_100g"])}mg')
+        if p.get("ijzer_100g"):     extra.append(f'IJzer: {p["ijzer_100g"]}mg')
+        if p.get("magnesium_100g"): extra.append(f'Magnesium: {round(p["magnesium_100g"])}mg')
+        if p.get("vitc_100g"):      extra.append(f'Vit C: {p["vitc_100g"]}mg')
+        if p.get("vitd_100g"):      extra.append(f'Vit D: {p["vitd_100g"]}µg')
+        if p.get("vitb12_100g"):    extra.append(f'Vit B12: {p["vitb12_100g"]}µg')
+        if p.get("omega3_100g"):    extra.append(f'Omega-3: {p["omega3_100g"]}g')
+        if p.get("gi"):             extra.append(f'GI: {p["gi"]}')
+        if extra:
+            st.markdown(
+                f'<div style="font-size:0.7rem;color:#64748b;margin-top:4px;">' +
+                ' · '.join(extra) + '</div>',
+                unsafe_allow_html=True)
+        ba1, ba2 = st.columns(2)
+        with ba1:
+            fav_lbl = "★ Verwijder favoriet" if p.get("favoriet") else "☆ Favoriet"
+            if st.button(fav_lbl, key=f"bib_fav_{p['id']}", use_container_width=True):
+                if _update_product(p["id"], {"favoriet": not p.get("favoriet")}):
+                    _laad_bibliotheek_raw.clear()
+                    _laad_gecombineerde_bibliotheek_raw.clear()
+                    st.rerun()
+        with ba2:
+            if st.button("🗑 Verwijderen", key=f"bib_del_{p['id']}", use_container_width=True):
+                if _verwijder_product(p["id"]):
+                    st.success("Verwijderd.")
+                    st.rerun()
+
+
 def _stap_bibliotheek(user: dict):
     user_id = user.get("id", "")
     _sectie("VOEDSELBIBLIOTHEEK", "#22c55e")
@@ -2462,63 +2518,80 @@ def _stap_bibliotheek(user: dict):
         producten = _laad_bibliotheek(user_id, zoek, filter_cat)
         if fav_f == "⭐ Fav": producten = [p for p in producten if p.get("favoriet")]
         st.markdown(f'<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">{len(producten)} product(en)</div>', unsafe_allow_html=True)
-        for p in producten:
-            portie  = p.get("portie_g") or 0
-            kcal    = p.get("kcal_100g") or 0
-            kh      = p.get("kh_100g") or 0
-            eiwit   = p.get("eiwit_100g") or 0
-            vet     = p.get("vet_100g") or 0
-            fav_ster = "⭐ " if p.get("favoriet") else ""
-            with st.expander(
-                    f"{'⭐ ' if p.get('favoriet') else '🥦 '}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
-                    expanded=False):
-                mc1,mc2,mc3,mc4 = st.columns(4)
-                for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH g",kh,"#22c55e"),(mc3,"EIWIT g",eiwit,"#3b82f6"),(mc4,"VET g",vet,"#8b5cf6")]:
-                    with col:
-                        st.markdown(
-                            f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:4px;">' +
-                            f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
-                            f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
-                            f'</div>', unsafe_allow_html=True)
-                if portie > 0:
-                    st.markdown(
-                        f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">' +
-                        f'Per portie ({p.get("portie_label") or str(portie)+"g"}): ' +
-                        f'{round(kcal*portie/100)}kcal · {round(kh*portie/100,1)}g KH · ' +
-                        f'{round(eiwit*portie/100,1)}g eiwit · {round(vet*portie/100,1)}g vet</div>',
-                        unsafe_allow_html=True)
 
-                # Extra voedingsstoffen
-                extra = []
-                if p.get("vezels_100g"):    extra.append(f'Vezels: {p["vezels_100g"]}g')
-                if p.get("natrium_100g"):   extra.append(f'Natrium: {round(p["natrium_100g"])}mg')
-                if p.get("kalium_100g"):    extra.append(f'Kalium: {round(p["kalium_100g"])}mg')
-                if p.get("calcium_100g"):   extra.append(f'Calcium: {round(p["calcium_100g"])}mg')
-                if p.get("ijzer_100g"):     extra.append(f'IJzer: {p["ijzer_100g"]}mg')
-                if p.get("magnesium_100g"): extra.append(f'Magnesium: {round(p["magnesium_100g"])}mg')
-                if p.get("vitc_100g"):      extra.append(f'Vit C: {p["vitc_100g"]}mg')
-                if p.get("vitd_100g"):      extra.append(f'Vit D: {p["vitd_100g"]}µg')
-                if p.get("vitb12_100g"):    extra.append(f'Vit B12: {p["vitb12_100g"]}µg')
-                if p.get("omega3_100g"):    extra.append(f'Omega-3: {p["omega3_100g"]}g')
-                if p.get("gi"):             extra.append(f'GI: {p["gi"]}')
-                if extra:
-                    st.markdown(
-                        f'<div style="font-size:0.7rem;color:#64748b;margin-top:4px;">' +
-                        ' · '.join(extra) + '</div>',
-                        unsafe_allow_html=True)
-                ba1, ba2 = st.columns(2)
-                with ba1:
-                    fav_lbl = "★ Verwijder favoriet" if p.get("favoriet") else "☆ Favoriet"
-                    if st.button(fav_lbl, key=f"bib_fav_{p['id']}", use_container_width=True):
-                        if _update_product(p["id"], {"favoriet": not p.get("favoriet")}):
-                            _laad_bibliotheek_raw.clear()
-                            _laad_gecombineerde_bibliotheek_raw.clear()
-                            st.rerun()
-                with ba2:
-                    if st.button("🗑 Verwijderen", key=f"bib_del_{p['id']}", use_container_width=True):
-                        if _verwijder_product(p["id"]):
-                            st.success("Verwijderd.")
-                            st.rerun()
+        # Groepeer favorieten per categorie
+        if fav_f == "⭐ Fav" and filter_cat == "Alle":
+            from collections import defaultdict as _dd
+            per_cat = _dd(list)
+            for p in producten:
+                per_cat[p.get("categorie","Overige")].append(p)
+            for cat_naam in sorted(per_cat.keys()):
+                st.markdown(
+                    f'<div style="font-size:0.7rem;font-weight:700;color:#f97316;'
+                    f'letter-spacing:1px;text-transform:uppercase;'
+                    f'margin:16px 0 6px;border-left:3px solid #f97316;padding-left:8px;">'
+                    f'{cat_naam} ({len(per_cat[cat_naam])})</div>',
+                    unsafe_allow_html=True)
+                for p in per_cat[cat_naam]:
+                    _render_product_rij(p, user_id)
+        else:
+            for p in producten:
+                portie  = p.get("portie_g") or 0
+                kcal    = p.get("kcal_100g") or 0
+                kh      = p.get("kh_100g") or 0
+                eiwit   = p.get("eiwit_100g") or 0
+                vet     = p.get("vet_100g") or 0
+                fav_ster = "⭐ " if p.get("favoriet") else ""
+                with st.expander(
+                        f"{'⭐ ' if p.get('favoriet') else '🥦 '}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
+                        expanded=False):
+                    mc1,mc2,mc3,mc4 = st.columns(4)
+                    for col,lbl,val,kl in [(mc1,"KCAL",kcal,"#f97316"),(mc2,"KH g",kh,"#22c55e"),(mc3,"EIWIT g",eiwit,"#3b82f6"),(mc4,"VET g",vet,"#8b5cf6")]:
+                        with col:
+                            st.markdown(
+                                f'<div style="background:#1e293b;border-radius:8px;padding:10px;text-align:center;margin-bottom:4px;">' +
+                                f'<div style="font-size:0.65rem;font-weight:600;color:#94a3b8;margin-bottom:2px;">{lbl}</div>' +
+                                f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                                f'</div>', unsafe_allow_html=True)
+                    if portie > 0:
+                        st.markdown(
+                            f'<div style="font-size:0.72rem;color:#64748b;margin-top:6px;">' +
+                            f'Per portie ({p.get("portie_label") or str(portie)+"g"}): ' +
+                            f'{round(kcal*portie/100)}kcal · {round(kh*portie/100,1)}g KH · ' +
+                            f'{round(eiwit*portie/100,1)}g eiwit · {round(vet*portie/100,1)}g vet</div>',
+                            unsafe_allow_html=True)
+
+                    # Extra voedingsstoffen
+                    extra = []
+                    if p.get("vezels_100g"):    extra.append(f'Vezels: {p["vezels_100g"]}g')
+                    if p.get("natrium_100g"):   extra.append(f'Natrium: {round(p["natrium_100g"])}mg')
+                    if p.get("kalium_100g"):    extra.append(f'Kalium: {round(p["kalium_100g"])}mg')
+                    if p.get("calcium_100g"):   extra.append(f'Calcium: {round(p["calcium_100g"])}mg')
+                    if p.get("ijzer_100g"):     extra.append(f'IJzer: {p["ijzer_100g"]}mg')
+                    if p.get("magnesium_100g"): extra.append(f'Magnesium: {round(p["magnesium_100g"])}mg')
+                    if p.get("vitc_100g"):      extra.append(f'Vit C: {p["vitc_100g"]}mg')
+                    if p.get("vitd_100g"):      extra.append(f'Vit D: {p["vitd_100g"]}µg')
+                    if p.get("vitb12_100g"):    extra.append(f'Vit B12: {p["vitb12_100g"]}µg')
+                    if p.get("omega3_100g"):    extra.append(f'Omega-3: {p["omega3_100g"]}g')
+                    if p.get("gi"):             extra.append(f'GI: {p["gi"]}')
+                    if extra:
+                        st.markdown(
+                            f'<div style="font-size:0.7rem;color:#64748b;margin-top:4px;">' +
+                            ' · '.join(extra) + '</div>',
+                            unsafe_allow_html=True)
+                    ba1, ba2 = st.columns(2)
+                    with ba1:
+                        fav_lbl = "★ Verwijder favoriet" if p.get("favoriet") else "☆ Favoriet"
+                        if st.button(fav_lbl, key=f"bib_fav_{p['id']}", use_container_width=True):
+                            if _update_product(p["id"], {"favoriet": not p.get("favoriet")}):
+                                _laad_bibliotheek_raw.clear()
+                                _laad_gecombineerde_bibliotheek_raw.clear()
+                                st.rerun()
+                    with ba2:
+                        if st.button("🗑 Verwijderen", key=f"bib_del_{p['id']}", use_container_width=True):
+                            if _verwijder_product(p["id"]):
+                                st.success("Verwijderd.")
+                                st.rerun()
 
     with tab_recepten:
         st.markdown("<br>", unsafe_allow_html=True)
