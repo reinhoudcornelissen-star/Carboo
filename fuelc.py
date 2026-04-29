@@ -501,6 +501,11 @@ def _sla_training_op(user_id: str, training: dict) -> bool:
     try:
         sb = _get_supabase()
         data = {k: v for k, v in training.items() if k in KOLOMMEN}
+        # Omschrijving niet als apart veld maar als prefix in notitie
+        if "omschrijving" in training and training["omschrijving"]:
+            notitie_huidig = data.get("notitie","") or ""
+            if training["omschrijving"] not in notitie_huidig:
+                data["notitie"] = f"{training['omschrijving']} | {notitie_huidig}".strip(" | ")
         data["user_id"] = user_id
         data["bron"]    = "manueel"
         sb.table("fuelc_trainingen").insert(data).execute()
