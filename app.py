@@ -116,13 +116,13 @@ for key, default in [
     ("current_user", None),
     ("module",       "menu"),
     ("toon_landing", True),
-    ("_ls_checked",  False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
 # ─── AUTO-LOGIN via localStorage ─────────────────────────────────────────────
-if not st.session_state.get("_ls_checked") and not st.session_state.get("logged_in"):
+# Stap 1: als er een _uid in de URL zit → probeer auto-login
+if not st.session_state.get("logged_in"):
     _saved_uid = st.query_params.get("_uid", "")
     if _saved_uid and len(_saved_uid) > 10:
         try:
@@ -138,14 +138,11 @@ if not st.session_state.get("_ls_checked") and not st.session_state.get("logged_
                     "credits": _auto_user.get("credits", 0),
                 }
                 st.session_state["toon_landing"] = False
-                st.session_state["_ls_checked"]  = True
                 st.query_params.clear()
                 st.rerun()
         except: pass
-    st.session_state["_ls_checked"] = True
 
-# JS: lees localStorage en stuur als URL param
-# JS: lees localStorage via components (werkt wel in Streamlit)
+# Stap 2: nog steeds niet ingelogd → laat JS localStorage lezen en redirect
 if not st.session_state.get("logged_in"):
     import streamlit.components.v1 as _comp
     _comp.html("""
