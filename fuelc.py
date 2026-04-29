@@ -4253,7 +4253,7 @@ def _render_analyses(user: dict):
 
 
 
-    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
     DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
 
     # Laad categorie lookup voor cat_kcal
@@ -5128,7 +5128,7 @@ def _render_analyses(user: dict):
             EIWIT_PCT = {"Vlees & vis":22,"Zuivel":8,"Eieren":13,"Granen & brood":10,
                          "Groenten":3,"Peulvruchten":9,"Noten & zaden":18,
                          "Fruit":1,"Sauzen & spreads":5,"Sportvoeding":20,"Overige":8}
-            PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+            PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
             DIERLIJK = {"Vlees & vis","Zuivel","Eieren"}
             for dd in dagen_met:
                 for it in dd.get("items",[]):
