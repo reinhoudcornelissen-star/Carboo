@@ -4576,9 +4576,11 @@ def _render_analyses(user: dict):
         for it in items:
             pid      = it.get("product_id","") or ""
             prod_bib = bib_cat_lookup.get(pid, {})
-            _cat_raw = (it.get("categorie","") or 
-                       prod_bib.get("categorie","") or "")
-            cat      = _herken_categorie(it.get("naam",""), _cat_raw)
+            _cat_raw = (it.get("categorie","") or prod_bib.get("categorie","") or "")
+            if not _cat_raw or _cat_raw == "Overige":
+                cat = _herken_categorie(it.get("naam",""), "")
+            else:
+                cat = _cat_raw
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         # Training data voor deze dag
         dag_trainingen = training_per_dag.get(dag_str, [])
@@ -5426,10 +5428,15 @@ def _render_analyses(user: dict):
                     for dd in dagen_met:
                         for it in dd.get("items",[]):
                             pid_d = it.get("product_id","") or ""
-                            # Categorie: eerst uit item zelf, dan bibliotheek, dan herkenning op naam
+                            # Altijd herkenning op naam — ook als categorie al opgeslagen is
+                            # want oude items kunnen verkeerde/lege categorie hebben
                             _cat_raw = (it.get("categorie") or 
                                        bib_cat_lookup.get(pid_d,{}).get("categorie","") or "")
-                            cat_d = _herken_categorie(it.get("naam",""), _cat_raw)
+                            # Forceer naam-herkenning als categorie Overige of leeg is
+                            if not _cat_raw or _cat_raw == "Overige":
+                                cat_d = _herken_categorie(it.get("naam",""), "")
+                            else:
+                                cat_d = _cat_raw
                             eg = float(it.get("eiwit_g",0) or 0)
                             if eg > 0:
                                 cat_ei_detail[cat_d] = cat_ei_detail.get(cat_d,0) + eg
@@ -5448,11 +5455,10 @@ def _render_analyses(user: dict):
                         kl_c = CAT_KL.get(cat_n,"#64748b")
                         is_plant = cat_n in {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
                         is_dier  = cat_n in {"Vlees & vis","Zuivel","Eieren"}
-                        tag = "🌱" if is_plant else ("🥩" if is_dier else "○")
                         html_detail += (
                             f'<div style="margin-bottom:7px;">'
                             f'<div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:3px;">'
-                            f'<span style="color:#f1f5f9;">{tag} {cat_n}</span>'
+                            f'<span style="color:#f1f5f9;">{cat_n}</span>'
                             f'<span style="color:{kl_c};font-weight:700;">{ei_gem_dag}g/dag</span>'
                             f'</div>'
                             f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
@@ -5462,10 +5468,10 @@ def _render_analyses(user: dict):
                     html_detail += (
                         f'<div style="border-top:1px solid #334155;margin-top:10px;padding-top:10px;">'
                         f'<div style="display:flex;justify-content:space-between;margin-bottom:4px;">'
-                        f'<span style="font-size:0.75rem;color:#22c55e;">🌱 Plantaardig</span>'
+                        f'<span style="font-size:0.75rem;color:#22c55e;">Plantaardig</span>'
                         f'<span style="font-size:0.75rem;font-weight:700;color:#22c55e;">{pct_pl}%</span></div>'
                         f'<div style="display:flex;justify-content:space-between;margin-bottom:8px;">'
-                        f'<span style="font-size:0.75rem;color:#3b82f6;">🥩 Dierlijk</span>'
+                        f'<span style="font-size:0.75rem;color:#3b82f6;">Dierlijk</span>'
                         f'<span style="font-size:0.75rem;font-weight:700;color:#3b82f6;">{pct_di}%</span></div>'
                         f'<div style="font-size:0.72rem;color:#64748b;">Gem eiwit: <b style="color:#3b82f6">{ei_per_kg}g/kg/dag</b> — '
                         f'{"✓ voldoende (doel ≥1.4g/kg)" if ei_per_kg>=1.4 else "⚠️ onder aanbeveling (doel 1.4–1.7g/kg)"}'
