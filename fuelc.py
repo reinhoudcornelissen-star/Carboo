@@ -496,7 +496,7 @@ def _laad_trainingen(user_id: str) -> list:
 
 def _sla_training_op(user_id: str, training: dict) -> bool:
     # Toegestane kolommen in fuelc_trainingen
-    KOLOMMEN = {"datum","sport","omschrijving","duur_min","afstand_km",
+    KOLOMMEN = {"datum","sport","duur_min","afstand_km",
                 "kcal_verbranding","zone_verdeling","notitie","bron","user_id"}
     try:
         sb = _get_supabase()
