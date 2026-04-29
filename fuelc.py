@@ -3957,34 +3957,61 @@ def _herken_categorie(naam: str, bib_cat: str = "") -> str:
     if cat and cat != "Overige":
         return cat
     n = (naam or "").lower()
-    if any(w in n for w in ["garnaal","garna","krab","kreeft","mossel","oester","scampi",
-           "inktvis","zeevruchten","coquille","langoustine","vis","zalm","tonijn",
-           "kabeljauw","tilapia","forel","sardine","makreel","haring",
-           "kip","vlees","gehakt","varken","rund","lam","steak","bacon",
-           "ham","worst","salami","filet","pulled","kipfilet","kalkoен"]):
-        return "Vlees & vis"
-    if any(w in n for w in ["melk","yoghurt","kwark","kaas","room","boter","skyr","cottage"]):
-        return "Zuivel"
-    if any(w in n for w in ["ei ","eieren","omelet"]):
-        return "Eieren"
-    if any(w in n for w in ["brood","pasta","rijst","havermout","graan","wrap","pita","tortilla","crackers"]):
-        return "Granen & brood"
-    if any(w in n for w in ["tofu","tempeh","sojayoghurt","sojamelk","soja ","soja-"]):
+    # Sojaproducten eerst (voor zuivel/vlees checks)
+    if any(w in n for w in ["tofu","tempeh","sojayoghurt","sojamelk","soja drink","soja-","edamame"]):
         return "Sojaproducten"
-    if any(w in n for w in ["tofu","tempeh","sojayoghurt","sojamelk"]):
-        return "Sojaproducten"
-    if any(w in n for w in ["boon","linze","kikker","hummus","edamame","spliterwt"]):
+    # Peulvruchten
+    if any(w in n for w in ["boon","linze","kikker","hummus","spliterwt","lentil","chickpea",
+           "kidneyboon","bruine boon","witte boon","zwarte boon","rode boon"]):
         return "Peulvruchten"
-    if any(w in n for w in ["noot","amandel","cashew","walnoot","pinda","pompoen","zaad","chiazaad","lijnzaad"]):
+    # Noten & zaden
+    if any(w in n for w in ["noot","amandel","cashew","walnoot","pinda","pistache","hazelnoot",
+           "macadamia","pecan","paranoot","chiazaad","lijnzaad","pompoenpit","zonnebloempit",
+           "sesamzaad","hennepzaad","zaad","notenmix","noten","pindakaas","amandelboter",
+           "notenboter","tahin","tahini"]):
         return "Noten & zaden"
-    if any(w in n for w in ["appel","peer","banaan","aardbei","bosbes","mango","kiwi","sinaas","druif","meloen","ananas"]):
-        return "Fruit"
-    if any(w in n for w in ["broccoli","spinazie","wortel","tomaat","paprika","courgette","sla","komkommer","champignon","avocado"]):
+    # Vlees & vis
+    if any(w in n for w in ["garnaal","krab","kreeft","mossel","oester","scampi",
+           "inktvis","zeevruchten","vis","zalm","tonijn","kabeljauw","tilapia",
+           "forel","sardine","makreel","haring","pangasius","zeebaars","dorade",
+           "kip","vlees","gehakt","varken","rund","lam","steak","bacon",
+           "ham","worst","salami","filet","pulled","kalkoen","kipfilet",
+           "biefstuk","entrecote","ossenhaas","varkenshaas","ribstuk"]):
+        return "Vlees & vis"
+    # Zuivel
+    if any(w in n for w in ["melk","yoghurt","kwark","kaas","room","boter","skyr",
+           "cottage","plattekaas","ricotta","mozzarella","cheddar","gouda","brie",
+           "camembert","feta","parmezan","gruyere","mascarpone","creme fraiche"]):
+        return "Zuivel"
+    # Eieren
+    if any(w in n for w in ["ei ","ei,","eieren","omelet","roerei","gekookt ei","gebakken ei"]):
+        return "Eieren"
+    # Granen & brood
+    if any(w in n for w in ["brood","pasta","rijst","havermout","graan","wrap","pita",
+           "tortilla","cracker","muesli","granola","cornflakes","couscous","bulgur",
+           "spelt","rogge","gerst","quinoa","aardappel","zoete aardappel","friet",
+           "pannenkoek","wafel","rijstwafel","cracotte"]):
+        return "Granen & brood"
+    # Groenten
+    if any(w in n for w in ["broccoli","spinazie","wortel","tomaat","paprika","courgette",
+           "sla","komkommer","champignon","avocado","ui","knoflook","prei","witloof",
+           "bloemkool","spruitje","rode kool","witte kool","savooikool","knolselder",
+           "venkel","asperge","biet","aubergine","pompoen","erwt","mais","groente"]):
         return "Groenten"
-    if any(w in n for w in ["shake","proteine","whey","bcaa","gel","energiereep","sportdrank","recovery"]):
+    # Fruit
+    if any(w in n for w in ["appel","peer","banaan","aardbei","bosbes","mango","kiwi",
+           "sinaas","druif","meloen","ananas","perzik","abrikoos","pruim","kers",
+           "framboos","braambes","vijg","dadel","rozijn","gedroogd fruit","fruit"]):
+        return "Fruit"
+    # Sportvoeding
+    if any(w in n for w in ["shake","proteine","whey","bcaa","gel ","energiegel",
+           "energiereep","sportdrank","recovery","creatine","pre-workout","isotoon"]):
         return "Sportvoeding"
+    # Vetten & oliën
+    if any(w in n for w in ["olijfolie","zonnebloemolie","kokosolie","lijnzaadolie",
+           "olie","margarine","frituurvet"]):
+        return "Vetten & oliën"
     return "Overige"
-
 
 def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
                                 items_detail: list = None,
