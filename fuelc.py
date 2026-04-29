@@ -4820,6 +4820,33 @@ def _render_analyses(user: dict):
                     ], y_label="kcal"), height=280)
 
 
+        # ── Gewicht melding na opslaan ───────────────────────────────────────
+        if "_gew_diff_data" in st.session_state:
+            _gd = st.session_state["_gew_diff_data"]
+            st.warning(f"⚖️ Je bent {_gd['diff']} kg {_gd['richting']}. Wil je je energiebehoefte updaten naar {_gd['tdee']} kcal? (BMR: {_gd['bmr']} kcal)")
+            if st.button(f"✓ Ja, update energiebehoefte naar {_gd['tdee']} kcal", key="an_gew_update_tdee", type="primary", use_container_width=True):
+                try:
+                    _get_supabase().table("fuelc_profiel").update({
+                        "gewicht_kg": _gd["nieuw_gew"],
+                        "bmr":        _gd["bmr"],
+                        "tdee_basis": _gd["tdee"],
+                        "energie_doel": _gd["tdee"],
+                    }).eq("user_id", user_id).execute()
+                    st.session_state.fc_profiel.update({
+                        "gewicht_kg": _gd["nieuw_gew"],
+                        "bmr":        _gd["bmr"],
+                        "tdee_basis": _gd["tdee"],
+                        "energie_doel": _gd["tdee"],
+                    })
+                    st.session_state.pop("_gew_diff_data", None)
+                    st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {_gd['tdee']} kcal")
+                    st.cache_data.clear(); st.rerun()
+                except Exception as _e:
+                    st.error(f"Fout: {_e}")
+            if st.button("✗ Nee, behoud huidige berekening", key="an_gew_geen_update"):
+                st.session_state.pop("_gew_diff_data", None)
+                st.rerun()
+
         # ── Gewicht invoer ────────────────────────────────────────────────────
         st.markdown("<br>", unsafe_allow_html=True)
         _sectie("GEWICHT INVOEREN", "#22c55e")
@@ -4862,32 +4889,26 @@ def _render_analyses(user: dict):
                         "user_id": user_id, "datum": _today_str,
                         "gewicht_kg": nieuw_gew,
                     }, on_conflict="user_id,datum").execute()
+                    st.cache_data.clear()
                     # Melding bij significante wijziging
                     _diff = round(nieuw_gew - _huidig_gew, 1)
                     if abs(_diff) >= 0.5:
                         _richting = "gedaald" if _diff < 0 else "gestegen"
-                        _profiel_gew = float(profiel.get("gewicht_kg") or 0)
                         geslacht_p = profiel.get("geslacht","man")
                         leeftijd_p = int(profiel.get("leeftijd",30) or 30)
                         lengte_p   = float(profiel.get("lengte_cm",175) or 175)
-                        pal_p      = float(profiel.get("pal",1.55) or 1.55)
+                        activiteit_p = profiel.get("activiteit", "Zittend (kantoorwerk, weinig beweging)")
+                        pal_p = ACTIVITEIT_FACTOR.get(activiteit_p, 1.2)
                         bmr_nieuw  = round(10*nieuw_gew + 6.25*lengte_p - 5*leeftijd_p + (5 if geslacht_p=="man" else -161))
                         tdee_nieuw = round(bmr_nieuw * pal_p)
-                        st.warning(f"⚖️ Je bent {abs(_diff)} kg {_richting}. Wil je je energiebehoefte updaten naar {tdee_nieuw} kcal?")
-                        if st.button(f"✓ Ja, update naar {tdee_nieuw} kcal", key="an_gew_update_tdee", type="primary"):
-                            _get_supabase().table("fuelc_profiel").update({
-                                "gewicht_kg": nieuw_gew, "bmr": bmr_nieuw,
-                                "tdee_basis": tdee_nieuw, "energie_doel": tdee_nieuw,
-                            }).eq("user_id", user_id).execute()
-                            st.session_state.fc_profiel.update({
-                                "gewicht_kg": nieuw_gew, "bmr": bmr_nieuw,
-                                "tdee_basis": tdee_nieuw, "energie_doel": tdee_nieuw,
-                            })
-                            st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {tdee_nieuw} kcal")
-                            st.cache_data.clear(); st.rerun()
+                        st.session_state["_gew_diff_data"] = {
+                            "richting": _richting, "diff": abs(_diff),
+                            "nieuw_gew": nieuw_gew, "bmr": bmr_nieuw, "tdee": tdee_nieuw
+                        }
+                        st.rerun()
                     else:
                         st.success(f"✅ Gewicht opgeslagen: {nieuw_gew} kg")
-                    st.cache_data.clear(); st.rerun()
+                        st.rerun()
                 except Exception as e:
                     st.error(f"Fout: {e}")
 
