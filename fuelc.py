@@ -4736,11 +4736,17 @@ def _render_analyses(user: dict):
                     f'<div style="margin-bottom:5px;line-height:1;">{blokjes}</div>'
                     f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var} per dag</div>'
                     f'</div>', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
-                    f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE GROEPEN DEZE PERIODE</div>'
-                    f'<div style="font-size:0.78rem;color:#94a3b8;">{" · ".join(ontbrekend)}</div>'
-                    f'</div>', unsafe_allow_html=True)
+                if ontbrekend:
+                    st.markdown(
+                        f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE GROEPEN DEZE PERIODE</div>'
+                        f'<div style="font-size:0.78rem;color:#94a3b8;">{' + '" · "' + '.join(ontbrekend)}</div>'
+                        f'</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<div style="background:#0f2d1a;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                        '<div style="font-size:0.72rem;font-weight:700;color:#22c55e;">✓ Alle voedingsgroepen aanwezig deze periode</div>'
+                        '</div>', unsafe_allow_html=True)
 
             if not heeft_micro:
                 st.markdown(
