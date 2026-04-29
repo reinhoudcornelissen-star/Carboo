@@ -3913,12 +3913,6 @@ def _render_voedingsdagboek(user: dict):
                 else:
                     rpe_val = None; energiek_val = None
 
-                # Gewicht
-                st.markdown('<div style="font-size:0.7rem;font-weight:600;color:#64748b;margin:12px 0 6px;">GEWICHT (optioneel)</div>', unsafe_allow_html=True)
-                gew_val = st.number_input("⚖️ Gewicht (kg)",
-                    0.0, 250.0, float(w.get("gewicht_kg") or 0), 0.1,
-                    key=f"db_gew_{dag_str}",
-                    help="Laat 0 als je vandaag niet gewogen hebt")
 
                 # Opslaan
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -3939,7 +3933,7 @@ def _render_voedingsdagboek(user: dict):
                         "gehydrateerd":     hydr_val,
                         "rpe":              rpe_val,
                         "energiek_training":energiek_val,
-                        "gewicht_kg":       gew_val if gew_val > 0 else None,
+                        "gewicht_kg":       None,
                     }
                     try:
                         _get_supabase().table("fuelc_dagboek_welzijn")\
@@ -4456,7 +4450,7 @@ def _render_analyses(user: dict):
         st.markdown("<br>", unsafe_allow_html=True)
 
         if not gewicht_punten:
-            st.info("Nog geen gewicht ingevoerd. Ga naar 📓 Dagboek en open een dag om je gewicht in te voeren.")
+            st.warning("⚖️ Je hebt nog geen gewicht ingevoerd. Vul hieronder je gewicht in om de grafiek en BMI te zien.")
         else:
             laatste = gewicht_punten[-1][1]
             eerste  = gewicht_punten[0][1]
@@ -4466,41 +4460,6 @@ def _render_analyses(user: dict):
             trend_g = laatste - eerste if len(gewicht_punten)>1 else 0
             trend_t = "→ Stabiel" if abs(trend_g)<0.1 else (f"▲ +{round(trend_g,1)} kg" if trend_g>0 else f"▼ {round(trend_g,1)} kg")
             trend_k = "#64748b" if abs(trend_g)<0.1 else ("#ef4444" if trend_g>0.3 else ("#22c55e" if trend_g<-0.3 else "#fbbf24"))
-
-            # Optie 2: melding als gewicht afwijkt van profiel
-            profiel_gew = float(profiel.get("gewicht_kg") or 0)
-            if profiel_gew > 0 and abs(laatste - profiel_gew) >= 0.5:
-                richting = "gedaald" if laatste < profiel_gew else "gestegen"
-                st.markdown(
-                    f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">' +
-                    f'<div style="font-size:0.78rem;color:#fbbf24;">⚠️ Je gewicht is {richting} naar <b>{laatste} kg</b>. Wil je je energiebehoefte herberekenen?</div>',
-                    unsafe_allow_html=True)
-                if st.button("✓ Ja, update energiebehoefte", key="gew_update_profiel", type="primary"):
-                    geslacht    = profiel.get("geslacht","man")
-                    leeftijd    = int(profiel.get("leeftijd",30) or 30)
-                    lengte_cm_p = float(profiel.get("lengte_cm",175) or 175)
-                    pal         = float(profiel.get("pal",1.55) or 1.55)
-                    if geslacht == "man":
-                        bmr_n = round(10*laatste + 6.25*lengte_cm_p - 5*leeftijd + 5)
-                    else:
-                        bmr_n = round(10*laatste + 6.25*lengte_cm_p - 5*leeftijd - 161)
-                    tdee_n = round(bmr_n * pal)
-                    try:
-                        _get_supabase().table("fuelc_profiel").update({
-                            "gewicht_kg": laatste,
-                            "bmr": bmr_n,
-                            "tdee_basis": tdee_n,
-                            "energie_doel": tdee_n,
-                        }).eq("user_id", user_id).execute()
-                        st.session_state.fc_profiel.update({
-                            "gewicht_kg": laatste,
-                            "bmr": bmr_n,
-                            "tdee_basis": tdee_n,
-                            "energie_doel": tdee_n,
-                        })
-                        st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {tdee_n} kcal")
-                        st.cache_data.clear(); st.rerun()
-                    except Exception as e: st.error(str(e))
 
             # KPI badges
             k1,k2,k3,k4 = st.columns(4)
@@ -4561,6 +4520,78 @@ def _render_analyses(user: dict):
                         {"label":"Doel incl. training (kcal)","data":kcal_doel_p,"color":"#f97316"},
                     ], y_label="kcal"), height=280)
 
+
+        # ── Gewicht invoer ────────────────────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        _sectie("GEWICHT INVOEREN", "#22c55e")
+
+        # Laad laatste gewichtsmeting
+        try:
+            _gew_r = _get_supabase().table("fuelc_dagboek_welzijn")\
+                .select("datum,gewicht_kg").eq("user_id",user_id)\
+                .not_.is_("gewicht_kg","null").order("datum",desc=True).limit(1).execute()
+            _laatste_gew_row = _gew_r.data[0] if _gew_r.data else None
+        except: _laatste_gew_row = None
+
+        _huidig_gew = float(_laatste_gew_row["gewicht_kg"]) if _laatste_gew_row else float(profiel.get("gewicht_kg") or 70)
+        _laatste_gew_datum = _laatste_gew_row["datum"] if _laatste_gew_row else None
+
+        # Check of al gewogen deze week
+        from datetime import date as _gd, timedelta as _gt
+        _vandaag = _gd.today()
+        _week_start = _vandaag - _gt(days=_vandaag.weekday())
+        _al_gewogen = _laatste_gew_datum and _laatste_gew_datum >= str(_week_start)
+
+        if _al_gewogen:
+            st.markdown(
+                f'<div style="background:#0f2d1a;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;">'
+                f'<div style="font-size:0.8rem;color:#22c55e;">✓ Al gewogen deze week: <b>{_huidig_gew} kg</b> op {_laatste_gew_datum}</div>'
+                f'</div>', unsafe_allow_html=True)
+        
+        gew_cols = st.columns([2,1])
+        with gew_cols[0]:
+            nieuw_gew = st.number_input(
+                "Gewicht (kg)" + (" — al ingegeven deze week" if _al_gewogen else ""),
+                30.0, 250.0, _huidig_gew, 0.1, key="an_gew_invoer")
+        with gew_cols[1]:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("💾 Opslaan", key="an_gew_opslaan", use_container_width=True, type="primary"):
+                try:
+                    from datetime import date as _gdd
+                    _today_str = str(_gdd.today())
+                    _get_supabase().table("fuelc_dagboek_welzijn").upsert({
+                        "user_id": user_id, "datum": _today_str,
+                        "gewicht_kg": nieuw_gew,
+                    }, on_conflict="user_id,datum").execute()
+                    # Melding bij significante wijziging
+                    _diff = round(nieuw_gew - _huidig_gew, 1)
+                    if abs(_diff) >= 0.5:
+                        _richting = "gedaald" if _diff < 0 else "gestegen"
+                        _profiel_gew = float(profiel.get("gewicht_kg") or 0)
+                        geslacht_p = profiel.get("geslacht","man")
+                        leeftijd_p = int(profiel.get("leeftijd",30) or 30)
+                        lengte_p   = float(profiel.get("lengte_cm",175) or 175)
+                        pal_p      = float(profiel.get("pal",1.55) or 1.55)
+                        bmr_nieuw  = round(10*nieuw_gew + 6.25*lengte_p - 5*leeftijd_p + (5 if geslacht_p=="man" else -161))
+                        tdee_nieuw = round(bmr_nieuw * pal_p)
+                        st.warning(f"⚖️ Je bent {abs(_diff)} kg {_richting}. Wil je je energiebehoefte updaten naar {tdee_nieuw} kcal?")
+                        if st.button(f"✓ Ja, update naar {tdee_nieuw} kcal", key="an_gew_update_tdee", type="primary"):
+                            _get_supabase().table("fuelc_profiel").update({
+                                "gewicht_kg": nieuw_gew, "bmr": bmr_nieuw,
+                                "tdee_basis": tdee_nieuw, "energie_doel": tdee_nieuw,
+                            }).eq("user_id", user_id).execute()
+                            st.session_state.fc_profiel.update({
+                                "gewicht_kg": nieuw_gew, "bmr": bmr_nieuw,
+                                "tdee_basis": tdee_nieuw, "energie_doel": tdee_nieuw,
+                            })
+                            st.success(f"✅ Profiel bijgewerkt — nieuw energiedoel: {tdee_nieuw} kcal")
+                            st.cache_data.clear(); st.rerun()
+                    else:
+                        st.success(f"✅ Gewicht opgeslagen: {nieuw_gew} kg")
+                    _laad_week_welzijn.clear()
+                    st.cache_data.clear(); st.rerun()
+                except Exception as e:
+                    st.error(f"Fout: {e}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 2 — VOEDINGSKWALITEIT
@@ -4705,11 +4736,17 @@ def _render_analyses(user: dict):
                     f'<div style="margin-bottom:5px;line-height:1;">{blokjes}</div>'
                     f'<div style="font-size:0.72rem;font-weight:700;color:{k_cat};">{adv_var} per dag</div>'
                     f'</div>', unsafe_allow_html=True)
-                st.markdown(
-                    f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
-                    f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE GROEPEN DEZE PERIODE</div>'
-                    f'<div style="font-size:0.78rem;color:#94a3b8;">{" · ".join(ontbrekend)}</div>'
-                    f'</div>', unsafe_allow_html=True)
+                if ontbrekend:
+                    st.markdown(
+                        f'<div style="background:#1a1200;border-left:3px solid #fbbf24;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                        f'<div style="font-size:0.72rem;font-weight:700;color:#fbbf24;margin-bottom:4px;">⚠️ ONTBREKENDE GROEPEN DEZE PERIODE</div>'
+                        f'<div style="font-size:0.78rem;color:#94a3b8;">{' + '" · "' + '.join(ontbrekend)}</div>'
+                        f'</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<div style="background:#0f2d1a;border-left:3px solid #22c55e;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;">'
+                        '<div style="font-size:0.72rem;font-weight:700;color:#22c55e;">✓ Alle voedingsgroepen aanwezig deze periode</div>'
+                        '</div>', unsafe_allow_html=True)
 
             if not heeft_micro:
                 st.markdown(
@@ -4827,6 +4864,14 @@ def _render_analyses(user: dict):
                     ("🧬 Vitamine B12",gem_b12,2.4,"µg"),
                     ("🐟 Omega-3",gem_om3,1.5,"g"),
                 ]
+                MICRO_TIPS = {
+                    "🥬 Kalium":       "Rijke bronnen: banaan, aardappel, avocado, spinazie, witte bonen, zalm",
+                    "🦴 Calcium":      "Rijke bronnen: melk, yoghurt, kaas, broccoli, amandelen, sardines",
+                    "🩸 IJzer":        "Rijke bronnen: rood vlees, linzen, spinazie, tofu, pompoenpitten — combineer met vitamine C",
+                    "☀️ Vitamine D":   "Rijke bronnen: vette vis (zalm, makreel), eieren, verrijkte zuivel — zon is essentieel",
+                    "🧬 Vitamine B12": "Rijke bronnen: vlees, vis, eieren, melk — bij plantaardig dieet: supplement aanbevolen",
+                    "🐟 Omega-3":      "Rijke bronnen: zalm, makreel, haring, walnoten, lijnzaad, chiazaad",
+                }
                 for lbl_m,waarde_m,adh_m,eenh_m in MICROS:
                     if waarde_m==0: continue
                     pct_m = min(150,round(waarde_m/max(adh_m,0.001)*100))
@@ -4838,6 +4883,16 @@ def _render_analyses(user: dict):
                         f'<div style="width:{min(100,pct_m)}%;height:100%;background:{kl_m};border-radius:3px;"></div></div>'
                         f'<div style="min-width:80px;font-size:0.75rem;color:{kl_m};text-align:right;">{waarde_m}{eenh_m}/{adh_m}{eenh_m}</div>'
                         f'</div>', unsafe_allow_html=True)
+                    if pct_m < 80 and lbl_m in MICRO_TIPS:
+                        kleur_tip = "#ef4444" if pct_m < 50 else "#fbbf24"
+                        st.markdown(
+                            f'<div style="margin-left:140px;margin-bottom:10px;'
+                            f'padding:6px 10px;background:#1e293b;'
+                            f'border-left:2px solid {kleur_tip};border-radius:0 6px 6px 0;">'
+                            f'<div style="font-size:0.7rem;color:{kleur_tip};font-weight:600;margin-bottom:2px;">'  
+                            f'{"🔴 Te laag" if pct_m<50 else "🟡 Net onder ADH"}</div>'
+                            f'<div style="font-size:0.7rem;color:#64748b;">{MICRO_TIPS[lbl_m]}</div>'
+                            f'</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 3 — KOOLHYDRATEN
@@ -5292,103 +5347,6 @@ def _render_analyses(user: dict):
                         + detail_html + '</div>',
                         unsafe_allow_html=True)
 
-                # Welzijn + score in HTML grid voor perfecte uitlijning
-                welzijn_items = [v for v in welzijn_data.values() if v]
-                gem_score_disp = round(sum(s["score"] for s in scores_per_dag)/len(scores_per_dag))
-                k_gem_d = "#22c55e" if gem_score_disp>=75 else ("#fbbf24" if gem_score_disp>=50 else "#ef4444")
-                def gem_w(key): return round(sum(float(w.get(key,0) or 0) for w in welzijn_items)/max(len(welzijn_items),1),1) if welzijn_items else 0
-                WELZIJN_ITEMS = [
-                    ("Energieniveau",  gem_w("energie_score"),   10),
-                    ("Slaapkwaliteit", gem_w("slaap_kwaliteit"), 10),
-                    ("Spierpijn",      gem_w("spierpijn"),        5),
-                    ("Stemming",       gem_w("stemming"),        10),
-                    ("Stress",         gem_w("stress"),           5),
-                    ("Hongergevoel",   gem_w("honger"),           5),
-                ]
-                # Bouw HTML
-                welzijn_rows = ""
-                for lbl_w, val_w, max_w in WELZIJN_ITEMS:
-                    if val_w == 0: continue
-                    pct_w = round(val_w/max_w*100)
-                    kl_w = "#22c55e" if pct_w>=60 else ("#fbbf24" if pct_w>=30 else "#ef4444")
-                    welzijn_rows += (
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-                        f'<div style="min-width:120px;font-size:0.75rem;color:#94a3b8;">{lbl_w}</div>'
-                        f'<div style="flex:1;background:#0f172a;border-radius:3px;height:6px;">'
-                        f'<div style="width:{min(100,pct_w)}%;height:100%;background:{kl_w};border-radius:3px;"></div></div>'
-                        f'<div style="min-width:40px;font-size:0.75rem;color:{kl_w};text-align:right;">{val_w}/{max_w}</div></div>'
-                    )
-                score_rows = ""
-                for s in scores_per_dag[-7:]:
-                    sc = s["score"]
-                    kl_s = "#22c55e" if sc>=75 else ("#fbbf24" if sc>=50 else "#ef4444")
-                    score_rows += (
-                        f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
-                        f'<div style="font-size:0.72rem;color:#64748b;min-width:38px;">{s["datum"][5:]}</div>'
-                        f'<div style="flex:1;background:#0f172a;border-radius:3px;height:5px;">'
-                        f'<div style="width:{sc}%;height:100%;background:{kl_s};border-radius:3px;"></div></div>'
-                        f'<div style="font-size:0.72rem;color:{kl_s};min-width:24px;text-align:right;">{sc}</div></div>'
-                    )
-                st.markdown(
-                    f'<div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:16px;align-items:stretch;">'
-                     f'<div style="height:100%;display:flex;flex-direction:column;">'
-                    f'<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:8px;">Welzijn samenvatting</div>'
-                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;box-sizing:border-box;height:100%;">'
-                    f'{welzijn_rows if welzijn_rows else '<div style="font-size:0.78rem;color:#64748b;">Vul het dagboek in om welzijnsdata te zien.</div>'}'
-                    f'</div></div>'
-                     f'</div></div>'
-                     f'<div style="height:100%;display:flex;flex-direction:column;">'
-                     f'<div style="background:#1e293b;border-radius:10px;padding:16px;height:100%;box-sizing:border-box;">'
-                     f'<div style="text-align:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #334155;">'
-                     f'<div style="font-size:0.6rem;color:#64748b;margin-bottom:4px;">GEMIDDELDE</div>'
-                     f'<div style="font-size:2.5rem;font-weight:900;color:{k_gem_d};line-height:1;">{gem_score_disp}</div>'
-                     f'<div style="font-size:0.65rem;color:#475569;margin-top:2px;">/ 100</div></div>'
-                     f'{score_rows}'
-                     f'</div></div></div>',
-                     unsafe_allow_html=True)
-
-def render_fuelc(user: dict):
-    st.markdown(
-        '<div style="margin-bottom:8px;">'
-        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">'
-        '<div style="font-size:2rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">FUEL<span style="color:#22c55e;">C</span></div>'
-        '<div style="font-size:0.85rem;font-weight:700;color:#22c55e;letter-spacing:2px;border:1px solid #22c55e;border-radius:6px;padding:3px 10px;">ENERGIE COACH</div>'
-        '</div>'
-        '<div style="font-size:0.78rem;color:#64748b;font-style:italic;">Eet zoals je traint. Met een plan.</div>'
-        '</div>',
-        unsafe_allow_html=True)
-
-    if st.button("← Terug naar modules", key="fc_terug_top"):
-        st.session_state.module = "menu"; st.rerun()
-
-    stap   = st.session_state.get("fc_stap", 1)
-    namen  = ["Profiel","Trainingen","Bibliotheek","Dagschema","Analyses"]
-    emojis = ["👤","🏃","🥦","📅","📊"]
-    nav_cols = st.columns(5)
-    for i, (col, naam_stap, emoji) in enumerate(zip(nav_cols, namen, emojis)):
-        with col:
-            if st.button(f"{emoji}  {naam_stap}", key=f"nav_stap_{i+1}",
-                         use_container_width=True,
-                         type="primary" if (i+1)==stap else "secondary"):
-                st.session_state.fc_stap = i+1; st.rerun()
-
-    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-
-    if "fc_profiel" not in st.session_state:
-        st.session_state.fc_profiel = _laad_profiel(user.get("id",""))
-    profiel_ingevuld = bool(st.session_state.fc_profiel.get("bmr"))
-
-    if   stap == 1: _stap_profiel(user)
-    elif stap == 2:
-        if not profiel_ingevuld:
-            st.warning("Vul eerst je profiel in.")
-            if st.button("← Naar profiel", key="fc_naar_prof"):
-                st.session_state.fc_stap = 1; st.rerun()
-        else: _stap_trainingen(user)
-    elif stap == 3: _stap_bibliotheek(user)
-    elif stap == 4: _stap_dagschema(user)
-    elif stap == 5: _stap_dashboard(user)
-
 
 def _stap_dashboard(user: dict):
     tab_db, tab_an = st.tabs(["📓 Dagboek", "📊 Analyses"])
@@ -5396,3 +5354,43 @@ def _stap_dashboard(user: dict):
         _render_voedingsdagboek(user)
     with tab_an:
         _render_analyses(user)
+
+
+def render_fuelc(user: dict):
+    """Publieke entry point voor de FuelC module."""
+    if "fc_stap" not in st.session_state:
+        st.session_state.fc_stap = 0
+
+    stap = st.session_state.fc_stap
+
+    # ── Navigatiebalk ─────────────────────────────────────────────────────────
+    NAV = [
+        (0, "👤 Profiel"),
+        (1, "⚡ Zones"),
+        (2, "📚 Bibliotheek"),
+        (3, "📅 Schema's"),
+        (4, "🏃 Training"),
+        (5, "📊 Analyses"),
+    ]
+    cols = st.columns(len(NAV))
+    for col, (s, label) in zip(cols, NAV):
+        with col:
+            actief = stap == s
+            if st.button(
+                label,
+                key=f"fc_nav_{s}",
+                use_container_width=True,
+                type="primary" if actief else "secondary",
+            ):
+                st.session_state.fc_stap = s
+                st.rerun()
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── Module routing ────────────────────────────────────────────────────────
+    if stap == 0: _stap_profiel(user)
+    elif stap == 1: _stap_zones(user)
+    elif stap == 2: _stap_bibliotheek(user)
+    elif stap == 3: _stap_schema(user)
+    elif stap == 4: _stap_training(user)
+    elif stap == 5: _render_analyses(user)
