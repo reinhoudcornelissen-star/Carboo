@@ -4308,6 +4308,16 @@ def _render_analyses(user: dict):
 
     dagen_met = [d for d in dagen_data if d["kcal"] > 0]
 
+    # Bereken gemiddelde training kcal over de periode
+    _train_dagen = [d for d in dagen_data if d.get("training_kcal",0) > 0]
+    _gem_train   = round(sum(d.get("training_kcal",0) for d in _train_dagen) / max(len(_train_dagen),1)) if _train_dagen else 0
+    energie_doel_incl = energie_doel + _gem_train
+    # Update macro doelen op basis van energie incl. training
+    kh_doel_g = round(energie_doel_incl * kh_doel_pct / 100 / 4)
+    ei_doel_g = round(energie_doel_incl * ei_doel_pct / 100 / 4)
+    vt_doel_g = round(energie_doel_incl * vt_doel_pct / 100 / 9)
+
+
     def _chart(html_body: str, height: int = 320):
         h_inner = height - 20
         html_full = (
@@ -5191,6 +5201,9 @@ def _render_analyses(user: dict):
                         [max(0,round(gem_onverz,1)), gem_verz],
                         ["#22c55e","#ef4444"]), height=260)
                 with vd2:
+                    # Energie doel inclusief gemiddelde training
+                    _gem_train_kcal = round(sum(d.get("training_kcal",0) for d in dagen_data if d.get("training_kcal",0)>0) / max(len([d for d in dagen_data if d.get("training_kcal",0)>0]),1)) if any(d.get("training_kcal",0)>0 for d in dagen_data) else 0
+                    energie_doel_incl = energie_doel + _gem_train_kcal
                     adv_verz = (f"✓ Verzadigde vetten ({verz_pct_kcal}% van kcal) binnen aanbeveling (max 10%)." if verz_pct_kcal<=10
                                 else f"⚠️ Verzadigde vetten ({verz_pct_kcal}% van kcal) overschrijden de WHO-aanbeveling (max 10%). Vervang boter/room/vet vlees door olijfolie, noten en vis.")
                     k_adv_v = "#22c55e" if verz_pct_kcal<=10 else "#fbbf24"
@@ -5200,7 +5213,7 @@ def _render_analyses(user: dict):
                         f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;margin-bottom:12px;">{adv_verz}</div>'
                         f'<div style="font-size:0.75rem;color:#64748b;line-height:1.7;">'
                         f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
-                        f'WHO max: 10% = <b style="color:#94a3b8">{round(energie_doel*0.10/9)}g/dag</b> bij {energie_doel} kcal (energiedoel)'
+                        f'WHO max: 10% = <b style="color:#94a3b8">{round(energie_doel_incl*0.10/9)}g/dag</b> bij {energie_doel_incl} kcal (basis {energie_doel} + gem. training {_gem_train_kcal})'
                         f'</div></div>', unsafe_allow_html=True)
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 6 — PERFORMANCE
