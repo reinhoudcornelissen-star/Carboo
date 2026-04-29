@@ -99,6 +99,131 @@ def activeer_abonnement(user_id: str, pakket: str, maanden: int = 1) -> bool:
     except Exception as e:
         print(f"Abonnement activatie fout: {e}"); return False
 
+def render_login_page():
+    tab_voorkeur = st.session_state.pop("_login_tab", "register")
+    if tab_voorkeur == "login":
+        st.session_state["_actieve_tab"] = "login"
+    actieve_tab = st.session_state.get("_actieve_tab", "register")
+
+    st.markdown("""
+    <div style="max-width:420px;margin:60px auto 0 auto;">
+      <div style="text-align:center;margin-bottom:30px;">
+        <div style="font-size:2.5rem;font-weight:900;letter-spacing:4px;color:#f8fafc;">
+          CAR<span style="color:#f97316;">BOO</span>
+        </div>
+        <div style="font-size:0.8rem;color:#64748b;letter-spacing:2px;margin-top:4px;">
+          SPORTS NUTRITION COACH
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("← Terug naar home", key="terug_landing"):
+        st.session_state["toon_landing"] = True
+        st.rerun()
+
+    if actieve_tab == "login":
+        tab_inloggen, tab_registreren = st.tabs(["  Inloggen  ", "  Registreren  "])
+    else:
+        tab_registreren, tab_inloggen = st.tabs(["  Registreren  ", "  Inloggen  "])
+
+    with tab_registreren:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""<div style="text-align:center;margin-bottom:16px;">
+            <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Maak een account aan</div>
+            <div style="font-size:0.82rem;color:#94a3b8;">en begin meteen met je schema</div>
+        </div>""", unsafe_allow_html=True)
+        r_naam  = st.text_input("Naam", key="reg_naam", placeholder="Voornaam en naam")
+        r_email = st.text_input("E-mailadres", key="reg_email", placeholder="jouw@email.com")
+        r_ww    = st.text_input("Wachtwoord", type="password", key="reg_ww")
+        r_ww2   = st.text_input("Herhaal wachtwoord", type="password", key="reg_ww2")
+        r_code  = st.text_input("Promotiecode (optioneel)", key="reg_code", placeholder="bijv. CARBOO2026")
+        st.markdown(
+            '<div style="font-size:0.8rem;color:#64748b;margin:8px 0;">'
+            '<a href="?actie=disclaimer" target="_blank" style="color:#f97316;">'
+            'Lees onze gebruiksvoorwaarden & disclaimer</a></div>',
+            unsafe_allow_html=True)
+        r_akkoord = st.checkbox("Ik ga akkoord met de gebruiksvoorwaarden & disclaimer", key="reg_akkoord")
+        if st.button("Account aanmaken →", key="reg_btn", use_container_width=True):
+            if not r_akkoord:
+                st.error("Je moet akkoord gaan met de gebruiksvoorwaarden.")
+            elif not all([r_naam, r_email, r_ww, r_ww2]):
+                st.error("Vul alle velden in.")
+            elif r_ww != r_ww2:
+                st.error("Wachtwoorden komen niet overeen.")
+            elif len(r_ww) < 6:
+                st.error("Wachtwoord moet minstens 6 tekens zijn.")
+            else:
+                try:
+                    sb = _get_supabase()
+                    try:
+                        bestaande = sb.table("carboo_users").select("id").eq("email", r_email.lower().strip()).execute()
+                        if bestaande.data:
+                            st.error("Dit e-mailadres is al geregistreerd. Gebruik de Inloggen tab.")
+                            st.stop()
+                    except: pass
+                    promo_data = None
+                    if r_code and r_code.strip():
+                        promo_data = controleer_promo_code(r_code.strip())
+                        if not promo_data:
+                            st.warning("⚠️ Ongeldige promotiecode. Registratie gaat door zonder code.")
+                    result = sb.table("carboo_users").insert({
+                        "email": r_email.lower().strip(), "naam": r_naam.strip(),
+                        "wachtwoord": _hash(r_ww), "rol": "user", "credits": 0,
+                    }).execute()
+                    if result.data:
+                        new_user = result.data[0]
+                        activeer_trial(new_user["id"])
+                        if promo_data:
+                            gebruik_promo_code(promo_data["id"], new_user["id"], promo_data["credits"])
+                        try: _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
+                        except: pass
+                        st.session_state.logged_in    = True
+                        st.session_state.current_user = new_user
+                        st.session_state.module       = "menu"
+                        if promo_data:
+                            st.session_state["_welkom_promo"] = promo_data["credits"]
+                except Exception as e:
+                    st.error(f"Fout bij registratie: {e}")
+
+    with tab_inloggen:
+        st.markdown("<br>", unsafe_allow_html=True)
+        email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
+        ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+        col_in, col_verg = st.columns([2, 1])
+        with col_in:
+            login_klik = st.button("Inloggen →", key="login_btn", use_container_width=True)
+        with col_verg:
+            verg_klik = st.button("Vergeten?", key="login_verg", use_container_width=True)
+        if verg_klik:
+            st.session_state["toon_reset"] = True
+        if st.session_state.get("toon_reset"):
+            verg_email = st.text_input("Vul je e-mailadres in voor reset", key="verg_email")
+            if st.button("📧 Stuur resetlink", key="stuur_reset", use_container_width=True):
+                stuur_reset_mail(verg_email)
+                st.success("Als dit e-mailadres bestaat, ontvang je een resetlink.")
+                st.session_state.pop("toon_reset", None)
+        if login_klik:
+            if not email or not ww:
+                st.error("Vul alle velden in.")
+            else:
+                user = _get_user(email)
+                if not user:
+                    st.error("Gebruiker niet gevonden.")
+                elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
+                    st.error("Verkeerd wachtwoord.")
+                else:
+                    st.session_state.pop("_actieve_tab", None)
+                    st.session_state.logged_in    = True
+                    st.session_state.current_user = {
+                        "id": user["id"], "name": user["naam"],
+                        "email": user["email"], "role": user["rol"],
+                        "credits": user["credits"],
+                    }
+                    st.rerun()
+
+
 def render_abonnement_keuze(user_id: str, user_email: str):
     """Toon abonnementskeuze als trial verlopen is."""
     st.markdown("""
@@ -509,7 +634,7 @@ def render_disclaimer():
 
 
 def render_landing_page():
-    """Mooie landing/login pagina in Streamlit."""
+    """Mooie landing/login pagina in Streamlit — mobile-first."""
     actie = st.query_params.get("actie", "")
     if actie == "register":
         st.query_params.clear()
@@ -521,10 +646,6 @@ def render_landing_page():
         st.session_state["toon_landing"] = False
         st.session_state["_login_tab"]   = "login"
         st.rerun()
-    elif actie == "disclaimer":
-        st.query_params.clear()
-        render_disclaimer()
-        return
 
     st.markdown("""
     <style>
@@ -532,168 +653,213 @@ def render_landing_page():
     #MainMenu,header,footer,.stDeployButton{display:none!important}
     .block-container{padding:0!important;max-width:100%!important}
     .stApp{background:#0c0c0c!important}
+
+    /* ── Mobile-first responsive ── */
+    .cb-nav{
+        position:sticky;top:0;z-index:100;width:100%;
+        padding:14px 5vw;
+        display:flex;align-items:center;justify-content:space-between;
+        background:rgba(12,12,12,0.95);backdrop-filter:blur(16px);
+        border-bottom:1px solid rgba(255,255,255,0.06);
+        box-sizing:border-box;
+    }
+    .cb-nav-logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#f5f3ef;letter-spacing:1px;}
+    .cb-nav-tag{font-size:0.55rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+                color:#888;border:1px solid #2a2a2a;padding:3px 8px;border-radius:100px;}
+    .cb-nav-right{display:flex;gap:8px;}
+    .cb-nav-login{font-size:0.78rem;color:#888;text-decoration:none;padding:7px 12px;}
+    .cb-btn-primary{font-size:0.78rem;font-weight:600;color:#0c0c0c;
+                    background:#f97316;padding:7px 14px;border-radius:8px;text-decoration:none;}
+
+    /* Hero */
+    .cb-hero{
+        padding:60px 5vw 50px;
+        max-width:1300px;margin:0 auto;
+        display:grid;grid-template-columns:1fr;gap:32px;
+    }
+    .cb-hero-tag{font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
+                 color:#f97316;margin-bottom:20px;display:flex;align-items:center;gap:8px;}
+    .cb-hero-tag::before{content:'';display:inline-block;width:20px;height:1px;background:#f97316;}
+    .cb-hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.8rem,10vw,6rem);
+                line-height:0.95;letter-spacing:2px;color:#f5f3ef;margin:0 0 20px;}
+    .cb-hero h1 em{color:#f97316;font-style:normal;}
+    .cb-hero-sub{font-size:0.95rem;color:#888;line-height:1.75;margin-bottom:32px;max-width:420px;}
+    .cb-hero-cta{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px;}
+    .cb-btn-big{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;
+                color:#0c0c0c;background:#f97316;padding:12px 24px;
+                border-radius:10px;text-decoration:none;letter-spacing:1px;}
+    .cb-btn-ghost{font-size:0.85rem;color:#666;text-decoration:none;padding:12px 0;}
+    .cb-hero-proof{display:flex;gap:16px;flex-wrap:wrap;}
+    .cb-proof-item{font-size:0.72rem;color:#444;display:flex;align-items:center;gap:5px;}
+    .cb-proof-item::before{content:'✓';color:#f97316;font-weight:700;}
+
+    /* Mockup — verborgen op mobile */
+    .cb-mockup-wrap{display:none;}
+
+    /* Pijlers */
+    .cb-pijlers{padding:50px 5vw;background:#141414;border-top:1px solid #2a2a2a;}
+    .cb-pijlers-inner{max-width:1300px;margin:0 auto;}
+    .cb-pijlers-lbl{font-size:0.62rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+                    color:#f97316;margin-bottom:24px;}
+    .cb-pijlers-grid{display:grid;grid-template-columns:1fr;gap:2px;
+                     border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;}
+    .cb-pijler{background:#1a1a1a;padding:28px 24px;position:relative;}
+    .cb-pijler+.cb-pijler{border-top:2px solid #2a2a2a;}
+    .cb-pijler-nr{font-family:'Bebas Neue',sans-serif;font-size:3.5rem;
+                  color:rgba(249,115,22,0.07);position:absolute;top:12px;right:18px;line-height:1;}
+    .cb-pijler-icon{font-size:1.6rem;margin-bottom:14px;}
+    .cb-pijler-titel{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#f5f3ef;
+                     margin-bottom:10px;letter-spacing:1px;}
+    .cb-pijler-tekst{font-size:0.84rem;color:#888;line-height:1.75;margin-bottom:16px;}
+    .cb-tags{display:flex;gap:5px;flex-wrap:wrap;}
+    .cb-tag{font-size:0.62rem;font-weight:600;color:#f97316;
+            background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);
+            padding:3px 8px;border-radius:100px;white-space:nowrap;}
+
+    /* CTA */
+    .cb-cta{background:#f97316;padding:70px 5vw;text-align:center;}
+    .cb-cta h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,8vw,4rem);
+               color:#0c0c0c;margin:0 0 16px;letter-spacing:2px;line-height:1.05;}
+    .cb-cta-sub{font-size:0.9rem;color:rgba(12,12,12,0.6);margin-bottom:32px;
+                max-width:360px;margin-left:auto;margin-right:auto;line-height:1.7;}
+    .cb-btn-dark{font-family:'Bebas Neue',sans-serif;font-size:0.95rem;font-weight:700;
+                 color:#f97316;background:#0c0c0c;padding:14px 32px;border-radius:10px;
+                 text-decoration:none;display:inline-block;letter-spacing:1px;}
+    .cb-cta-proof{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:20px;}
+    .cb-cta-proof-item{font-size:0.7rem;color:rgba(12,12,12,0.5);}
+
+    /* Footer */
+    .cb-footer{background:#0c0c0c;border-top:1px solid #2a2a2a;padding:20px 5vw;
+               display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;}
+    .cb-footer-logo{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#f5f3ef;letter-spacing:1px;}
+    .cb-footer-copy{font-size:0.7rem;color:#444;}
+
+    /* ── Tablet & Desktop ── */
+    @media(min-width:768px){
+        .cb-nav-tag{display:inline-block;}
+        .cb-nav-login{font-size:0.82rem;}
+        .cb-btn-primary{font-size:0.82rem;padding:9px 20px;}
+        .cb-hero{padding:100px 6vw 80px;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
+        .cb-mockup-wrap{display:block;}
+        .cb-pijlers{padding:70px 6vw;}
+        .cb-pijlers-grid{grid-template-columns:1fr 1fr 1fr;}
+        .cb-pijler+.cb-pijler{border-top:none;border-left:2px solid #2a2a2a;}
+        .cb-cta{padding:100px 6vw;}
+        .cb-footer{flex-direction:row;justify-content:space-between;text-align:left;}
+    }
     </style>
 
     <!-- NAV -->
-    <div style="position:sticky;top:0;z-index:100;width:100%;padding:18px 6vw;
-                display:flex;align-items:center;justify-content:space-between;
-                background:rgba(12,12,12,0.92);backdrop-filter:blur(16px);
-                border-bottom:1px solid rgba(255,255,255,0.06);">
-      <div style="display:flex;align-items:center;gap:14px;">
-        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#f5f3ef;letter-spacing:2px;line-height:1;">
-          Car<span style="color:#f97316;">b</span>oo
-        </div>
-        <div style="font-size:0.75rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
-                    color:#888;border:1px solid #2a2a2a;padding:5px 12px;border-radius:100px;">
-          Sports Nutrition Coach
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <a href="?actie=login" style="font-size:0.82rem;color:#888;text-decoration:none;padding:8px 16px;">Inloggen</a>
-        <a href="?actie=register" style="font-size:0.82rem;font-weight:600;color:#0c0c0c;
-           background:#f97316;padding:9px 20px;border-radius:8px;text-decoration:none;">Gratis starten →</a>
+    <div class="cb-nav">
+      <div class="cb-nav-logo">Car<span style="color:#f97316;">b</span>oo</div>
+      <div class="cb-nav-tag">Sports Nutrition Coach</div>
+      <div class="cb-nav-right">
+        <a href="?actie=login" class="cb-nav-login">Inloggen</a>
+        <a href="?actie=register" class="cb-btn-primary">Gratis starten →</a>
       </div>
     </div>
 
     <!-- HERO -->
-    <div style="min-height:100vh;padding:120px 6vw 80px;max-width:1300px;margin:0 auto;
-                display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;">
+    <div class="cb-hero">
       <div>
-        <div style="font-size:0.7rem;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
-                    color:#f97316;margin-bottom:28px;display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:24px;height:1px;background:#f97316;"></span>
-          Voeding × Prestatie
-        </div>
-        <h1 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(3.5rem,6vw,6rem);
-                   line-height:0.95;letter-spacing:2px;color:#f5f3ef;margin-bottom:28px;">
-          EET ZOALS<br>JE TRAINT.<br><span style="color:#f97316;">MET EEN PLAN.</span>
-        </h1>
-        <p style="font-size:1.05rem;color:#888;line-height:1.75;max-width:420px;margin-bottom:44px;">
-          Periodiseer je voeding op basis van je trainingsbelasting. Stop met gissen. Begin met fuelen.
+        <div class="cb-hero-tag">Voeding × Prestatie</div>
+        <h1>EET ZOALS<br>JE TRAINT.<br><em>MET EEN PLAN.</em></h1>
+        <p class="cb-hero-sub">
+          Periodiseer je voeding op basis van je trainingsbelasting.
+          Stop met gissen. Begin met fuelen.
         </p>
-        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:32px;">
-          <a href="?actie=register" style="font-family:'Bebas Neue',sans-serif;font-size:1rem;
-             color:#0c0c0c;background:#f97316;padding:14px 28px;border-radius:10px;
-             text-decoration:none;letter-spacing:1px;">GRATIS STARTEN →</a>
-          <a href="?actie=login" style="font-size:0.9rem;color:#666;text-decoration:none;padding:14px 0;
-             border-bottom:1px solid transparent;">Al een account? Inloggen ↗</a>
+        <div class="cb-hero-cta">
+          <a href="?actie=register" class="cb-btn-big">GRATIS STARTEN →</a>
+          <a href="?actie=login" class="cb-btn-ghost">Al een account? Inloggen ↗</a>
         </div>
-        <div style="display:flex;gap:24px;flex-wrap:wrap;">
-          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
-            <span style="color:#f97316;font-weight:700;">✓</span> 7 dagen gratis</span>
-          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
-            <span style="color:#f97316;font-weight:700;">✓</span> Geen creditcard</span>
-          <span style="font-size:0.78rem;color:#444;display:flex;align-items:center;gap:6px;">
-            <span style="color:#f97316;font-weight:700;">✓</span> €9,99/maand</span>
+        <div class="cb-hero-proof">
+          <span class="cb-proof-item">7 dagen gratis</span>
+          <span class="cb-proof-item">Geen creditcard</span>
+          <span class="cb-proof-item">€9,99/maand</span>
         </div>
       </div>
 
-      <!-- APP MOCKUP -->
-      <div style="background:#111;border-radius:16px;overflow:hidden;
-                  box-shadow:0 40px 100px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.06);
-                  transform:perspective(1000px) rotateY(-3deg) rotateX(2deg);">
-        <div style="background:#1a1a1a;padding:12px 16px;display:flex;align-items:center;gap:8px;
-                    border-bottom:1px solid rgba(255,255,255,0.06);">
-          <div style="width:10px;height:10px;border-radius:50%;background:#ff5f57;"></div>
-          <div style="width:10px;height:10px;border-radius:50%;background:#febc2e;"></div>
-          <div style="width:10px;height:10px;border-radius:50%;background:#28c840;"></div>
-          <div style="flex:1;background:#222;border-radius:6px;padding:4px 12px;
-                      font-size:0.65rem;color:#555;text-align:center;">carboo.app/dagschema</div>
-        </div>
-        <div style="padding:20px;">
-          <div style="font-size:.6rem;font-weight:700;color:#f97316;letter-spacing:2px;margin-bottom:10px;">DAGSCHEMA — WOENSDAG</div>
-          <div style="font-size:1rem;font-weight:700;color:#f5f3ef;margin-bottom:16px;">Zware trainingsdag ⚡</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
-            <div style="background:#1e293b;border-radius:8px;padding:10px;">
-              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Kcal</div>
-              <div style="font-size:1rem;font-weight:800;color:#f97316;line-height:1;">2840</div>
-              <div style="height:3px;border-radius:2px;margin-top:6px;background:#f97316;width:82%;"></div>
-            </div>
-            <div style="background:#1e293b;border-radius:8px;padding:10px;">
-              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">KH</div>
-              <div style="font-size:1rem;font-weight:800;color:#22c55e;line-height:1;">348g</div>
-              <div style="height:3px;border-radius:2px;margin-top:6px;background:#22c55e;width:88%;"></div>
-            </div>
-            <div style="background:#1e293b;border-radius:8px;padding:10px;">
-              <div style="font-size:.55rem;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">Eiwit</div>
-              <div style="font-size:1rem;font-weight:800;color:#3b82f6;line-height:1;">162g</div>
-              <div style="height:3px;border-radius:2px;margin-top:6px;background:#3b82f6;width:91%;"></div>
-            </div>
+      <!-- APP MOCKUP — enkel desktop -->
+      <div class="cb-mockup-wrap">
+        <div style="background:#111;border-radius:16px;overflow:hidden;
+                    box-shadow:0 40px 100px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.06);
+                    transform:perspective(1000px) rotateY(-3deg) rotateX(2deg);">
+          <div style="background:#1a1a1a;padding:10px 14px;display:flex;align-items:center;gap:6px;
+                      border-bottom:1px solid rgba(255,255,255,0.06);">
+            <div style="width:9px;height:9px;border-radius:50%;background:#ff5f57;"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:#febc2e;"></div>
+            <div style="width:9px;height:9px;border-radius:50%;background:#28c840;"></div>
+            <div style="flex:1;background:#222;border-radius:5px;padding:3px 10px;
+                        font-size:0.6rem;color:#555;text-align:center;">carboo.app</div>
           </div>
-          <div style="font-size:.62rem;color:#64748b;margin-bottom:8px;">Energietiming vs trainingsbelasting</div>
-          <div style="display:flex;align-items:flex-end;gap:4px;height:50px;margin-bottom:14px;">
-            <div style="flex:1;height:25%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
-            <div style="flex:1;height:20%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
-            <div style="flex:1;height:90%;border-radius:3px 3px 0 0;background:#f97316;"></div>
-            <div style="flex:1;height:50%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
-            <div style="flex:1;height:72%;border-radius:3px 3px 0 0;background:#f97316;"></div>
-            <div style="flex:1;height:30%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
-            <div style="flex:1;height:20%;border-radius:3px 3px 0 0;background:#1e293b;"></div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
-              🥗 Ontbijt op target <span style="color:#f97316;font-weight:700;">✓</span></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
-              ⚡ Extra KH na training <span style="color:#f97316;font-weight:700;">+40g</span></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#94a3b8;background:#1e293b;border-radius:6px;padding:6px 10px;">
-              💪 Eiwit vandaag <span style="color:#f97316;font-weight:700;">162g</span></div>
+          <div style="padding:18px;">
+            <div style="font-size:.55rem;font-weight:700;color:#f97316;letter-spacing:2px;margin-bottom:8px;">DAGSCHEMA — WOENSDAG ⚡</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;">
+              <div style="background:#1e293b;border-radius:6px;padding:8px;">
+                <div style="font-size:.5rem;color:#64748b;margin-bottom:2px;">KCAL</div>
+                <div style="font-size:.9rem;font-weight:800;color:#f97316;">2840</div>
+                <div style="height:3px;border-radius:2px;margin-top:4px;background:#f97316;width:82%;"></div>
+              </div>
+              <div style="background:#1e293b;border-radius:6px;padding:8px;">
+                <div style="font-size:.5rem;color:#64748b;margin-bottom:2px;">KH</div>
+                <div style="font-size:.9rem;font-weight:800;color:#22c55e;">348g</div>
+                <div style="height:3px;border-radius:2px;margin-top:4px;background:#22c55e;width:88%;"></div>
+              </div>
+              <div style="background:#1e293b;border-radius:6px;padding:8px;">
+                <div style="font-size:.5rem;color:#64748b;margin-bottom:2px;">EIWIT</div>
+                <div style="font-size:.9rem;font-weight:800;color:#3b82f6;">162g</div>
+                <div style="height:3px;border-radius:2px;margin-top:4px;background:#3b82f6;width:91%;"></div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:.58rem;color:#94a3b8;background:#1e293b;border-radius:5px;padding:5px 8px;">
+                🥗 Ontbijt op target <span style="color:#f97316;">✓</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:.58rem;color:#94a3b8;background:#1e293b;border-radius:5px;padding:5px 8px;">
+                ⚡ Extra KH na training <span style="color:#f97316;">+40g</span></div>
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:.58rem;color:#94a3b8;background:#1e293b;border-radius:5px;padding:5px 8px;">
+                💪 Eiwit vandaag <span style="color:#f97316;">162g</span></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 3 PIJLERS -->
-    <div style="padding:80px 6vw;background:#141414;border-top:1px solid #2a2a2a;">
-      <div style="max-width:1300px;margin:0 auto;">
-        <div style="font-size:0.68rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
-                    color:#f97316;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
-          De app <span style="flex:1;height:1px;background:#2a2a2a;display:inline-block;"></span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;
-                    border:1px solid #2a2a2a;border-radius:16px;overflow:hidden;margin-top:32px;">
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;display:flex;flex-direction:column;">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
-                        position:absolute;top:16px;right:24px;line-height:1;">01</div>
-            <div style="font-size:2rem;margin-bottom:20px;">⚡</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
-                        margin-bottom:14px;letter-spacing:1px;">FUELING</div>
-            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
-              Dagschema op maat. Per training, per maaltijdmoment. 100+ NEVO-producten,
-              AI-etiketscan, community recepten en een eigen prestatie-algoritme.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Dagschema</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Micronutriënten</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Prestatie-algoritme</span>
+    <div class="cb-pijlers">
+      <div class="cb-pijlers-inner">
+        <div class="cb-pijlers-lbl">De app</div>
+        <div class="cb-pijlers-grid">
+          <div class="cb-pijler">
+            <div class="cb-pijler-nr">01</div>
+            <div class="cb-pijler-icon">⚡</div>
+            <div class="cb-pijler-titel">Fueling</div>
+            <p class="cb-pijler-tekst">Dagschema op maat. Per training, per maaltijdmoment. 100+ NEVO-producten en een eigen prestatie-algoritme.</p>
+            <div class="cb-tags">
+              <span class="cb-tag">Dagschema</span>
+              <span class="cb-tag">Micronutriënten</span>
+              <span class="cb-tag">Prestatie-algoritme</span>
             </div>
           </div>
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
-                        position:absolute;top:16px;right:24px;line-height:1;">02</div>
-            <div style="font-size:2rem;margin-bottom:20px;">🏁</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
-                        margin-bottom:14px;letter-spacing:1px;">RACE NUTRITION PLAN</div>
-            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
-              Stap-voor-stap voedingsstrategie voor je wedstrijddag. Van sprint tot Ironman.
-              Gels, bars, dranken en vast voedsel per checkpoint.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Carboloading</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Pre-racemeal</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Raceplan</span>
+          <div class="cb-pijler">
+            <div class="cb-pijler-nr">02</div>
+            <div class="cb-pijler-icon">🏁</div>
+            <div class="cb-pijler-titel">Race Nutrition Plan</div>
+            <p class="cb-pijler-tekst">Stap-voor-stap voedingsstrategie voor je wedstrijddag. Van sprint tot Ironman.</p>
+            <div class="cb-tags">
+              <span class="cb-tag">Carboloading</span>
+              <span class="cb-tag">Pre-racemeal</span>
+              <span class="cb-tag">Raceplan</span>
             </div>
           </div>
-          <div style="background:#1a1a1a;padding:44px 36px;position:relative;border-left:2px solid #2a2a2a;display:flex;flex-direction:column;">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;color:rgba(249,115,22,0.07);
-                        position:absolute;top:16px;right:24px;line-height:1;">03</div>
-            <div style="font-size:2rem;margin-bottom:20px;">🫀</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#f5f3ef;
-                        margin-bottom:14px;letter-spacing:1px;">TRAIN THE GUT</div>
-            <p style="font-size:0.88rem;color:#888;line-height:1.75;margin-bottom:20px;">
-              Je darmen trainen voor maximale koolhydraatopname. Trapsgewijs protocol,
-              wekelijkse tests, perfecte wedstrijdstrategie.</p>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;">
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">KH Protocol</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Intensiteitstests</span>
-              <span style="font-size:0.62rem;font-weight:600;color:#f97316;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.2);padding:3px 8px;border-radius:100px;white-space:nowrap;">Wedstrijdstrategie</span>
+          <div class="cb-pijler">
+            <div class="cb-pijler-nr">03</div>
+            <div class="cb-pijler-icon">🫀</div>
+            <div class="cb-pijler-titel">Train the Gut</div>
+            <p class="cb-pijler-tekst">Je darmen trainen voor maximale koolhydraatopname. Trapsgewijs protocol, wekelijkse tests.</p>
+            <div class="cb-tags">
+              <span class="cb-tag">KH Protocol</span>
+              <span class="cb-tag">Intensiteitstests</span>
+              <span class="cb-tag">Wedstrijdstrategie</span>
             </div>
           </div>
         </div>
@@ -701,161 +867,27 @@ def render_landing_page():
     </div>
 
     <!-- CTA -->
-    <div style="background:#f97316;padding:100px 6vw;text-align:center;">
-      <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(2.5rem,5vw,4.5rem);
-                 color:#0c0c0c;margin-bottom:20px;letter-spacing:2px;line-height:1;">
-        KLAAR OM TE FUELEN<br>ZOALS EEN PROF?</h2>
-      <p style="font-size:1rem;color:rgba(12,12,12,0.6);margin-bottom:40px;max-width:400px;
-                margin-left:auto;margin-right:auto;line-height:1.7;">
-        Maak een gratis account aan en ontdek wat Carboo voor jouw prestaties kan doen.</p>
-      <a href="?actie=register" style="font-family:'Bebas Neue',sans-serif;font-size:1rem;
-         font-weight:700;color:#f97316;background:#0c0c0c;padding:16px 36px;border-radius:10px;
-         text-decoration:none;display:inline-block;letter-spacing:1px;">GRATIS STARTEN →</a>
+    <div class="cb-cta">
+      <h2>KLAAR OM TE FUELEN<br>ZOALS EEN PROF?</h2>
+      <p class="cb-cta-sub">Maak een gratis account aan en ontdek wat Carboo voor jouw prestaties kan doen.</p>
+      <a href="?actie=register" class="cb-btn-dark">GRATIS STARTEN →</a>
+      <div class="cb-cta-proof">
+        <span class="cb-cta-proof-item">7 dagen gratis</span>
+        <span class="cb-cta-proof-item">Geen creditcard</span>
+        <span class="cb-cta-proof-item">Annuleer wanneer je wil</span>
+      </div>
     </div>
 
     <!-- FOOTER -->
-    <div style="background:#0c0c0c;border-top:1px solid #2a2a2a;padding:28px 6vw;
-                display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#f5f3ef;letter-spacing:1px;">
-        Car<span style="color:#f97316;">b</span>oo</div>
-      <div style="font-size:.75rem;color:#444;">
-        Sports Nutrition Coach · Eet zoals je traint. Met een plan. · © 2026</div>
+    <div class="cb-footer">
+      <div class="cb-footer-logo">Car<span style="color:#f97316;">b</span>oo</div>
+      <div class="cb-footer-copy">Sports Nutrition Coach · © 2026 · <a href="?actie=disclaimer" style="color:#555;text-decoration:none;">Gebruiksvoorwaarden</a></div>
     </div>
     """, unsafe_allow_html=True)
 
 
 
-# ─── LOGIN PAGINA ─────────────────────────────────────────────────────────────
-def render_login_page():
-    # Tab voorkeur (register of login)
-    tab_voorkeur = st.session_state.pop("_login_tab", "register")
 
-    st.markdown("""
-    <div style="max-width:420px;margin:60px auto 0 auto;">
-      <div style="text-align:center;margin-bottom:30px;">
-        <div style="font-size:2.5rem;font-weight:900;letter-spacing:4px;color:#f8fafc;">
-          CAR<span style="color:#f97316;">BOO</span>
-        </div>
-        <div style="font-size:0.8rem;color:#64748b;letter-spacing:2px;margin-top:4px;">
-          SPORTS NUTRITION COACH
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if st.button("← Terug naar home", key="terug_landing"):
-        st.session_state["toon_landing"] = True
-        st.rerun()
-
-    # Bewaar tab keuze in session_state om terug-naar-register bug te voorkomen
-    if tab_voorkeur == "login":
-        st.session_state["_actieve_tab"] = "login"
-    actieve_tab = st.session_state.get("_actieve_tab", "register")
-
-    if actieve_tab == "login":
-        tab_inloggen, tab_registreren = st.tabs(["  Inloggen  ", "  Registreren  "])
-    else:
-        tab_registreren, tab_inloggen = st.tabs(["  Registreren  ", "  Inloggen  "])
-
-    with tab_registreren:
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("""<div style="text-align:center;margin-bottom:16px;">
-            <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">Maak een account aan</div>
-            <div style="font-size:0.82rem;color:#94a3b8;">en begin meteen met je schema</div>
-        </div>""", unsafe_allow_html=True)
-        r_naam  = st.text_input("Naam", key="reg_naam", placeholder="Voornaam en naam")
-        r_email = st.text_input("E-mailadres", key="reg_email", placeholder="jouw@email.com")
-        r_ww    = st.text_input("Wachtwoord", type="password", key="reg_ww")
-        r_ww2   = st.text_input("Herhaal wachtwoord", type="password", key="reg_ww2")
-        r_code  = st.text_input("Promotiecode (optioneel)", key="reg_code",
-                                placeholder="bijv. CARBOO2026",
-                                help="Heb je een promotiecode? Vul die hier in voor een gratis rapport.")
-        st.markdown(
-            '<div style="font-size:0.8rem;color:#64748b;margin:8px 0;">'
-            '<a href="?actie=disclaimer" target="_blank" style="color:#f97316;">Lees onze gebruiksvoorwaarden & disclaimer</a>'
-            '</div>', unsafe_allow_html=True)
-        r_akkoord = st.checkbox("Ik ga akkoord met de gebruiksvoorwaarden & disclaimer", key="reg_akkoord")
-        if st.button("Account aanmaken →", key="reg_btn", use_container_width=True):
-            if not r_akkoord:
-                st.error("Je moet akkoord gaan met de gebruiksvoorwaarden.")
-            elif not all([r_naam, r_email, r_ww, r_ww2]):
-                st.error("Vul alle velden in.")
-            elif r_ww != r_ww2:
-                st.error("Wachtwoorden komen niet overeen.")
-            elif len(r_ww) < 6:
-                st.error("Wachtwoord moet minstens 6 tekens zijn.")
-            else:
-                try:
-                    sb = _get_supabase()
-                    try:
-                        bestaande = sb.table("carboo_users").select("id").eq("email", r_email.lower().strip()).execute()
-                        if bestaande.data:
-                            st.error("Dit e-mailadres is al geregistreerd. Gebruik de Inloggen tab.")
-                            st.stop()
-                    except: pass
-                    promo_data = None
-                    if r_code and r_code.strip():
-                        promo_data = controleer_promo_code(r_code.strip())
-                        if not promo_data:
-                            st.warning("⚠️ Ongeldige promotiecode. Registratie gaat door zonder code.")
-                    result = sb.table("carboo_users").insert({
-                        "email": r_email.lower().strip(), "naam": r_naam.strip(),
-                        "wachtwoord": _hash(r_ww), "rol": "user", "credits": 0,
-                    }).execute()
-                    if result.data:
-                        new_user = result.data[0]
-                        if promo_data:
-                            gebruik_promo_code(promo_data["id"], new_user["id"], promo_data["credits"])
-                        try: _stuur_registratie_mail(r_naam.strip(), r_email.lower().strip())
-                        except: pass
-                        activeer_trial(new_user["id"])
-                        st.session_state.logged_in    = True
-                        st.session_state.current_user = new_user
-                        st.session_state.module       = "menu"
-                        if promo_data:
-                            st.session_state["_welkom_promo"] = promo_data["credits"]
-                except Exception as e:
-                    st.error(f"Fout bij registratie: {e}")
-
-    with tab_inloggen:
-        st.markdown("<br>", unsafe_allow_html=True)
-        email = st.text_input("E-mailadres", key="login_email", placeholder="jouw@email.com")
-        ww    = st.text_input("Wachtwoord", type="password", key="login_ww")
-        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
-        col_in, col_verg = st.columns([2, 1])
-        with col_in:
-            login_klik = st.button("Inloggen →", key="login_btn", use_container_width=True)
-        with col_verg:
-            verg_klik = st.button("Vergeten?", key="login_verg", use_container_width=True)
-        if verg_klik:
-            st.session_state["toon_reset"] = True
-        if st.session_state.get("toon_reset"):
-            verg_email = st.text_input("Vul je e-mailadres in voor reset", key="verg_email")
-            if st.button("📧 Stuur resetlink", key="stuur_reset", use_container_width=True):
-                stuur_reset_mail(verg_email)
-                st.success("Als dit e-mailadres bestaat, ontvang je een resetlink.")
-                st.session_state.pop("toon_reset", None)
-        if login_klik:
-            if not email or not ww:
-                st.error("Vul alle velden in.")
-            else:
-                user = _get_user(email)
-                if not user:
-                    st.error("Gebruiker niet gevonden.")
-                elif user["wachtwoord"] != _hash(ww) and user["wachtwoord"] != ww:
-                    st.error("Verkeerd wachtwoord.")
-                else:
-                    st.session_state.pop("_actieve_tab", None)
-                    st.session_state.logged_in    = True
-                    st.session_state.current_user = {
-                        "id": user["id"], "name": user["naam"],
-                        "email": user["email"], "role": user["rol"],
-                        "credits": user["credits"],
-                    }
-                    st.rerun()
-
-
-# ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 def render_admin_panel():
     st.markdown('<div style="font-size:1.2rem;font-weight:900;color:#f97316;margin-bottom:20px;">⚙️ ADMIN PANEL</div>', unsafe_allow_html=True)
     try:
@@ -878,11 +910,10 @@ def render_admin_panel():
     with col3: st.metric("🎟 Credits resterend", totaal_credits)
     with col4: st.metric("💰 Credits verkocht", omzet_credits)
 
-    # Abonnement statistieken
     from datetime import date as _date
     actieve_abos = [u for u in users if u.get("abonnement") and u.get("abo_verval") and u["rol"]=="user"
                     and str(u.get("abo_verval",""))[:10] >= str(_date.today())]
-    trials = [u for u in actieve_abos if u.get("abonnement") == "trial"]
+    trials  = [u for u in actieve_abos if u.get("abonnement") == "trial"]
     betaald = [u for u in actieve_abos if u.get("abonnement") != "trial"]
     col_a, col_b, col_c = st.columns(3)
     with col_a: st.metric("🔄 Actieve abos", len(betaald))
@@ -919,7 +950,7 @@ def render_admin_panel():
         with c2:
             n_ww      = st.text_input("Wachtwoord", key="admin_ww", type="password")
             n_credits = st.number_input("Credits", 0, 999, 5, key="admin_credits")
-            n_rol     = st.selectbox("Rol", ["user", "admin"], key="admin_rol")
+            n_rol     = st.selectbox("Rol", ["user", "coach", "admin"], key="admin_rol")
         if st.button("Gebruiker aanmaken", key="admin_add", use_container_width=True):
             if not all([n_naam, n_email, n_ww]): st.error("Vul alle velden in.")
             elif _get_user(n_email): st.error("E-mail bestaat al.")
@@ -928,6 +959,7 @@ def render_admin_panel():
                     result = sb.table("carboo_users").insert({
                         "email": n_email.lower().strip(), "naam": n_naam.strip(),
                         "wachtwoord": _hash(n_ww), "rol": n_rol, "credits": n_credits,
+                        "max_atleten": 700 if n_rol == "coach" else 0,
                     }).execute()
                     if result.data:
                         sb.table("carboo_transacties").insert({
@@ -951,7 +983,6 @@ def render_admin_panel():
                     if voeg_credits_toe(user["id"], extra, "Credits toegevoegd door admin"):
                         st.success(f"✅ {extra} credits toegevoegd."); st.rerun()
             with col_c:
-                # Coach instellingen
                 if user.get("rol") == "coach":
                     max_a = st.number_input("Max. atleten", 0, 700, int(user.get("max_atleten") or 700), key=f"max_a_{user['id']}")
                     if st.button("💾 Opslaan", key=f"max_a_save_{user['id']}", use_container_width=True):
@@ -966,6 +997,7 @@ def render_admin_panel():
                         sb.table("carboo_users").delete().eq("id", user["id"]).execute()
                         st.success("Gebruiker verwijderd."); st.rerun()
                     except Exception as e: st.error(f"Fout: {e}")
+
             # Abonnement beheer
             st.markdown('<div style="font-size:0.75rem;color:#64748b;margin-top:12px;margin-bottom:6px;">ABONNEMENT</div>', unsafe_allow_html=True)
             abo_huidig = user.get("abonnement") or "geen"
@@ -977,7 +1009,7 @@ def render_admin_panel():
                 f' · Verval: <b>{verval_huidig}</b></div>', unsafe_allow_html=True)
             col_abo1, col_abo2 = st.columns([2,1])
             with col_abo1:
-                nieuw_abo = st.selectbox("Abonnement instellen", 
+                nieuw_abo = st.selectbox("Abonnement instellen",
                     ["trial","alles","fueling","gut","geen"],
                     index=["trial","alles","fueling","gut","geen"].index(abo_huidig) if abo_huidig in ["trial","alles","fueling","gut","geen"] else 4,
                     key=f"abo_sel_{user['id']}")
@@ -997,6 +1029,7 @@ def render_admin_panel():
                         st.success(f"✅ {abo_labels.get(nieuw_abo, nieuw_abo)} geactiveerd t/m {verval_dt}")
                         st.rerun()
                     except Exception as e: st.error(f"Fout: {e}")
+
             try:
                 trans = sb.table("carboo_transacties").select("*").eq("user_id", user["id"]).order("datum", desc=True).limit(5).execute().data
                 if trans:
