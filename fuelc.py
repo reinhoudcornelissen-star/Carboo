@@ -1441,6 +1441,11 @@ VOEDSEL_DB = [
      "kcal":45,"kh":6,"suikers":4,"toegev_suikers":0,"vezels":4,"eiwit":3,"vet":0.5,"verz":0.1,
      "natrium":30,"kalium":380,"calcium":55,"ijzer":1.5,"magnesium":25,"vitc":25,"vitd":0,"vitb12":0,"omega3":0.1},
 
+    {"naam":"Groentensoep","cat":"Groenten","moment":["lunch","avond"],
+     "portie":300,"portie_label":"1 kom","gi":30,
+     "kcal":35,"kh":5,"suikers":3,"toegev_suikers":0,"vezels":2,"eiwit":2,"vet":1,"verz":0.1,
+     "natrium":480,"kalium":320,"calcium":25,"ijzer":0.6,"magnesium":18,"vitc":8,"vitd":0,"vitb12":0,"omega3":0},
+
     {"naam":"Chocolade puur 72%","cat":"Overige","moment":["snack"],
      "portie":25,"portie_label":"2 blokjes","gi":25,
      "kcal":546,"kh":46,"suikers":25,"toegev_suikers":23,"vezels":11,"eiwit":5,"vet":35,"verz":21,
