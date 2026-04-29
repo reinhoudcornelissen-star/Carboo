@@ -588,6 +588,63 @@ def _stap_trainingen(user: dict):
         zones_data = _laad_zones(user_id, sport)
         eenheid    = zones_data.get("eenheid", "hartslag")
 
+        # ── Invoer modus: snel of gedetailleerd ──────────────────────────────
+        invoer_stijl = st.radio("Invoer stijl",
+            ["⚡ Snel (intensiteit)", "⚙️ Gedetailleerd (zones)"],
+            horizontal=True, key="tr_invoer_stijl")
+
+        if invoer_stijl == "⚡ Snel (intensiteit)":
+            # ── SNELLE INVOER ─────────────────────────────────────────────────
+            st.markdown("<br>", unsafe_allow_html=True)
+            sc1, sc2, sc3 = st.columns(3)
+            with sc1:
+                if sport == "Lopen":
+                    snel_km = st.number_input("Afstand (km)", 0.0, 200.0, 10.0, 0.5, key="tr_snel_km")
+                    snel_min = 0
+                else:
+                    snel_min = st.number_input("Duur (min)", 0, 300, 60, key="tr_snel_min")
+                    snel_km = 0.0
+            with sc2:
+                snel_int = st.select_slider("Intensiteit",
+                    options=["Licht", "Matig", "Intensief"],
+                    key="tr_snel_int")
+            with sc3:
+                # Bereken kcal op basis van intensiteit
+                INT_ZONE = {"Licht": "Z1 Herstel", "Matig": "Z2 Duurzaam", "Intensief": "Z4 Drempel"}
+                snel_zone = INT_ZONE[snel_int]
+                if sport == "Lopen" and snel_km > 0:
+                    tempo = zones_data.get("z2_tempo", 6.0) if snel_int=="Matig" else \
+                            zones_data.get("z1_tempo", 7.0) if snel_int=="Licht" else \
+                            zones_data.get("z4_tempo", 4.5)
+                    snel_min = round(snel_km * (tempo or 6.0))
+                snel_kcal = _bereken_kcal(gewicht, snel_min, snel_zone, sport) if snel_min > 0 else 0
+                if snel_min > 0:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    _metric_card("KCAL", str(snel_kcal), "kcal", "#22c55e")
+
+            snel_notitie = f"{snel_int} — {snel_zone}"
+
+            # Opslaan knop
+            if st.button("💾  Training opslaan", key="tr_snel_save", use_container_width=True, type="primary"):
+                if snel_min > 0:
+                    _sla_training_op(user_id, {
+                        "datum": str(datum),
+                        "sport": sport,
+                        "omschrijving": omschrijving or snel_notitie,
+                        "duur_min": snel_min,
+                        "afstand_km": round(snel_km, 2),
+                        "kcal_verbranding": snel_kcal,
+                        "dom_zone": snel_zone,
+                        "notitie": snel_notitie,
+                        "blokken_json": "[]",
+                    })
+                    st.success(f"✅ Training opgeslagen — {snel_min} min · {snel_kcal} kcal")
+                    st.rerun()
+                else:
+                    st.error("Vul duur of afstand in.")
+            st.stop()
+
+        # ── GEDETAILLEERDE INVOER ─────────────────────────────────────────────
         if sport == "Lopen":
             invoer_modus = st.radio("Invoer op basis van",
                 ["Tijd (minuten)", "Afstand (km)"],
@@ -650,11 +707,22 @@ def _stap_trainingen(user: dict):
                 int_zone_w = _zone_selectbox("Zone werk", "tr_int_zone_w", 3)
             with ic2:
                 int_zone_r = _zone_selectbox("Zone rust", "tr_int_zone_r", 0)
-                int_werk = st.number_input("Werkblok (min)", 1, 60, 4, key="tr_int_werk")
-                int_rust  = st.number_input("Rustblok (min)", 1, 30, 2, key="tr_int_rust")
+                if invoer_modus == "Afstand (km)" and sport == "Lopen":
+                    int_werk_km = st.number_input("Werkblok (km)", 0.1, 10.0, 1.0, 0.1, key="tr_int_werk_km")
+                    int_rust_km = st.number_input("Rustblok (km)", 0.1, 5.0, 0.4, 0.1, key="tr_int_rust_km")
+                    # Bereken minuten via tempo
+                    tempo_w = zones_data.get("z4_tempo", 4.5) or 4.5
+                    tempo_r = zones_data.get("z1_tempo", 7.0) or 7.0
+                    int_werk = round(int_werk_km * tempo_w)
+                    int_rust  = round(int_rust_km * tempo_r)
+                    kern_km   = int_herh * (int_werk_km + int_rust_km)
+                    kern_notitie = f"{int_herh}× {int_werk_km}km {int_zone_w[:2]} + {int_rust_km}km {int_zone_r[:2]}"
+                else:
+                    int_werk = st.number_input("Werkblok (min)", 1, 60, 4, key="tr_int_werk")
+                    int_rust  = st.number_input("Rustblok (min)", 1, 30, 2, key="tr_int_rust")
+                    kern_notitie = f"{int_herh}× {int_werk}min {int_zone_w[:2]} + {int_rust}min {int_zone_r[:2]}"
             kern_min = int_herh * (int_werk + int_rust)
             kern_zone = int_zone_w
-            kern_notitie = f"{int_herh}× {int_werk}min {int_zone_w[:2]} + {int_rust}min {int_zone_r[:2]}"
             with ic3:
                 st.markdown(f'<div style="font-size:0.8rem;color:#22c55e;padding-top:28px;">{kern_notitie}</div>', unsafe_allow_html=True)
         elif kern_type == "Ramp up":
