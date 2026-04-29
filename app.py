@@ -35,9 +35,17 @@ except ImportError:
     CARBOO_AVATAR = ""
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
+try:
+    from PIL import Image as _PILImage
+    import io as _io, base64 as _b64
+    from carboo_assets import MASCOT_B64 as _MASCOT_B64
+    _favicon = _PILImage.open(_io.BytesIO(_b64.b64decode(_MASCOT_B64)))
+except:
+    _favicon = "🏃"
+
 st.set_page_config(
     page_title="Carboo — Sports Nutrition",
-    page_icon="🏃",
+    page_icon=_favicon,
     layout="wide",
     initial_sidebar_state="collapsed"
 )
