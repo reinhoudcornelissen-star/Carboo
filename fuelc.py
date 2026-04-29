@@ -5358,8 +5358,36 @@ def _stap_dashboard(user: dict):
 
 def render_fuelc(user: dict):
     """Publieke entry point voor de FuelC module."""
-    stap = st.session_state.get("fc_stap", 0)
+    if "fc_stap" not in st.session_state:
+        st.session_state.fc_stap = 0
 
+    stap = st.session_state.fc_stap
+
+    # ── Navigatiebalk ─────────────────────────────────────────────────────────
+    NAV = [
+        (0, "👤 Profiel"),
+        (1, "⚡ Zones"),
+        (2, "📚 Bibliotheek"),
+        (3, "📅 Schema's"),
+        (4, "🏃 Training"),
+        (5, "📊 Dashboard"),
+    ]
+    cols = st.columns(len(NAV))
+    for col, (s, label) in zip(cols, NAV):
+        with col:
+            actief = stap == s
+            if st.button(
+                label,
+                key=f"fc_nav_{s}",
+                use_container_width=True,
+                type="primary" if actief else "secondary",
+            ):
+                st.session_state.fc_stap = s
+                st.rerun()
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── Module routing ────────────────────────────────────────────────────────
     if stap == 0: _stap_profiel(user)
     elif stap == 1: _stap_zones(user)
     elif stap == 2: _stap_bibliotheek(user)
