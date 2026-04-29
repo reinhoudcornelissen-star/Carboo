@@ -1141,11 +1141,11 @@ VOEDSEL_DB = [
      "portie":80,"portie_label":"halve avocado","gi":10,
      "kcal":160,"kh":9,"suikers":1,"toegev_suikers":0,"vezels":7,"eiwit":2,"vet":15,"verz":2.0,
      "natrium":7,"kalium":485,"calcium":12,"ijzer":0.6,"magnesium":29,"vitc":10,"vitd":0,"vitb12":0,"omega3":0.1},
-    {"naam":"Linzen gekookt","cat":"Groenten","moment":["lunch","avond"],
+    {"naam":"Linzen gekookt","cat":"Peulvruchten","moment":["lunch","avond"],
      "portie":150,"portie_label":"3 opscheplepels","gi":32,
      "kcal":116,"kh":20,"suikers":2,"toegev_suikers":0,"vezels":8,"eiwit":9,"vet":0,"verz":0,
      "natrium":238,"kalium":365,"calcium":19,"ijzer":3.3,"magnesium":36,"vitc":3,"vitd":0,"vitb12":0,"omega3":0.1},
-    {"naam":"Kikkererwten gekookt","cat":"Groenten","moment":["lunch","avond"],
+    {"naam":"Kikkererwten gekookt","cat":"Peulvruchten","moment":["lunch","avond"],
      "portie":150,"portie_label":"3 opscheplepels","gi":28,
      "kcal":164,"kh":27,"suikers":5,"vezels":8,"eiwit":9,"vet":3,"verz":0.3,
      "natrium":24,"kalium":291,"calcium":49,"ijzer":2.9,"magnesium":48,"vitc":2,"vitd":0,"vitb12":0,"omega3":0.1},
@@ -1241,7 +1241,7 @@ VOEDSEL_DB = [
      "portie":20,"portie_label":"1 el","gi":0,
      "kcal":614,"kh":19,"suikers":5,"toegev_suikers":0,"vezels":10,"eiwit":21,"vet":56,"verz":4.0,
      "natrium":5,"kalium":740,"calcium":264,"ijzer":3.7,"magnesium":270,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
-    {"naam":"Hummus","cat":"Sauzen & spreads","moment":["lunch","tussendoor"],
+    {"naam":"Hummus","cat":"Peulvruchten","moment":["lunch","tussendoor"],
      "portie":50,"portie_label":"2 el","gi":6,
      "kcal":177,"kh":14,"suikers":1,"toegev_suikers":0,"vezels":6,"eiwit":8,"vet":10,"verz":1.0,
      "natrium":421,"kalium":228,"calcium":38,"ijzer":2.4,"magnesium":35,"vitc":3,"vitd":0,"vitb12":0,"omega3":0.3},
@@ -1382,11 +1382,30 @@ VOEDSEL_DB = [
      "kcal":85,"kh":2.6,"suikers":0.6,"toegev_suikers":0,"vezels":0,"eiwit":0.1,"vet":0,"verz":0,
      "natrium":5,"kalium":115,"calcium":8,"ijzer":0.5,"magnesium":12,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
 
+    {"naam":"Rode bonen gekookt","cat":"Peulvruchten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 opscheplepel","gi":24,
+     "kcal":127,"kh":22,"suikers":0.3,"toegev_suikers":0,"vezels":7,"eiwit":9,"vet":0.5,"verz":0.1,
+     "natrium":2,"kalium":405,"calcium":40,"ijzer":2.9,"magnesium":45,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Zwarte bonen gekookt","cat":"Peulvruchten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 opscheplepel","gi":30,
+     "kcal":132,"kh":24,"suikers":0.3,"toegev_suikers":0,"vezels":8,"eiwit":9,"vet":0.5,"verz":0.1,
+     "natrium":1,"kalium":355,"calcium":27,"ijzer":2.1,"magnesium":60,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
+    {"naam":"Edamame","cat":"Peulvruchten","moment":["snack","lunch"],
+     "portie":100,"portie_label":"1 portie","gi":18,
+     "kcal":122,"kh":10,"suikers":2,"toegev_suikers":0,"vezels":5,"eiwit":11,"vet":5,"verz":0.7,
+     "natrium":6,"kalium":436,"calcium":60,"ijzer":2.3,"magnesium":64,"vitc":9,"vitd":0,"vitb12":0,"omega3":0.3},
+
+    {"naam":"Spliterwten gekookt","cat":"Peulvruchten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 opscheplepel","gi":22,
+     "kcal":118,"kh":21,"suikers":2.8,"toegev_suikers":0,"vezels":8,"eiwit":8,"vet":0.4,"verz":0.1,
+     "natrium":2,"kalium":362,"calcium":27,"ijzer":1.3,"magnesium":36,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
 ]
 
 CATEGORIE_OPTIES = [
     "Granen & brood","Zuivel","Eieren","Vlees & vis","Groenten","Fruit",
-    "Noten & zaden","Vetten & oliën","Sauzen & spreads","Dranken","Sportvoeding","Overige"
+    "Peulvruchten","Noten & zaden","Vetten & oliën","Sauzen & spreads","Dranken","Sportvoeding","Overige"
 ]
 
 
