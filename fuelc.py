@@ -5354,6 +5354,18 @@ def _stap_dashboard(user: dict):
         _render_voedingsdagboek(user)
     with tab_an:
         _render_analyses(user)
+
+
+def render_fuelc(user: dict):
+    """Publieke entry point voor de FuelC module."""
+    stap = st.session_state.get("fc_stap", 0)
+
+    if stap == 0: _stap_profiel(user)
+    elif stap == 1: _stap_zones(user)
+    elif stap == 2: _stap_bibliotheek(user)
+    elif stap == 3: _stap_schema(user)
+    elif stap == 4: _stap_training(user)
+    elif stap == 5: _stap_dashboard(user)
 def render_fuelc(user: dict):
     """Publieke entry point voor de FuelC module."""
     _stap_dashboard(user)
