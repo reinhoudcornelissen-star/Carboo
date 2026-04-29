@@ -495,11 +495,15 @@ def _laad_trainingen(user_id: str) -> list:
         return []
 
 def _sla_training_op(user_id: str, training: dict) -> bool:
+    # Toegestane kolommen in fuelc_trainingen
+    KOLOMMEN = {"datum","sport","omschrijving","duur_min","afstand_km",
+                "kcal_verbranding","zone_verdeling","notitie","bron","user_id"}
     try:
         sb = _get_supabase()
-        training["user_id"] = user_id
-        training["bron"]    = "manueel"
-        sb.table("fuelc_trainingen").insert(training).execute()
+        data = {k: v for k, v in training.items() if k in KOLOMMEN}
+        data["user_id"] = user_id
+        data["bron"]    = "manueel"
+        sb.table("fuelc_trainingen").insert(data).execute()
         _laad_trainingen.clear()
         return True
     except Exception as e:
@@ -626,18 +630,20 @@ def _stap_trainingen(user: dict):
             snel_notitie = f"{snel_int} — {snel_zone}"
             if st.button("💾  Training opslaan", key="tr_snel_save", use_container_width=True, type="primary"):
                 if snel_min > 0:
-                    _sla_training_op(user_id, {
+                    import json as _jsn
+                    _zone_verd = {snel_zone[:2].lower(): snel_min}
+                    _ok = _sla_training_op(user_id, {
                         "datum":           str(datum),
                         "sport":           sport,
                         "omschrijving":    omschrijving or snel_notitie,
                         "duur_min":        snel_min,
                         "afstand_km":      round(snel_km, 2),
                         "kcal_verbranding":snel_kcal,
-                        "dom_zone":        snel_zone,
+                        "zone_verdeling":  _jsn.dumps(_zone_verd),
                         "notitie":         snel_notitie,
-                        "blokken_json":    "[]",
                     })
-                    _laad_trainingen.clear()
+                    if not _ok:
+                        st.stop()
                     st.success(f"✅ Training opgeslagen — {snel_min} min · {snel_kcal} kcal")
                     st.rerun()
                 else:
