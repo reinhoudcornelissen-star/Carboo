@@ -4231,7 +4231,9 @@ def _herken_categorie(naam: str, bib_cat: str = "") -> str:
         return "Sojaproducten"
     # Peulvruchten
     if any(w in n for w in ["boon","linze","kikker","hummus","spliterwt","lentil","chickpea",
-           "kidneyboon","bruine boon","witte boon","zwarte boon","rode boon"]):
+           "kidneyboon","bruine boon","witte boon","zwarte boon","rode boon",
+           "rode bonen","witte bonen","bruine bonen","zwarte bonen","kidney",
+           "peulvrucht","erwt","doperwt","tuinboon"]):
         return "Peulvruchten"
     # Noten & zaden
     if any(w in n for w in ["noot","amandel","cashew","walnoot","pinda","pistache","hazelnoot",
@@ -4574,10 +4576,9 @@ def _render_analyses(user: dict):
         for it in items:
             pid      = it.get("product_id","") or ""
             prod_bib = bib_cat_lookup.get(pid, {})
-            cat      = _herken_categorie(
-                it.get("naam",""),
-                prod_bib.get("categorie","") or it.get("categorie",""))
-
+            _cat_raw = (it.get("categorie","") or 
+                       prod_bib.get("categorie","") or "")
+            cat      = _herken_categorie(it.get("naam",""), _cat_raw)
             cat_kcal[cat] = cat_kcal.get(cat,0) + (it.get("kcal",0) or 0)
         # Training data voor deze dag
         dag_trainingen = training_per_dag.get(dag_str, [])
@@ -5425,9 +5426,10 @@ def _render_analyses(user: dict):
                     for dd in dagen_met:
                         for it in dd.get("items",[]):
                             pid_d = it.get("product_id","") or ""
-                            cat_d = _herken_categorie(
-                                it.get("naam",""),
-                                it.get("categorie") or bib_cat_lookup.get(pid_d,{}).get("categorie",""))
+                            # Categorie: eerst uit item zelf, dan bibliotheek, dan herkenning op naam
+                            _cat_raw = (it.get("categorie") or 
+                                       bib_cat_lookup.get(pid_d,{}).get("categorie","") or "")
+                            cat_d = _herken_categorie(it.get("naam",""), _cat_raw)
                             eg = float(it.get("eiwit_g",0) or 0)
                             if eg > 0:
                                 cat_ei_detail[cat_d] = cat_ei_detail.get(cat_d,0) + eg
@@ -5444,7 +5446,7 @@ def _render_analyses(user: dict):
                         ei_gem_dag = round(ei_g/len(dagen_met),1)
                         pct_b = round(ei_g/max_ei_cat*100)
                         kl_c = CAT_KL.get(cat_n,"#64748b")
-                        is_plant = cat_n in {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+                        is_plant = cat_n in {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
                         is_dier  = cat_n in {"Vlees & vis","Zuivel","Eieren"}
                         tag = "🌱" if is_plant else ("🥩" if is_dier else "○")
                         html_detail += (
