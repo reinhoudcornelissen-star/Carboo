@@ -5366,11 +5366,10 @@ def render_fuelc(user: dict):
     # ── Navigatiebalk ─────────────────────────────────────────────────────────
     NAV = [
         (0, "👤 Profiel"),
-        (1, "⚡ Zones"),
+        (1, "🏃 Trainingen"),
         (2, "📚 Bibliotheek"),
-        (3, "📅 Schema's"),
-        (4, "🏃 Training"),
-        (5, "📊 Analyses"),
+        (3, "📅 Dagschema"),
+        (4, "📊 Analyses"),
     ]
     cols = st.columns(len(NAV))
     for col, (s, label) in zip(cols, NAV):
@@ -5389,8 +5388,7 @@ def render_fuelc(user: dict):
 
     # ── Module routing ────────────────────────────────────────────────────────
     if stap == 0: _stap_profiel(user)
-    elif stap == 1: _stap_zones(user)
+    elif stap == 1: _stap_trainingen(user)
     elif stap == 2: _stap_bibliotheek(user)
-    elif stap == 3: _stap_schema(user)
-    elif stap == 4: _stap_training(user)
-    elif stap == 5: _render_analyses(user)
+    elif stap == 3: _stap_dagschema(user)
+    elif stap == 4: _render_analyses(user)
