@@ -1534,6 +1534,147 @@ VOEDSEL_DB = [
      "portie":250,"portie_label":"1 glas","gi":30,
      "kcal":33,"kh":1.3,"suikers":0.5,"toegev_suikers":0,"vezels":0,"eiwit":3.3,"vet":1.8,"verz":0.3,
      "natrium":45,"kalium":118,"calcium":120,"ijzer":0.5,"magnesium":19,"vitc":0,"vitd":1.0,"vitb12":0.4,"omega3":0.4},
+    # ── ONTBREKENDE PRODUCTEN ─────────────────────────────────────────────────
+    {"naam":"Ei groot","cat":"Eieren","moment":["ontbijt","lunch"],
+     "portie":60,"portie_label":"1 ei (L)","gi":0,
+     "kcal":155,"kh":1,"suikers":1,"toegev_suikers":0,"vezels":0,"eiwit":13,"vet":11,"verz":3.0,
+     "natrium":124,"kalium":130,"calcium":50,"ijzer":1.8,"magnesium":12,"vitc":0,"vitd":2.0,"vitb12":0.9,"omega3":0.1},
+
+    {"naam":"Granola","cat":"Granen & brood","moment":["ontbijt"],
+     "portie":45,"portie_label":"3 el","gi":55,
+     "kcal":450,"kh":65,"suikers":20,"toegev_suikers":15,"vezels":5,"eiwit":9,"vet":16,"verz":2.5,
+     "natrium":50,"kalium":280,"calcium":40,"ijzer":3.0,"magnesium":65,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
+    {"naam":"Pannenkoek","cat":"Granen & brood","moment":["ontbijt"],
+     "portie":80,"portie_label":"1 pannenkoek","gi":67,
+     "kcal":227,"kh":32,"suikers":4,"toegev_suikers":2,"vezels":1,"eiwit":7,"vet":8,"verz":2.0,
+     "natrium":250,"kalium":120,"calcium":80,"ijzer":1.0,"magnesium":12,"vitc":0,"vitd":0.3,"vitb12":0.4,"omega3":0.1},
+
+    {"naam":"Appelmoes","cat":"Fruit","moment":["ontbijt","tussendoor"],
+     "portie":120,"portie_label":"3 el","gi":40,
+     "kcal":68,"kh":17,"suikers":14,"toegev_suikers":5,"vezels":1,"eiwit":0,"vet":0,"verz":0,
+     "natrium":2,"kalium":90,"calcium":5,"ijzer":0.1,"magnesium":4,"vitc":3,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Pindakaas","cat":"Noten & zaden","moment":["ontbijt","tussendoor"],
+     "portie":20,"portie_label":"1 el","gi":14,
+     "kcal":594,"kh":20,"suikers":9,"toegev_suikers":3,"vezels":6,"eiwit":25,"vet":50,"verz":10.0,
+     "natrium":410,"kalium":705,"calcium":49,"ijzer":1.9,"magnesium":154,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Komkommer","cat":"Groenten","moment":["lunch","tussendoor"],
+     "portie":100,"portie_label":"5 schijfjes","gi":15,
+     "kcal":15,"kh":3,"suikers":2,"toegev_suikers":0,"vezels":1,"eiwit":1,"vet":0,"verz":0,
+     "natrium":2,"kalium":147,"calcium":16,"ijzer":0.3,"magnesium":13,"vitc":3,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Kipfilet","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":120,"portie_label":"1 filet","gi":0,
+     "kcal":165,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":31,"vet":4,"verz":1.0,
+     "natrium":74,"kalium":370,"calcium":12,"ijzer":1.0,"magnesium":28,"vitc":0,"vitd":0.1,"vitb12":0.3,"omega3":0.1},
+
+    {"naam":"Sla gemengd","cat":"Groenten","moment":["lunch","avond"],
+     "portie":50,"portie_label":"1 handjevol","gi":10,
+     "kcal":15,"kh":2,"suikers":1,"toegev_suikers":0,"vezels":1,"eiwit":1,"vet":0,"verz":0,
+     "natrium":10,"kalium":200,"calcium":30,"ijzer":0.8,"magnesium":10,"vitc":10,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Mayonaise","cat":"Sauzen & spreads","moment":["lunch","avond"],
+     "portie":15,"portie_label":"1 el","gi":0,
+     "kcal":680,"kh":2,"suikers":1,"toegev_suikers":1,"vezels":0,"eiwit":1,"vet":75,"verz":6.0,
+     "natrium":500,"kalium":20,"calcium":5,"ijzer":0.1,"magnesium":2,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.5},
+
+    {"naam":"Broccoli","cat":"Groenten","moment":["lunch","avond"],
+     "portie":150,"portie_label":"2 opscheplepels","gi":10,
+     "kcal":34,"kh":7,"suikers":2,"toegev_suikers":0,"vezels":3,"eiwit":3,"vet":0,"verz":0,
+     "natrium":33,"kalium":316,"calcium":47,"ijzer":0.7,"magnesium":21,"vitc":65,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Wortel","cat":"Groenten","moment":["lunch","avond"],
+     "portie":80,"portie_label":"1 wortel","gi":35,
+     "kcal":41,"kh":10,"suikers":5,"toegev_suikers":0,"vezels":3,"eiwit":1,"vet":0,"verz":0,
+     "natrium":69,"kalium":320,"calcium":33,"ijzer":0.3,"magnesium":12,"vitc":6,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Sojasaus","cat":"Sauzen & spreads","moment":["lunch","avond"],
+     "portie":15,"portie_label":"1 el","gi":0,
+     "kcal":60,"kh":6,"suikers":2,"toegev_suikers":1,"vezels":0,"eiwit":6,"vet":0,"verz":0,
+     "natrium":4000,"kalium":200,"calcium":10,"ijzer":0.5,"magnesium":20,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Olijfolie","cat":"Vetten & oliën","moment":["lunch","avond"],
+     "portie":10,"portie_label":"1 el","gi":0,
+     "kcal":884,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":0,"vet":100,"verz":14.0,
+     "natrium":0,"kalium":0,"calcium":0,"ijzer":0.1,"magnesium":0,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.8},
+
+    {"naam":"Wrap","cat":"Granen & brood","moment":["lunch"],
+     "portie":60,"portie_label":"1 wrap","gi":65,
+     "kcal":306,"kh":52,"suikers":3,"toegev_suikers":1,"vezels":3,"eiwit":8,"vet":7,"verz":1.5,
+     "natrium":450,"kalium":120,"calcium":80,"ijzer":2.0,"magnesium":20,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Kalkoenfilet","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":120,"portie_label":"1 stuk","gi":0,
+     "kcal":157,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":30,"vet":3,"verz":0.9,
+     "natrium":65,"kalium":340,"calcium":20,"ijzer":1.0,"magnesium":28,"vitc":0,"vitd":0.2,"vitb12":0.8,"omega3":0.1},
+
+    {"naam":"Haring","cat":"Vlees & vis","moment":["lunch"],
+     "portie":100,"portie_label":"1 haring","gi":0,
+     "kcal":158,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":18,"vet":9,"verz":2.0,
+     "natrium":430,"kalium":330,"calcium":35,"ijzer":1.1,"magnesium":30,"vitc":0,"vitd":4.5,"vitb12":6.0,"omega3":1.6},
+
+    {"naam":"Stokbrood","cat":"Granen & brood","moment":["lunch"],
+     "portie":60,"portie_label":"2 sneden","gi":72,
+     "kcal":270,"kh":53,"suikers":3,"toegev_suikers":1,"vezels":2,"eiwit":9,"vet":2,"verz":0.4,
+     "natrium":520,"kalium":100,"calcium":20,"ijzer":1.5,"magnesium":15,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Zalm","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":150,"portie_label":"1 filet","gi":0,
+     "kcal":208,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":20,"vet":13,"verz":3.0,
+     "natrium":59,"kalium":440,"calcium":15,"ijzer":0.5,"magnesium":27,"vitc":0,"vitd":9.0,"vitb12":3.0,"omega3":2.3},
+
+    {"naam":"Couscous gekookt","cat":"Granen & brood","moment":["lunch","avond"],
+     "portie":180,"portie_label":"3 opscheplepels","gi":65,
+     "kcal":112,"kh":23,"suikers":0,"toegev_suikers":0,"vezels":1,"eiwit":4,"vet":0,"verz":0,
+     "natrium":5,"kalium":58,"calcium":8,"ijzer":0.4,"magnesium":13,"vitc":0,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Citroen","cat":"Fruit","moment":["lunch","avond"],
+     "portie":30,"portie_label":"1/2 citroen sap","gi":20,
+     "kcal":29,"kh":9,"suikers":3,"toegev_suikers":0,"vezels":3,"eiwit":1,"vet":0,"verz":0,
+     "natrium":2,"kalium":138,"calcium":26,"ijzer":0.6,"magnesium":8,"vitc":53,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Spinazie","cat":"Groenten","moment":["lunch","avond"],
+     "portie":150,"portie_label":"2 opscheplepels","gi":15,
+     "kcal":23,"kh":4,"suikers":0,"toegev_suikers":0,"vezels":2,"eiwit":3,"vet":0,"verz":0,
+     "natrium":79,"kalium":466,"calcium":99,"ijzer":2.7,"magnesium":87,"vitc":28,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Spek","cat":"Vlees & vis","moment":["ontbijt","avond"],
+     "portie":30,"portie_label":"2 reepjes","gi":0,
+     "kcal":541,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":37,"vet":43,"verz":16.0,
+     "natrium":1700,"kalium":420,"calcium":10,"ijzer":1.0,"magnesium":20,"vitc":0,"vitd":0,"vitb12":1.0,"omega3":0.2},
+
+    {"naam":"Varkenshaas","cat":"Vlees & vis","moment":["avond"],
+     "portie":150,"portie_label":"1 stuk","gi":0,
+     "kcal":143,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":22,"vet":6,"verz":2.0,
+     "natrium":54,"kalium":380,"calcium":6,"ijzer":1.0,"magnesium":25,"vitc":0,"vitd":0.1,"vitb12":0.8,"omega3":0.1},
+
+    {"naam":"Erwten","cat":"Groenten","moment":["avond"],
+     "portie":100,"portie_label":"3 el","gi":48,
+     "kcal":81,"kh":14,"suikers":6,"toegev_suikers":0,"vezels":5,"eiwit":5,"vet":0,"verz":0,
+     "natrium":5,"kalium":244,"calcium":25,"ijzer":1.5,"magnesium":33,"vitc":14,"vitd":0,"vitb12":0,"omega3":0.1},
+
+    {"naam":"Makreel","cat":"Vlees & vis","moment":["lunch","avond"],
+     "portie":150,"portie_label":"1 filet","gi":0,
+     "kcal":205,"kh":0,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":19,"vet":14,"verz":3.0,
+     "natrium":700,"kalium":330,"calcium":12,"ijzer":1.0,"magnesium":30,"vitc":0,"vitd":5.0,"vitb12":7.0,"omega3":2.2},
+
+    {"naam":"Selder","cat":"Groenten","moment":["lunch","avond"],
+     "portie":80,"portie_label":"2 stengels","gi":15,
+     "kcal":16,"kh":3,"suikers":2,"toegev_suikers":0,"vezels":2,"eiwit":1,"vet":0,"verz":0,
+     "natrium":80,"kalium":260,"calcium":40,"ijzer":0.2,"magnesium":11,"vitc":3,"vitd":0,"vitb12":0,"omega3":0},
+
+    {"naam":"Worst","cat":"Vlees & vis","moment":["avond"],
+     "portie":120,"portie_label":"1 worst","gi":0,
+     "kcal":285,"kh":2,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":14,"vet":25,"verz":10.0,
+     "natrium":800,"kalium":200,"calcium":10,"ijzer":1.2,"magnesium":15,"vitc":0,"vitd":0.1,"vitb12":1.0,"omega3":0.2},
+
+    {"naam":"Muesli","cat":"Granen & brood","moment":["ontbijt"],
+     "portie":60,"portie_label":"1 portie","gi":55,
+     "kcal":364,"kh":59,"suikers":12,"toegev_suikers":2,"vezels":8,"eiwit":10,"vet":7,"verz":1.2,
+     "natrium":50,"kalium":350,"calcium":50,"ijzer":3.5,"magnesium":90,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
 ]
 
 CATEGORIE_OPTIES = [
@@ -2850,7 +2991,7 @@ RECEPT_DB = [
         "kcal": 540, "kh": 65, "eiwit": 38, "vet": 8,
         "ingredienten": [
             ("Rijst wit gekookt", 200), ("Kipfilet", 120),
-            ("Broccoli", 150), ("Wortel", 80), ("Sojasaus", 15)
+            ("Broccoli", 150), ("Wortel rauw", 80), ("Sojasaus", 15)
         ],
         "bereiding": "1. Kook rijst. 2. Bak kipfilet 8 min en snijd in stukjes. 3. Stoom groenten 5 min en serveer met sojasaus."
     },
@@ -2870,7 +3011,7 @@ RECEPT_DB = [
         "kcal": 490, "kh": 52, "eiwit": 24, "vet": 18,
         "ingredienten": [
             ("Quinoa gekookt", 185), ("Ei groot", 120),
-            ("Komkommer", 100), ("Tomaat", 100), ("Olijfolie", 15)
+            ("Komkommer", 100), ("Tomaat", 100), ("Olijfolie", 10)
         ],
         "bereiding": "1. Kook eieren 8 min. 2. Snijd groenten fijn. 3. Meng met quinoa en besprenkel met olijfolie."
     },
@@ -2910,7 +3051,7 @@ RECEPT_DB = [
         "kcal": 510, "kh": 62, "eiwit": 34, "vet": 10,
         "ingredienten": [
             ("Couscous gekookt", 200), ("Kipfilet", 100),
-            ("Paprika rood", 100), ("Wortel", 80), ("Olijfolie", 10)
+            ("Paprika rood", 100), ("Wortel rauw", 80), ("Olijfolie", 10)
         ],
         "bereiding": "1. Bereid couscous per verpakking. 2. Bak kip en groenten 8 min. 3. Meng alles en besprenkel met olijfolie."
     },
@@ -2952,7 +3093,7 @@ RECEPT_DB = [
         "kcal": 580, "kh": 52, "eiwit": 48, "vet": 14,
         "ingredienten": [
             ("Kipfilet", 180), ("Aardappel gekookt", 300),
-            ("Broccoli", 200), ("Boter", 10), ("Olijfolie", 10)
+            ("Broccoli", 150), ("Boter", 10), ("Olijfolie", 10)
         ],
         "bereiding": "1. Bak kip 10 min in olie. 2. Kook aardappelen 20 min. 3. Stoom broccoli 5 min en serveer met beetje boter."
     },
@@ -2962,7 +3103,7 @@ RECEPT_DB = [
         "kcal": 610, "kh": 56, "eiwit": 42, "vet": 20,
         "ingredienten": [
             ("Zalm", 180), ("Rijst wit gekookt", 200),
-            ("Courgette", 150), ("Olijfolie", 15), ("Citroen", 30)
+            ("Courgette", 150), ("Olijfolie", 10), ("Citroen", 30)
         ],
         "bereiding": "1. Kruid zalm en bak 4 min per kant. 2. Gril courgette in olie. 3. Serveer met rijst en citroensap."
     },
@@ -2971,7 +3112,7 @@ RECEPT_DB = [
         "type": "avond",
         "kcal": 640, "kh": 58, "eiwit": 28, "vet": 28,
         "ingredienten": [
-            ("Aardappel gekookt", 350), ("Wortel", 150),
+            ("Aardappel gekookt", 350), ("Wortel rauw", 150),
             ("Spek", 40), ("Boter", 15), ("Halfvolle melk", 50)
         ],
         "bereiding": "1. Kook aardappelen en wortels gaar. 2. Stamp met boter en melk. 3. Bak spek krokant en meng erdoor."
@@ -3012,7 +3153,7 @@ RECEPT_DB = [
         "kcal": 560, "kh": 78, "eiwit": 24, "vet": 10,
         "ingredienten": [
             ("Linzen gekookt", 200), ("Zoete aardappel gekookt", 250),
-            ("Spinazie", 100), ("Ui", 80), ("Olijfolie", 15)
+            ("Spinazie", 100), ("Ui", 80), ("Olijfolie", 10)
         ],
         "bereiding": "1. Bak ui aan in olie. 2. Voeg linzen en zoete aardappel toe, 10 min verwarmen. 3. Roer spinazie erdoor."
     },
@@ -3022,7 +3163,7 @@ RECEPT_DB = [
         "kcal": 570, "kh": 62, "eiwit": 38, "vet": 14,
         "ingredienten": [
             ("Kipfilet", 150), ("Pasta wit gekookt", 200),
-            ("Broccoli", 120), ("Wortel", 100), ("Sojasaus", 20)
+            ("Broccoli", 120), ("Wortel rauw", 100), ("Sojasaus", 20)
         ],
         "bereiding": "1. Bak kip 6 min. 2. Voeg groenten toe en roerbak 4 min. 3. Meng met noedels en sojasaus."
     },
@@ -3032,7 +3173,7 @@ RECEPT_DB = [
         "kcal": 680, "kh": 58, "eiwit": 38, "vet": 28,
         "ingredienten": [
             ("Biefstuk", 150), ("Aardappel gekookt", 300),
-            ("Sla gemengd", 80), ("Olijfolie", 15)
+            ("Sla gemengd", 80), ("Olijfolie", 10)
         ],
         "bereiding": "1. Bak biefstuk 3 min per kant. 2. Bak aardappelen als blokjes in oven 25 min. 3. Serveer met salade."
     },
@@ -3042,7 +3183,7 @@ RECEPT_DB = [
         "kcal": 540, "kh": 44, "eiwit": 42, "vet": 18,
         "ingredienten": [
             ("Kipfilet", 180), ("Aardappel gekookt", 250),
-            ("Courgette", 150), ("Paprika rood", 100), ("Olijfolie", 15)
+            ("Courgette", 150), ("Paprika rood", 100), ("Olijfolie", 10)
         ],
         "bereiding": "1. Snijd alles in stukken en kruid. 2. Besprenkel met olijfolie. 3. Oven 200°C, 30 min bakken."
     },
@@ -3151,7 +3292,7 @@ RECEPT_DB = [
         "kcal": 590, "kh": 38, "eiwit": 36, "vet": 30,
         "vezels": 2, "natrium": 780,
         "ingredienten": [
-            ("Kipfilet gebakken", 150), ("Rundergehakt mager", 80),
+            ("Kipfilet", 150), ("Rundergehakt mager", 80),
             ("Champignon", 100), ("Halfvolle melk", 250), ("Boter", 25),
             ("Bloem", 25), ("Rijst wit gekookt", 150)
         ],
@@ -3164,7 +3305,7 @@ RECEPT_DB = [
         "vezels": 4, "natrium": 920,
         "ingredienten": [
             ("Mosselen", 400), ("Aardappel gekookt", 300),
-            ("Ui", 80), ("Selder", 60), ("Boter", 20), ("Olijfolie", 15)
+            ("Ui", 80), ("Selder", 60), ("Boter", 20), ("Olijfolie", 10)
         ],
         "bereiding": "1. Stoof ui en selder aan in boter. 2. Voeg mosselen toe, dek af en kook 8-10 min tot mosselen open zijn. 3. Snijd aardappelen in frieten en bak krokant in olie. 4. Serveer mosselen in kookpot met friet apart. 5. Eventueel met mayonaise."
     },
@@ -3174,7 +3315,7 @@ RECEPT_DB = [
         "kcal": 620, "kh": 54, "eiwit": 26, "vet": 30,
         "vezels": 7, "natrium": 860,
         "ingredienten": [
-            ("Aardappel gekookt", 350), ("Wortel", 150),
+            ("Aardappel gekookt", 350), ("Wortel rauw", 150),
             ("Prei", 100), ("Worst", 150), ("Boter", 20), ("Halfvolle melk", 60)
         ],
         "bereiding": "1. Kook aardappelen en wortels gaar in gezouten water. 2. Snijd prei fijn en stoof zacht in boter. 3. Stamp aardappelen en wortels grof met boter en melk. 4. Roer gestoofde prei door de stoemp. 5. Bak braadworst 10 min en serveer naast de stoemp."
