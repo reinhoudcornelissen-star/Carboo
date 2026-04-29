@@ -1398,7 +1398,7 @@ VOEDSEL_DB = [
 
     {"naam":"Cracker volkoren","cat":"Granen & brood","moment":["snack","lunch"],
      "portie":11,"portie_label":"1 cracker","gi":45,
-     "kcal":409,"kh":65,"suikers":2,"toegev_suikers":1,"vezels":8,"eiwit":10,"vet":11,"verz":1.5,
+     "kcal":409,"kh":65,"suikers":2,"toegev_suikers":0,"vezels":8,"eiwit":10,"vet":11,"verz":1.5,
      "natrium":600,"kalium":280,"calcium":40,"ijzer":3.0,"magnesium":70,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
 
     {"naam":"Couscous rauw","cat":"Granen & brood","moment":["lunch","avond"],
@@ -1480,11 +1480,30 @@ VOEDSEL_DB = [
      "portie":100,"portie_label":"1 opscheplepel","gi":22,
      "kcal":118,"kh":21,"suikers":2.8,"toegev_suikers":0,"vezels":8,"eiwit":8,"vet":0.4,"verz":0.1,
      "natrium":2,"kalium":362,"calcium":27,"ijzer":1.3,"magnesium":36,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.1},
+    {"naam":"Tofu naturel","cat":"Sojaproducten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 portie","gi":15,
+     "kcal":76,"kh":1.9,"suikers":0.7,"toegev_suikers":0,"vezels":0.3,"eiwit":8,"vet":4.8,"verz":0.7,
+     "natrium":7,"kalium":150,"calcium":350,"ijzer":1.6,"magnesium":30,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.3},
+
+    {"naam":"Tempeh","cat":"Sojaproducten","moment":["lunch","avond"],
+     "portie":100,"portie_label":"1 portie","gi":15,
+     "kcal":193,"kh":9,"suikers":0,"toegev_suikers":0,"vezels":0,"eiwit":19,"vet":11,"verz":2.2,
+     "natrium":9,"kalium":412,"calcium":111,"ijzer":2.7,"magnesium":81,"vitc":0,"vitd":0,"vitb12":0,"omega3":0.2},
+
+    {"naam":"Sojayoghurt","cat":"Sojaproducten","moment":["ontbijt","snack"],
+     "portie":150,"portie_label":"1 portie","gi":18,
+     "kcal":62,"kh":3.8,"suikers":3.5,"toegev_suikers":0,"vezels":0,"eiwit":3.9,"vet":3.4,"verz":0.5,
+     "natrium":40,"kalium":138,"calcium":120,"ijzer":0.5,"magnesium":15,"vitc":0,"vitd":1.0,"vitb12":0.4,"omega3":0.1},
+
+    {"naam":"Sojamelk ongezoet","cat":"Sojaproducten","moment":["ontbijt","snack"],
+     "portie":250,"portie_label":"1 glas","gi":30,
+     "kcal":33,"kh":1.3,"suikers":0.5,"toegev_suikers":0,"vezels":0,"eiwit":3.3,"vet":1.8,"verz":0.3,
+     "natrium":45,"kalium":118,"calcium":120,"ijzer":0.5,"magnesium":19,"vitc":0,"vitd":1.0,"vitb12":0.4,"omega3":0.4},
 ]
 
 CATEGORIE_OPTIES = [
     "Granen & brood","Zuivel","Eieren","Vlees & vis","Groenten","Fruit",
-    "Peulvruchten","Noten & zaden","Vetten & oliën","Sauzen & spreads","Dranken","Sportvoeding","Overige"
+    "Peulvruchten","Sojaproducten","Noten & zaden","Vetten & oliën","Sauzen & spreads","Dranken","Sportvoeding","Overige"
 ]
 
 
@@ -3956,7 +3975,11 @@ def _herken_categorie(naam: str, bib_cat: str = "") -> str:
         return "Eieren"
     if any(w in n for w in ["brood","pasta","rijst","havermout","graan","wrap","pita","tortilla","crackers"]):
         return "Granen & brood"
-    if any(w in n for w in ["boon","linze","kikker","hummus","tofu","tempeh","edamame","soja"]):
+    if any(w in n for w in ["tofu","tempeh","sojayoghurt","sojamelk","soja ","soja-"]):
+        return "Sojaproducten"
+    if any(w in n for w in ["tofu","tempeh","sojayoghurt","sojamelk"]):
+        return "Sojaproducten"
+    if any(w in n for w in ["boon","linze","kikker","hummus","edamame","spliterwt"]):
         return "Peulvruchten"
     if any(w in n for w in ["noot","amandel","cashew","walnoot","pinda","pompoen","zaad","chiazaad","lijnzaad"]):
         return "Noten & zaden"
@@ -4122,7 +4145,7 @@ def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
     elif n_groepen >= 2: kwal_score += 1
 
     # Plantaardig/dierlijk balans
-    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+    PLANTAARDIG = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
     DIERLIJK    = {"Vlees & vis","Zuivel","Eieren"}
     # Sportvoeding = neutraal, niet meegewogen in bewerkingsgraad
     kcal_plant = sum(k for c,k in cat_kcal.items() if c in PLANTAARDIG)
@@ -4550,7 +4573,7 @@ def _render_analyses(user: dict):
                 except: return {}
 
             micro_bib = _laad_micro_bibliotheek(user_id)
-            PLANTAARDIG_K = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten"}
+            PLANTAARDIG_K = {"Granen & brood","Groenten","Fruit","Noten & zaden","Peulvruchten","Sojaproducten"}
             DIERLIJK_K    = {"Vlees & vis","Zuivel","Eieren"}
             RESTGROEP_K   = {"Sauzen & spreads","Dranken","Zoetwaren & snacks"}
 
@@ -5123,12 +5146,6 @@ def _render_analyses(user: dict):
                 doel_lijn=vt_doel_g, y_label="gram"), height=260)
 
             # Verzadigde vs onverzadigde vetten
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:16px 0 6px;">Verzadigde vs onverzadigde vetten</div>', unsafe_allow_html=True)
-            st.markdown(
-                '<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;padding:8px 12px;background:#1e293b;border-radius:6px;">'
-                'ℹ️ Verzadigde vetten max 10% van totale kcal (WHO). Onverzadigde vetten (olijfolie, noten, vis) zijn gunstig voor herstel en inflammatie.</div>',
-                unsafe_allow_html=True)
-
             @st.cache_data(ttl=300)
             def _laad_vet_bib(uid):
                 try:
@@ -5183,7 +5200,7 @@ def _render_analyses(user: dict):
                         f'<div style="font-size:0.85rem;color:{k_adv_v};line-height:1.6;margin-bottom:12px;">{adv_verz}</div>'
                         f'<div style="font-size:0.75rem;color:#64748b;line-height:1.7;">'
                         f'Gem verzadigd: <b style="color:#ef4444">{gem_verz}g/dag</b> = {verz_pct_kcal}% van kcal<br>'
-                        f'WHO max: 10% = <b style="color:#94a3b8">{round(gem_kcal_v*0.10/9)}g/dag</b> bij {gem_kcal_v} kcal'
+                        f'WHO max: 10% = <b style="color:#94a3b8">{round(energie_doel*0.10/9)}g/dag</b> bij {energie_doel} kcal (energiedoel)'
                         f'</div></div>', unsafe_allow_html=True)
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 6 — PERFORMANCE
