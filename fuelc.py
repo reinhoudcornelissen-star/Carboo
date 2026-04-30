@@ -5268,6 +5268,70 @@ def _render_analyses(user: dict):
                             f'<div style="font-size:0.7rem;color:#64748b;">{MICRO_TIPS[lbl_m]}</div>'
                             f'</div>', unsafe_allow_html=True)
 
+            # ── Groenten & fruit overzicht ──────────────────────────────────────
+            st.markdown("<br>", unsafe_allow_html=True)
+            _sectie("GROENTEN & FRUIT", "#22c55e")
+
+            # Bereken groenten en fruit gram per dag
+            groenten_per_dag = []
+            fruit_per_dag    = []
+            for dd in dagen_data:
+                gr_g = 0; fr_g = 0
+                for it in dd.get("items", []):
+                    hg  = float(it.get("hoeveelheid_g", 0) or 0)
+                    pid = it.get("product_id", "") or ""
+                    _cat_raw = (it.get("categorie", "") or
+                               bib_cat_lookup.get(pid, {}).get("categorie", "") or "")
+                    if not _cat_raw or _cat_raw == "Overige":
+                        cat_gf = _herken_categorie(it.get("naam", ""), "")
+                    else:
+                        cat_gf = _cat_raw
+                    if cat_gf == "Groenten": gr_g += hg
+                    elif cat_gf == "Fruit":  fr_g += hg
+                groenten_per_dag.append(round(gr_g))
+                fruit_per_dag.append(round(fr_g))
+
+            dagen_met_gf = [i for i, d in enumerate(dagen_data) if d["kcal"] > 0]
+            n_gf = max(len(dagen_met_gf), 1)
+            gem_groenten = round(sum(groenten_per_dag[i] for i in dagen_met_gf) / n_gf)
+            gem_fruit    = round(sum(fruit_per_dag[i] for i in dagen_met_gf) / n_gf)
+            gem_totaal   = gem_groenten + gem_fruit
+            pct_doel_gf  = min(150, round(gem_totaal / 400 * 100))
+            k_gf = "#22c55e" if gem_totaal >= 400 else ("#fbbf24" if gem_totaal >= 250 else "#ef4444")
+            adv_gf = ("✓ Voldoende groenten en fruit (WHO ≥400g/dag)" if gem_totaal >= 400
+                      else ("⚠️ Matig — probeer meer te variëren" if gem_totaal >= 250
+                      else "⚠️ Te weinig — verhoog je inname van groenten en fruit"))
+
+            # KPI rij
+            gf1, gf2, gf3, gf4 = st.columns(4)
+            for col, lbl, val, kl in [
+                (gf1, "GEM GROENTEN/DAG", f"{gem_groenten}g", "#22c55e"),
+                (gf2, "GEM FRUIT/DAG",    f"{gem_fruit}g",    "#a78bfa"),
+                (gf3, "TOTAAL/DAG",       f"{gem_totaal}g",   k_gf),
+                (gf4, "% VAN DOEL",       f"{pct_doel_gf}%",  k_gf),
+            ]:
+                with col:
+                    st.markdown(
+                        f'<div style="background:#1e293b;border-radius:8px;padding:12px;text-align:center;margin-bottom:12px;">' +
+                        f'<div style="font-size:0.6rem;color:#64748b;">{lbl}</div>' +
+                        f'<div style="font-size:1rem;font-weight:800;color:{kl};">{val}</div>' +
+                        f'</div>', unsafe_allow_html=True)
+
+            # Grafiek
+            gf_labels = [d["datum"][5:] for d in dagen_data]
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Groenten & fruit per dag (g) — doel 400g</div>', unsafe_allow_html=True)
+            _chart(_lijn_chart(gf_labels, [
+                {"label": "Groenten (g)", "data": groenten_per_dag, "color": "#22c55e", "fill": False},
+                {"label": "Fruit (g)",    "data": fruit_per_dag,    "color": "#a78bfa", "fill": False},
+            ], doel_lijn=400, y_label="gram"), height=300)
+
+            # Advies tekst
+            st.markdown(
+                f'<div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-top:6px;">' +
+                f'<span style="font-size:0.82rem;color:{k_gf};">{adv_gf}</span>' +
+                f'<span style="font-size:0.75rem;color:#64748b;"> · WHO aanbeveling: min. 400g groenten + fruit per dag</span>' +
+                f'</div>', unsafe_allow_html=True)
+
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 3 — KOOLHYDRATEN
     # ══════════════════════════════════════════════════════════════════════════
