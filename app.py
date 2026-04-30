@@ -29,7 +29,7 @@ try:
     from optimeal import render_optimeal
 except ImportError:
     def render_optimeal(): st.info("Module niet beschikbaar.")
-CARBOO_AVATAR = ""
+CARBOO_AVATAR = f"data:image/png;base64,{_MASCOTTE_B64}"
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 import io as _io, base64 as _b64
@@ -402,14 +402,14 @@ if module == "menu":
 
 
 elif module == "coach":
-    st.markdown(_mascotte_html(hoogte=140), unsafe_allow_html=True)
+    if st.button("← Modules", key="coach_terug"):
+        st.session_state.module = "menu"; st.rerun()
     render_coach(user)
 
 elif module == "carbomax":
     render_carbomax()
 
 elif module == "raceprep":
-    st.markdown(_mascotte_html(hoogte=140), unsafe_allow_html=True)
     render_raceprep()
 
 elif module == "optimeal":
@@ -430,7 +430,8 @@ elif module == "coaching":
 
 elif module == "testing":
     if is_admin or _abo.get("gut"):
-        st.markdown(_mascotte_html(hoogte=100), unsafe_allow_html=True)
+        if st.button("← Modules", key="gut_terug"):
+            st.session_state.module = "menu"; st.rerun()
         render_testing(user)
     else:
         st.warning("⚠️ Train the Gut is niet inbegrepen in je huidig abonnement.")
