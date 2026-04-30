@@ -5600,21 +5600,16 @@ def _render_analyses(user: dict):
                     return {row["id"]: float(row.get("verzadigd_100g") or 0) for row in (r1.data or [])+(r2.data or [])}
                 except: return {}
 
-            vet_bib = _laad_vet_bib(user_id)
             verz_per_dag = []
             onverz_per_dag = []
             heeft_verz_data = False
             for dd in dagen_data:
-                dag_verz = 0
+                # Lees verz_g direct uit dagboek items — wordt opgeslagen bij invoer
+                dag_verz = sum(float(it.get("verz_g", 0) or 0) for it in dd.get("items", []))
                 dag_vet  = dd["vet"]
-                for it in dd.get("items",[]):
-                    hg  = float(it.get("hoeveelheid_g",100) or 100)
-                    pid = it.get("product_id","") or ""
-                    verz_100 = vet_bib.get(pid, 0)
-                    dag_verz += verz_100 * hg / 100
-                    if verz_100 > 0: heeft_verz_data = True
-                verz_per_dag.append(round(dag_verz,1))
-                onverz_per_dag.append(round(max(0, dag_vet - dag_verz),1))
+                if dag_verz > 0: heeft_verz_data = True
+                verz_per_dag.append(round(dag_verz, 1))
+                onverz_per_dag.append(round(max(0, dag_vet - dag_verz), 1))
 
             if heeft_verz_data:
                 _chart(_bar_chart(labels_d, [
