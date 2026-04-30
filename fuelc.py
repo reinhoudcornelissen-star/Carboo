@@ -2284,7 +2284,7 @@ def _render_receptenbeheer(user_id: str):
                             st.session_state["r_ingredienten"].append({
                                 "naam":prod_sel["naam"],"gram":gram_db,"label":f"{gram_db}g",
                                 "kcal_100g":prod_sel["kcal"],"kh_100g":prod_sel["kh"],
-                                "suikers_100g":prod_sel.get("suikers",0),"eiwit_100g":prod_sel["eiwit"],
+                                "suikers_100g":prod_sel.get("toegev_suikers", 0),"eiwit_100g":prod_sel["eiwit"],
                                 "vet_100g":prod_sel["vet"],"verzadigd_100g":prod_sel.get("verz",0),
                                 "vezels_100g":prod_sel["vezels"],"natrium_100g":prod_sel["natrium"],
                                 "kalium_100g":prod_sel.get("kalium",0),"calcium_100g":prod_sel.get("calcium",0),
@@ -2655,7 +2655,7 @@ def _stap_bibliotheek(user: dict):
                     prod = {
                         "naam":p["naam"],"categorie":p["cat"],"bron":"databank",
                         "portie_g":portie_g_db,"portie_label":f"{hoev_db} {eenheid_db}",
-                        "kcal_100g":p["kcal"],"kh_100g":p["kh"],"suikers_100g":p["suikers"],
+                        "kcal_100g":p["kcal"],"kh_100g":p["kh"],"suikers_100g":p.get("toegev_suikers", 0),
                         "eiwit_100g":p["eiwit"],"vet_100g":p["vet"],"verzadigd_100g":p["verz"],
                         "vezels_100g":p["vezels"],"natrium_100g":p["natrium"],
                         "kalium_100g":p.get("kalium"),"calcium_100g":p.get("calcium"),
@@ -5544,6 +5544,85 @@ def _render_analyses(user: dict):
                         f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
                         f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
                         f'</div></div>', unsafe_allow_html=True)
+
+            # ── GI overzicht ─────────────────────────────────────────────────────
+            st.markdown("<br>", unsafe_allow_html=True)
+            _sectie("GLYCEMISCHE INDEX OVERZICHT", "#22c55e")
+            st.markdown(
+                '<div style="font-size:0.7rem;color:#64748b;margin-bottom:12px;">' +
+                'GI laag &lt;55 · matig 55-70 · hoog &gt;70 · gewogen GI = gemiddelde gewogen naar kcal bijdrage</div>',
+                unsafe_allow_html=True)
+
+            # Verzamel alle producten met GI uit de periode
+            gi_producten = {}  # naam -> {gi, kcal_totaal}
+            for dd in dagen_met:
+                for it in dd.get("items", []):
+                    gi_val = it.get("gi") or None
+                    if not gi_val:
+                        # Fallback: zoek GI in VOEDSEL_DB op naam
+                        naam_gi = it.get("naam", "")
+                        for p in VOEDSEL_DB:
+                            if p["naam"].lower() == naam_gi.lower() and p.get("gi"):
+                                gi_val = p["gi"]
+                                break
+                    if gi_val and int(gi_val) > 0:
+                        naam_gi = it.get("naam", "Onbekend")
+                        kcal_gi = float(it.get("kcal", 0) or 0)
+                        if naam_gi not in gi_producten:
+                            gi_producten[naam_gi] = {"gi": int(gi_val), "kcal": 0, "gram": 0}
+                        gi_producten[naam_gi]["kcal"] += kcal_gi
+                        gi_producten[naam_gi]["gram"] += float(it.get("hoeveelheid_g", 0) or 0)
+
+            if gi_producten:
+                # Gewogen GI berekenen
+                totaal_kcal_gi = sum(v["kcal"] for v in gi_producten.values())
+                gewogen_gi = round(sum(v["gi"] * v["kcal"] for v in gi_producten.values()) / max(totaal_kcal_gi, 1))
+                k_wgi = "#22c55e" if gewogen_gi < 55 else ("#fbbf24" if gewogen_gi <= 70 else "#ef4444")
+                cat_wgi = "Laag" if gewogen_gi < 55 else ("Matig" if gewogen_gi <= 70 else "Hoog")
+
+                # KPI gewogen GI
+                st.markdown(
+                    f'<div style="background:#1e293b;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:20px;">' +
+                    f'<div><div style="font-size:0.6rem;color:#64748b;">GEWOGEN GI DEZE PERIODE</div>' +
+                    f'<div style="font-size:2rem;font-weight:900;color:{k_wgi};">{gewogen_gi}</div>' +
+                    f'<div style="font-size:0.72rem;color:{k_wgi};">{cat_wgi} GI</div></div>' +
+                    f'<div style="font-size:0.78rem;color:#94a3b8;line-height:1.6;">' +
+                    f'{"✓ Goede GI score — overwegend trage koolhydraten." if gewogen_gi < 55 else ("⚠️ Matige GI — probeer meer volkoren en groenten." if gewogen_gi <= 70 else "⚠️ Hoge GI — vervang witte rijst, wit brood en suikerrijke producten.")}' +
+                    f'</div></div>', unsafe_allow_html=True)
+
+                # Drie kolommen: laag / matig / hoog
+                laag  = {k:v for k,v in gi_producten.items() if v["gi"] < 55}
+                matig = {k:v for k,v in gi_producten.items() if 55 <= v["gi"] <= 70}
+                hoog  = {k:v for k,v in gi_producten.items() if v["gi"] > 70}
+
+                gc1, gc2, gc3 = st.columns(3)
+                for col, titel, prod_dict, kleur in [
+                    (gc1, "🟢 Laag GI (<55)",   laag,  "#22c55e"),
+                    (gc2, "🟡 Matig GI (55-70)", matig, "#fbbf24"),
+                    (gc3, "🔴 Hoog GI (>70)",    hoog,  "#ef4444"),
+                ]:
+                    with col:
+                        st.markdown(
+                            f'<div style="font-size:0.72rem;font-weight:700;color:{kleur};margin-bottom:8px;">{titel} ({len(prod_dict)})</div>',
+                            unsafe_allow_html=True)
+                        if prod_dict:
+                            gesorteerd = sorted(prod_dict.items(), key=lambda x: -x[1]["kcal"])
+                            for naam_p, data_p in gesorteerd[:8]:
+                                gem_gram = round(data_p["gram"] / max(len(dagen_met), 1))
+                                st.markdown(
+                                    f'<div style="background:#1e293b;border-radius:6px;padding:7px 10px;margin-bottom:4px;">' +
+                                    f'<div style="display:flex;justify-content:space-between;">' +
+                                    f'<span style="font-size:0.75rem;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;">{naam_p}</span>' +
+                                    f'<span style="font-size:0.72rem;color:{kleur};font-weight:700;">GI {data_p["gi"]}</span>' +
+                                    f'</div>' +
+                                    f'<div style="font-size:0.68rem;color:#64748b;">{gem_gram}g/dag gem.</div>' +
+                                    f'</div>', unsafe_allow_html=True)
+                        else:
+                            st.markdown(
+                                f'<div style="font-size:0.75rem;color:#475569;padding:8px;">Geen producten</div>',
+                                unsafe_allow_html=True)
+            else:
+                st.info("Voeg GI-waarden toe aan je producten in de bibliotheek voor dit overzicht.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # TAB 4 — EIWIT
