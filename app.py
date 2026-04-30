@@ -128,7 +128,7 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
-# ─── AUTO-LOGIN via localStorage ─────────────────────────────────────────────
+# ─── AUTO-LOGIN ──────────────────────────────────────────────────────────────
 # Stap 1: als er een _uid in de URL zit → probeer auto-login
 if not st.session_state.get("logged_in"):
     _saved_uid = st.query_params.get("_uid", "")
@@ -150,30 +150,77 @@ if not st.session_state.get("logged_in"):
                 st.rerun()
         except: pass
 
+# Stap 1b: server-side sessie via Supabase (werkt altijd, ook zonder JS)
+if not st.session_state.get("logged_in"):
+    try:
+        _sess_token = st.query_params.get("_sess", "")
+        if not _sess_token:
+            # Probeer uit cookie via request headers (Streamlit 1.x)
+            _sess_token = ""
+        if _sess_token and len(_sess_token) > 10:
+            from login import _get_supabase
+            _sess_r = _get_supabase().table("carboo_sessies")                .select("user_id,verlopen")                .eq("token", _sess_token)                .execute()
+            if _sess_r.data and not _sess_r.data[0].get("verlopen"):
+                from login import _get_user_by_id
+                _sess_user = _get_user_by_id(_sess_r.data[0]["user_id"])
+                if _sess_user:
+                    st.session_state.logged_in = True
+                    st.session_state.current_user = {
+                        "id":      _sess_user["id"],
+                        "name":    _sess_user["naam"],
+                        "email":   _sess_user["email"],
+                        "role":    _sess_user["rol"],
+                        "credits": _sess_user.get("credits", 0),
+                    }
+                    st.session_state["toon_landing"] = False
+                    st.query_params.clear()
+                    st.rerun()
+    except: pass
+
 # Stap 2: nog steeds niet ingelogd → laat JS localStorage + cookie lezen en redirect
 if not st.session_state.get("logged_in"):
     import streamlit.components.v1 as _comp
     _comp.html("""
     <script>
     (function() {
-        // Probeer eerst localStorage
-        var uid = localStorage.getItem('carboo_uid');
-        // Fallback: cookie
+        var uid = null;
+        // 1. Probeer localStorage
+        try { uid = localStorage.getItem('carboo_uid'); } catch(e) {}
+        // 2. Probeer sessionStorage
         if (!uid || uid.length <= 10) {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var c = cookies[i].trim();
-                if (c.startsWith('carboo_uid=')) {
-                    uid = c.substring('carboo_uid='.length);
-                    break;
+            try { uid = sessionStorage.getItem('carboo_uid'); } catch(e) {}
+        }
+        // 3. Probeer parent localStorage (embedded iframe)
+        if (!uid || uid.length <= 10) {
+            try { uid = window.parent.localStorage.getItem('carboo_uid'); } catch(e) {}
+        }
+        // 4. Fallback: cookie
+        if (!uid || uid.length <= 10) {
+            try {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var c = cookies[i].trim();
+                    if (c.startsWith('carboo_uid=')) {
+                        uid = c.substring('carboo_uid='.length).trim();
+                        break;
+                    }
                 }
-            }
+            } catch(e) {}
         }
         if (uid && uid.length > 10) {
-            var url = new URL(window.parent.location.href);
-            if (!url.searchParams.get('_uid')) {
-                url.searchParams.set('_uid', uid);
-                window.parent.location.replace(url.toString());
+            try {
+                var url = new URL(window.parent.location.href);
+                if (!url.searchParams.get('_uid')) {
+                    url.searchParams.set('_uid', uid);
+                    window.parent.location.replace(url.toString());
+                }
+            } catch(e) {
+                // Fallback voor als window.parent niet werkt
+                var url2 = new URL(window.location.href);
+                if (!url2.searchParams.get('_uid')) {
+                    url2.searchParams.set('_uid', uid);
+                    window.location.replace(url2.toString());
+                }
             }
         }
     })();
@@ -253,6 +300,18 @@ if not is_admin:
 if st.session_state.get("logged_in") and st.session_state.get("current_user"):
     _uid_save = st.session_state.current_user.get("id","")
     if _uid_save:
+        # Server-side sessie aanmaken/verlengen in Supabase
+        try:
+            import secrets as _sec, datetime as _dt2
+            from login import _get_supabase as _gss
+            _tok = _sec.token_hex(32)
+            _gss().table("carboo_sessies").upsert({
+                "user_id": _uid_save,
+                "token":   _tok,
+                "verlopen": False,
+                "aangemaakt": _dt2.datetime.utcnow().isoformat(),
+            }, on_conflict="user_id").execute()
+        except: _tok = ""
         import streamlit.components.v1 as _comp2
         _comp2.html(f"""
         <script>
@@ -261,7 +320,7 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         d.setTime(d.getTime() + (365*24*60*60*1000));
         document.cookie = 'carboo_uid={_uid_save}; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
         </script>
-        """, height=0)
+        """, height=1)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
