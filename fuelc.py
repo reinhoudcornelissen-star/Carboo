@@ -4514,13 +4514,69 @@ def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
     breakdown["voedingskwaliteit"] = {"score": kwal_score, "max": 15,
         "detail": f"{n_groepen} voedingsgroepen · {round(plant_pct if kcal_voeding>0 else 0)}% plantaardig"}
 
-    # ── PIJLER 6: HYDRATATIE & GI (5pt) ──────────────────────────────────────
-    hydr_score = 0
-    if welzijn.get("gehydrateerd", True):   hydr_score += 3
-    if not welzijn.get("gi_klachten", False): hydr_score += 2
+    # ── PIJLER 6: HYDRATATIE (5pt) ───────────────────────────────────────────
+    # Bereken vocht uit dagschema items (gram ≈ ml voor dranken)
+    ml_dag = 0
+    for it in (items_detail or []):
+        naam_h = (it.get("naam","") or "").lower()
+        hg_h   = float(it.get("hoeveelheid_g", 0) or 0)
+        cat_h  = (it.get("categorie","") or "").lower()
+        is_drank = (cat_h == "dranken" or
+                    any(w in naam_h for w in ["water","thee","sap","kokos","sportdrank","isotoon","bidon"]))
+        is_alcohol = any(w in naam_h for w in ["bier","wijn","alcohol","cola","frisdrank"])
+        if is_drank and not is_alcohol:
+            ml_dag += hg_h
+
+    # Vochtdoel: 2000ml basis + extra op basis van trainingsintensiteit en duur (ACSM)
+    # Zweetverlies per uur: Z1=500ml, Z2=500ml, Z3=700ml, Z4=1000ml, Z5=1000ml
+    ZWEET_ML_UUR = {"z1": 500, "z2": 500, "z3": 700, "z4": 1000, "z5": 1000}
+    extra_ml_training = 0
+    if heeft_training and training_kcal > 0:
+        # Haal zone_verdeling en duur_min op uit dag_data indien beschikbaar
+        dag_trainingen_h = dag_data.get("dag_trainingen", []) if isinstance(dag_data, dict) else []
+        # Fallback: schat op basis van kcal en intensiteit
+        # Gem MET ~8 = matig intensief → ~700ml/uur
+        # training_kcal / gewicht_kg / MET * 60 ≈ minuten — benadering via kcal
+        gewicht_h = float(profiel.get("gewicht_kg", 70) or 70)
+        # Schat dominante zone op basis van MET (kcal/min/gewicht)
+        # Gemiddelde MET = kcal / (gewicht * min/60)
+        # Zonder duur gebruiken we kcal als proxy:
+        if training_kcal < 300:
+            zweet_factor = 500   # licht
+        elif training_kcal < 500:
+            zweet_factor = 600   # matig licht
+        elif training_kcal < 700:
+            zweet_factor = 700   # matig
+        elif training_kcal < 900:
+            zweet_factor = 850   # matig intensief
+        else:
+            zweet_factor = 1000  # intensief
+
+        # Schat duur: kcal / (MET * gewicht / 60) — gebruik gem MET 8
+        duur_geschat_uur = training_kcal / max(8 * gewicht_h / 60, 1) / 60
+        duur_geschat_uur = min(duur_geschat_uur, 4)  # max 4u cap
+        extra_ml_training = round(zweet_factor * duur_geschat_uur)
+        # +500ml herstelhydratatie na training (ACSM richtlijn)
+        extra_ml_training += 500
+
+    ml_doel = 2000 + extra_ml_training
+    pct_hydr = ml_dag / max(ml_doel, 1) * 100
+
+    if pct_hydr >= 90:
+        hydr_score = 5
+        hydr_detail = f"{round(ml_dag)}ml — voldoende (doel: {ml_doel}ml)"
+    elif pct_hydr >= 65:
+        hydr_score = 3
+        hydr_detail = f"{round(ml_dag)}ml — matig (doel: {ml_doel}ml)"
+    elif pct_hydr >= 40:
+        hydr_score = 1
+        hydr_detail = f"{round(ml_dag)}ml — te weinig (doel: {ml_doel}ml)"
+    else:
+        hydr_score = 0
+        hydr_detail = f"Geen dranken geregistreerd (doel: {ml_doel}ml)"
+
     score += hydr_score
-    breakdown["hydratatie"] = {"score": hydr_score, "max": 5,
-        "detail": "Gehydrateerd" if welzijn.get("gehydrateerd",True) else "Niet optimaal"}
+    breakdown["hydratatie"] = {"score": hydr_score, "max": 5, "detail": hydr_detail}
 
     return {
         "score": max(0, min(100, score)),
