@@ -4737,7 +4737,7 @@ def _render_analyses(user: dict):
         )
         st.components.v1.html(html_full, height=height, scrolling=False)
 
-    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title="", y_max=None, y_min=None):
+    def _lijn_chart(labels, datasets, doel_lijn=None, y_label="", title="", y_max=None, y_min=None, doel_lijnen=None):
         ds_js = []
         for ds in datasets:
             ds_js.append(f'''{{
@@ -4762,6 +4762,19 @@ def _render_analyses(user: dict):
                 fill: false,
                 tension: 0,
             }}''')
+        # Meerdere stippellijnen
+        if doel_lijnen:
+            for dl in doel_lijnen:
+                ds_js.append(f'''{{
+                    label: '{dl["label"]}',
+                    data: {_json.dumps([dl["waarde"]]*len(labels))},
+                    borderColor: '{dl["color"]}',
+                    borderWidth: 1.5,
+                    borderDash: [6,4],
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0,
+                }}''')
         return f'''
         <canvas id="chart__lijn_chart"></canvas>
         <script>
@@ -5352,19 +5365,26 @@ def _render_analyses(user: dict):
             gem_groenten = round(sum(groenten_per_dag[i] for i in dagen_met_gf) / n_gf)
             gem_fruit    = round(sum(fruit_per_dag[i] for i in dagen_met_gf) / n_gf)
             gem_totaal   = gem_groenten + gem_fruit
-            pct_doel_gf  = min(150, round(gem_totaal / 400 * 100))
-            k_gf = "#22c55e" if gem_totaal >= 400 else ("#fbbf24" if gem_totaal >= 250 else "#ef4444")
-            adv_gf = ("✓ Voldoende groenten en fruit (WHO ≥400g/dag)" if gem_totaal >= 400
-                      else ("⚠️ Matig — probeer meer te variëren" if gem_totaal >= 250
+            DOEL_GROENTEN = 300
+            DOEL_FRUIT    = 250
+            DOEL_TOTAAL   = DOEL_GROENTEN + DOEL_FRUIT  # 550g
+            pct_gr   = min(150, round(gem_groenten / DOEL_GROENTEN * 100))
+            pct_fr   = min(150, round(gem_fruit    / DOEL_FRUIT    * 100))
+            pct_doel_gf = min(150, round(gem_totaal / DOEL_TOTAAL * 100))
+            k_gf  = "#22c55e" if gem_totaal >= DOEL_TOTAAL else ("#fbbf24" if gem_totaal >= DOEL_TOTAAL*0.65 else "#ef4444")
+            k_gr  = "#22c55e" if gem_groenten >= DOEL_GROENTEN else ("#fbbf24" if gem_groenten >= DOEL_GROENTEN*0.65 else "#ef4444")
+            k_fr  = "#22c55e" if gem_fruit >= DOEL_FRUIT else ("#fbbf24" if gem_fruit >= DOEL_FRUIT*0.65 else "#ef4444")
+            adv_gf = ("✓ Voldoende groenten en fruit (doel: 300g groenten + 250g fruit)" if gem_totaal >= DOEL_TOTAAL
+                      else ("⚠️ Matig — probeer meer te variëren" if gem_totaal >= DOEL_TOTAAL * 0.65
                       else "⚠️ Te weinig — verhoog je inname van groenten en fruit"))
 
             # KPI rij
             gf1, gf2, gf3, gf4 = st.columns(4)
             for col, lbl, val, kl in [
-                (gf1, "GEM GROENTEN/DAG", f"{gem_groenten}g", "#22c55e"),
-                (gf2, "GEM FRUIT/DAG",    f"{gem_fruit}g",    "#a78bfa"),
-                (gf3, "TOTAAL/DAG",       f"{gem_totaal}g",   k_gf),
-                (gf4, "% VAN DOEL",       f"{pct_doel_gf}%",  k_gf),
+                (gf1, "GEM GROENTEN/DAG", f"{gem_groenten}g / {DOEL_GROENTEN}g", k_gr),
+                (gf2, "GEM FRUIT/DAG",    f"{gem_fruit}g / {DOEL_FRUIT}g",       k_fr),
+                (gf3, "TOTAAL/DAG",       f"{gem_totaal}g / {DOEL_TOTAAL}g",     k_gf),
+                (gf4, "% VAN DOEL",       f"{pct_doel_gf}%",                     k_gf),
             ]:
                 with col:
                     st.markdown(
@@ -5375,17 +5395,20 @@ def _render_analyses(user: dict):
 
             # Grafiek
             gf_labels = [d["datum"][5:] for d in dagen_data]
-            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Groenten & fruit per dag (g) — doel 400g</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin-bottom:6px;">Groenten & fruit per dag (g)</div>', unsafe_allow_html=True)
             _chart(_lijn_chart(gf_labels, [
                 {"label": "Groenten (g)", "data": groenten_per_dag, "color": "#22c55e", "fill": False},
                 {"label": "Fruit (g)",    "data": fruit_per_dag,    "color": "#a78bfa", "fill": False},
-            ], doel_lijn=400, y_label="gram"), height=300)
+            ], doel_lijnen=[
+                {"label": "Doel groenten (300g)", "waarde": 300, "color": "#22c55e"},
+                {"label": "Doel fruit (250g)",    "waarde": 250, "color": "#a78bfa"},
+            ], y_label="gram"), height=300)
 
             # Advies tekst
             st.markdown(
                 f'<div style="background:#1e293b;border-radius:8px;padding:12px 14px;margin-top:6px;">' +
                 f'<span style="font-size:0.82rem;color:{k_gf};">{adv_gf}</span>' +
-                f'<span style="font-size:0.75rem;color:#64748b;"> · WHO aanbeveling: min. 400g groenten + fruit per dag</span>' +
+                f'<span style="font-size:0.75rem;color:#64748b;"> · Aanbeveling: min. 300g groenten + 250g fruit per dag</span>' +
                 f'</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
