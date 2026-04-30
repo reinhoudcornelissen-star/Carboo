@@ -2699,6 +2699,22 @@ def _stap_bibliotheek(user: dict):
         if scan_result:
             st.markdown("<br>", unsafe_allow_html=True)
             _sectie("GESCANDE WAARDEN — controleer en pas aan", "#86efac")
+            # Snelle categorie keuze bovenaan
+            sc1, sc2 = st.columns([2,3])
+            with sc1:
+                scan_cat_snel = st.selectbox(
+                    "📂 Categorie",
+                    CATEGORIE_OPTIES,
+                    key="scan_cat_snel",
+                    index=CATEGORIE_OPTIES.index(scan_result.get("categorie","Overige"))
+                    if scan_result.get("categorie") in CATEGORIE_OPTIES else len(CATEGORIE_OPTIES)-1
+                )
+                scan_result["categorie"] = scan_cat_snel
+            with sc2:
+                st.markdown(
+                    f'<div style="font-size:0.75rem;color:#64748b;padding-top:28px;">' +
+                    f'Kies de categorie zodat je het product snel terugvindt.</div>',
+                    unsafe_allow_html=True)
             scan_product = _product_formulier("scan", defaults=scan_result)
             if scan_product["naam"]:
                 if st.button("💾 Opslaan", key="scan_opslaan", use_container_width=True):
@@ -3902,8 +3918,45 @@ def _stap_dagschema(user: dict):
                     f'<span style="font-size:0.78rem;font-weight:700;color:#f97316;">▸ {round(m_kcal)} kcal</span>' +
                     f'<span style="font-size:0.72rem;color:#64748b;"> · {round(m_kh)}g KH · {round(m_eiwit)}g eiwit · {round(m_vet)}g vet</span></div>',
                     unsafe_allow_html=True)
-                if st.button(f"🗑 Alles wissen uit {m_naam}",key=f"wis_{dag_str}_{mi}",use_container_width=True):
-                    _verwijder_alle_items_moment(user_id,dag_str,mi); st.rerun()
+                # Dagdeel opslaan/laden knoppen
+                dm_col1, dm_col2, dm_col3 = st.columns(3)
+                with dm_col1:
+                    if st.button(f"🗑 Wissen",key=f"wis_{dag_str}_{mi}",use_container_width=True):
+                        _verwijder_alle_items_moment(user_id,dag_str,mi); st.rerun()
+                with dm_col2:
+                    if st.button(f"💾 Sla dagdeel op",key=f"ddl_save_{dag_str}_{mi}",use_container_width=True):
+                        st.session_state[f"ddl_save_open_{dag_str}_{mi}"] = True
+                        st.rerun()
+                with dm_col3:
+                    if st.button(f"📂 Laad dagdeel",key=f"ddl_load_{dag_str}_{mi}",use_container_width=True):
+                        st.session_state[f"ddl_load_open_{dag_str}_{mi}"] = not st.session_state.get(f"ddl_load_open_{dag_str}_{mi}", False)
+                        st.rerun()
+
+                # Dagdeel opslaan popup
+                if st.session_state.get(f"ddl_save_open_{dag_str}_{mi}"):
+                    ddl_naam = st.text_input("Naam dagdeel", placeholder=f"bijv. {m_naam} proteïnerijk", key=f"ddl_naam_{dag_str}_{mi}")
+                    if st.button("✓ Opslaan", key=f"ddl_save_ok_{dag_str}_{mi}", type="primary"):
+                        if _sla_dag_als_menu(user_id, dag_str, [momenten[mi]], ddl_naam or m_naam):
+                            st.success(f"✅ '{ddl_naam or m_naam}' opgeslagen!")
+                            st.session_state.pop(f"ddl_save_open_{dag_str}_{mi}", None)
+                            st.rerun()
+                    if st.button("✗ Annuleer", key=f"ddl_save_cancel_{dag_str}_{mi}"):
+                        st.session_state.pop(f"ddl_save_open_{dag_str}_{mi}", None)
+                        st.rerun()
+
+                # Dagdeel laden
+                if st.session_state.get(f"ddl_load_open_{dag_str}_{mi}"):
+                    dagmenu_lijst_ddl = _laad_dagmenu_lijst(user_id)
+                    if dagmenu_lijst_ddl:
+                        ddl_keuze = st.selectbox("Kies dagdeel", ["— kies —"]+[d["naam"] for d in dagmenu_lijst_ddl], key=f"ddl_load_keuze_{dag_str}_{mi}", label_visibility="collapsed")
+                        if ddl_keuze != "— kies —":
+                            gek_ddl = next((d for d in dagmenu_lijst_ddl if d["naam"]==ddl_keuze), None)
+                            if st.button(f"📂 Laden in {m_naam}", key=f"ddl_load_ok_{dag_str}_{mi}", type="primary", use_container_width=True):
+                                _laad_dagmenu_op_dag(user_id, dag_str, gek_ddl, bibliotheek)
+                                st.session_state.pop(f"ddl_load_open_{dag_str}_{mi}", None)
+                                st.rerun()
+                    else:
+                        st.caption("Nog geen dagdelen opgeslagen.")
 
             # Zone 3: toevoegen
             st.markdown('<div style="font-size:0.72rem;font-weight:700;color:#475569;margin:8px 0 4px;">TOEVOEGEN</div>', unsafe_allow_html=True)
