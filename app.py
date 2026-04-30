@@ -29,7 +29,6 @@ try:
     from optimeal import render_optimeal
 except ImportError:
     def render_optimeal(): st.info("Module niet beschikbaar.")
-CARBOO_AVATAR = ""  # wordt ingevuld na laden mascotte
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 import io as _io, base64 as _b64
