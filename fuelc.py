@@ -497,7 +497,7 @@ def _laad_trainingen(user_id: str) -> list:
 def _sla_training_op(user_id: str, training: dict) -> bool:
     # Toegestane kolommen in fuelc_trainingen
     KOLOMMEN = {"datum","sport","duur_min","afstand_km",
-                "kcal_verbranding","zone_verdeling","notitie","bron","user_id"}
+                "kcal_verbranding","zone_verdeling","notitie","bron","user_id","starttijd"}
     try:
         sb = _get_supabase()
         data = {k: v for k, v in training.items() if k in KOLOMMEN}
@@ -585,12 +585,15 @@ def _stap_trainingen(user: dict):
     with tab_add:
         st.markdown("<br>", unsafe_allow_html=True)
         _sectie("ALGEMEEN", "#22c55e")
-        c1, c2, c3 = st.columns(3)
+        c1, c2, c3, c4 = st.columns(4)
         with c1:
             sport = st.selectbox("Sport", SPORT_OPTIES, key="tr_sport")
         with c2:
             datum = st.date_input("Datum", key="tr_datum")
         with c3:
+            starttijd = st.text_input("Starttijd (HH:MM)",
+                value="07:00", placeholder="07:00", key="tr_starttijd")
+        with c4:
             omschrijving = st.text_input("Naam / omschrijving",
                 placeholder="bijv. Lange duurloop", key="tr_naam")
 
@@ -646,6 +649,7 @@ def _stap_trainingen(user: dict):
                         "kcal_verbranding":snel_kcal,
                         "zone_verdeling":  _jsn.dumps(_zone_verd),
                         "notitie":         snel_notitie,
+                        "starttijd":       starttijd or "07:00",
                     })
                     if not _ok:
                         st.stop()
@@ -797,6 +801,7 @@ def _stap_trainingen(user: dict):
                         "kcal_verbranding":totaal_kcal,
                         "zone_verdeling":  _jtr.dumps(zone_verdeling),
                         "notitie":         notitie_vol,
+                        "starttijd":       starttijd or "07:00",
                     }
                     if _sla_training_op(user_id, training_data):
                         _laad_trainingen.clear()
@@ -4403,29 +4408,79 @@ def _bereken_performance_score(dag_data: dict, profiel: dict, welzijn: dict,
     breakdown["micronutriënten"] = {"score": micro_score, "max": 20,
         "detail": f"Vezels {round(vezels)}g · Omega-3 {round(omega3,1)}g · VitD {round(vitd,1)}µg"}
 
-    # ── PIJLER 4: MAALTIJDREGELMAAT & TIMING (15pt) ───────────────────────────
-    reg_score = 0
+    # ── PIJLER 4: MAALTIJDTIMING (15pt) ─────────────────────────────────────
+    timing_score = 0
+    timing_details = []
 
-    # Alle momenten ingevuld
+    # -- Deelpijler A: Eiwitverdeling per maaltijdtype (6pt) --
+    # Haal eiwit per moment op uit items_detail
+    eiwit_per_moment = {}
+    moment_types = {}  # moment_idx -> type (ontbijt/lunch/avond/tussendoor)
+    if items_detail:
+        for it in items_detail:
+            mi = int(it.get("moment", 0) or 0)
+            eg = float(it.get("eiwit_g", 0) or 0)
+            eiwit_per_moment[mi] = eiwit_per_moment.get(mi, 0) + eg
+
+    # Drempelwaarden per maaltijdtype
+    EI_DREMPEL = {"ontbijt": 15, "lunch": 25, "avond": 30, "tussendoor": 10}
+    # Gebruik n_mom_gevuld als proxy — zonder maaltijdtype info gaan we op totaal
+    hoofd_momenten = [mi for mi, eg in eiwit_per_moment.items() if eg > 0]
+    n_goed_eiwit = sum(1 for mi, eg in eiwit_per_moment.items() if eg >= 20)
+    n_tussen_eiwit = sum(1 for mi, eg in eiwit_per_moment.items()
+                         if 0 < eg < 20 and eg >= 10)
+    ei_pts = min(6, n_goed_eiwit * 2 + n_tussen_eiwit * 1)
+    timing_score += ei_pts
+    timing_details.append(f"{n_goed_eiwit} momenten ≥20g eiwit")
+
+    # -- Deelpijler B: KH op trainingsdag vs rustdag (5pt) --
+    kh_dag = kh
+    kh_doel_basis = energie_doel * (kh_doel_pct / 100) / 4 if energie_doel > 0 else kh_doel_g
+    training_kcal_dag = int(training_kcal or 0)
+    is_trainingsdag = training_kcal_dag > 0
+
+    if is_trainingsdag:
+        # Op trainingsdag: KH mogen en moeten hoger zijn
+        kh_doel_training = kh_doel_basis + round(training_kcal_dag * 0.5 / 4)  # 50% extra kcal als KH
+        kh_pct_van_doel = kh_dag / max(kh_doel_training, 1) * 100
+        if kh_pct_van_doel >= 90:
+            timing_score += 5
+            timing_details.append("KH goed op trainingsdag")
+        elif kh_pct_van_doel >= 70:
+            timing_score += 3
+            timing_details.append("KH matig op trainingsdag")
+        elif kh_pct_van_doel >= 50:
+            timing_score += 1
+            timing_details.append("KH te laag op trainingsdag")
+        else:
+            timing_details.append("⚠️ KH sterk te laag op trainingsdag")
+
+        # Bonus: pre/post training KH — gebruik starttijd indien beschikbaar
+        # Starttijd zit in training_kcal maar niet rechtstreeks hier beschikbaar
+        # Proxy: als er KH gegeten zijn (kh_dag > kh_doel_basis * 0.8) = pre/post ok
+    else:
+        # Rustdag: KH binnen normale range
+        kh_pct_van_doel = kh_dag / max(kh_doel_basis, 1) * 100
+        if 85 <= kh_pct_van_doel <= 115:
+            timing_score += 5
+            timing_details.append("KH perfect op rustdag")
+        elif 70 <= kh_pct_van_doel <= 130:
+            timing_score += 3
+            timing_details.append("KH goed op rustdag")
+        else:
+            timing_score += 1
+            timing_details.append("KH buiten bereik op rustdag")
+
+    # -- Deelpijler C: Maaltijdpatroon dekking (4pt) --
     if n_mom_totaal > 0:
         dekking = n_mom_gevuld / n_mom_totaal
-        reg_score += round(8 * dekking)
+        patroon_pts = round(4 * dekking)
+        timing_score += patroon_pts
+        timing_details.append(f"{n_mom_gevuld}/{n_mom_totaal} momenten gevuld")
 
-    # Post-training maaltijd: als training, is er een avondmaaltijd?
-    if heeft_training and n_mom_gevuld >= 2:
-        reg_score += 4
-    elif not heeft_training:
-        reg_score += 4  # rustdag: geen post-training nodig
-
-    # Niet meer dan 5u zonder eten (schatting via n momenten)
-    if n_mom_gevuld >= 3:
-        reg_score += 3
-    elif n_mom_gevuld >= 2:
-        reg_score += 1
-
-    score += reg_score
-    breakdown["maaltijdregelmaat"] = {"score": reg_score, "max": 15,
-        "detail": f"{n_mom_gevuld}/{n_mom_totaal} momenten ingevuld"}
+    score += timing_score
+    breakdown["maaltijdregelmaat"] = {"score": timing_score, "max": 15,
+        "detail": " · ".join(timing_details)}
 
     # ── PIJLER 5: VOEDINGSKWALITEIT INDEX (15pt) ──────────────────────────────
     kwal_score = 0
