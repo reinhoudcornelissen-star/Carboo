@@ -5959,7 +5959,13 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Navigatiebalk ─────────────────────────────────────────────────────────
+    # ── Terug knop + Navigatiebalk ───────────────────────────────────────────
+    top1, top2 = st.columns([1, 4])
+    with top1:
+        if st.button("← Modules", key="fc_terug_modules", use_container_width=True):
+            st.session_state.module = "menu"
+            st.rerun()
+
     NAV = [
         (0, "👤 Profiel"),
         (1, "🏃 Trainingen"),
