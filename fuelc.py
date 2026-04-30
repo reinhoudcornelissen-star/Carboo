@@ -2522,7 +2522,11 @@ def _laad_alle_recepten(user_id: str) -> list:
 
 def _render_product_rij(p: dict, user_id: str):
     """Render één product rij in de bibliotheek."""
-    fav_ster = "⭐ " if p.get("favoriet") else ""
+    portie = p.get("portie_g") or 0
+    kcal   = p.get("kcal_100g") or 0
+    kh     = p.get("kh_100g") or 0
+    eiwit  = p.get("eiwit_100g") or 0
+    vet    = p.get("vet_100g") or 0
     with st.expander(
             f"{'⭐ ' if p.get('favoriet') else '🥦 '}{p.get('naam','')}  ·  {kcal} kcal/100g  ·  {p.get('categorie','')}",
             expanded=False):
