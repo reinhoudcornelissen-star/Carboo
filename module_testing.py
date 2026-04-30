@@ -435,8 +435,8 @@ def _stap_intro():
             Tijdens intensieve inspanning vermindert de bloedtoevoer naar je maag.
             Door systematisch te trainen went je maag aan grotere hoeveelheden koolhydraten.
             <br><br>
-            Carboo gebruikt <b style="color:#f97316;">AI</b> om jouw persoonlijk schema
-            week per week aan te passen op basis van jouw scores en symptomen.
+            Carboo begeleidt je stap voor stap — op basis van jouw wekelijkse scores
+            en symptomen wordt je schema progressief opgebouwd.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -445,7 +445,7 @@ def _stap_intro():
     for nr, naam, uitleg in [
         ("1","Profiel","Sport, duur, ervaring en productgeschiedenis"),
         ("2","Producten","Producten bevestigen of aanvullen"),
-        ("3","Schema","AI genereert jouw persoonlijk weekplan"),
+        ("3","Schema","Carboo stelt jouw persoonlijk weekplan op"),
         ("4","Dagboek","Score en symptomen invullen na training"),
         ("5","Rapport","Welke producten werken op racedag"),
     ]:
@@ -550,7 +550,7 @@ def _stap_profiel():
         st.markdown(
             '<div style="font-size:0.82rem;color:#94a3b8;margin:8px 0 12px 0;">'+
             'Welke producten gebruik je momenteel? '+
-            'Carboo gebruikt dit om jouw schema slim op te bouwen.</div>',
+            'Carboo gebruikt dit om jouw schema progressief op te bouwen.</div>',
             unsafe_allow_html=True)
 
         gekende_producten = data.get("gekende_producten",[])
@@ -1463,12 +1463,15 @@ def render_testing(user: dict):
     for i, (col, naam) in enumerate(zip(cols, namen)):
         actief = (i+1)==stap
         gedaan = i+1 < stap
-        kleur  = "#f97316" if actief else ("#22c55e" if gedaan else "#334155")
-        col.markdown(
-            f'<div style="text-align:center;font-size:10px;font-weight:700;'
-            f'color:{kleur};border-bottom:2px solid {kleur};padding-bottom:4px;">'
-            f'{"✓ " if gedaan else ""}{naam}</div>',
-            unsafe_allow_html=True)
+        with col:
+            if st.button(
+                f'{"✓ " if gedaan else ""}{naam}',
+                key=f"tg_nav_{i+1}",
+                use_container_width=True,
+                type="primary" if actief else "secondary"
+            ):
+                st.session_state["tg_stap"] = i+1
+                st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
 
