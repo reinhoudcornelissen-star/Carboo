@@ -6026,7 +6026,7 @@ section[data-testid="stMain"] div[data-testid="stHorizontalBlock"]:nth-of-type(1
         (3, "📅 Dagschema"),
         (4, "📊 Analyses"),
     ]
-    cols = st.columns(len(NAV))
+    cols = st.columns([1]*len(NAV))
     for col, (s, label) in zip(cols, NAV):
         with col:
             actief = stap == s
