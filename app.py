@@ -183,31 +183,8 @@ if not st.session_state.get("logged_in"):
     _comp.html("""
     <script>
     (function() {
-        var uid = null;
-        // 1. Probeer localStorage
-        try { uid = localStorage.getItem('carboo_uid'); } catch(e) {}
-        // 2. Probeer sessionStorage
-        if (!uid || uid.length <= 10) {
-            try { uid = sessionStorage.getItem('carboo_uid'); } catch(e) {}
-        }
-        // 3. Probeer parent localStorage (embedded iframe)
-        if (!uid || uid.length <= 10) {
-            try { uid = window.parent.localStorage.getItem('carboo_uid'); } catch(e) {}
-        }
-        // 4. Fallback: cookie
-        if (!uid || uid.length <= 10) {
-            try {
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {
-                    var c = cookies[i].trim();
-                    if (c.startsWith('carboo_uid=')) {
-                        uid = c.substring('carboo_uid='.length).trim();
-                        break;
-                    }
-                }
-            } catch(e) {}
-        }
-        if (uid && uid.length > 10) {
+        function doRedirect(uid) {
+            if (!uid || uid.length <= 10) return;
             try {
                 var url = new URL(window.parent.location.href);
                 if (!url.searchParams.get('_uid')) {
@@ -215,14 +192,51 @@ if not st.session_state.get("logged_in"):
                     window.parent.location.replace(url.toString());
                 }
             } catch(e) {
-                // Fallback voor als window.parent niet werkt
-                var url2 = new URL(window.location.href);
-                if (!url2.searchParams.get('_uid')) {
-                    url2.searchParams.set('_uid', uid);
-                    window.location.replace(url2.toString());
-                }
+                try {
+                    var url2 = new URL(window.location.href);
+                    if (!url2.searchParams.get('_uid')) {
+                        url2.searchParams.set('_uid', uid);
+                        window.location.replace(url2.toString());
+                    }
+                } catch(e2) {}
             }
         }
+
+        var uid = null;
+        // 1. localStorage
+        try { uid = localStorage.getItem('carboo_uid'); } catch(e) {}
+        if (uid && uid.length > 10) { doRedirect(uid); return; }
+        // 2. sessionStorage
+        try { uid = sessionStorage.getItem('carboo_uid'); } catch(e) {}
+        if (uid && uid.length > 10) { doRedirect(uid); return; }
+        // 3. parent localStorage
+        try { uid = window.parent.localStorage.getItem('carboo_uid'); } catch(e) {}
+        if (uid && uid.length > 10) { doRedirect(uid); return; }
+        // 4. Cookie
+        try {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var c = cookies[i].trim();
+                if (c.startsWith('carboo_uid=')) {
+                    uid = c.substring('carboo_uid='.length).trim();
+                    break;
+                }
+            }
+        } catch(e) {}
+        if (uid && uid.length > 10) { doRedirect(uid); return; }
+        // 5. IndexedDB (async - laatste resort)
+        try {
+            var req = indexedDB.open('carboo', 1);
+            req.onsuccess = function(e) {
+                try {
+                    var tx = e.target.result.transaction('kv', 'readonly');
+                    var get = tx.objectStore('kv').get('carboo_uid');
+                    get.onsuccess = function() {
+                        if (get.result && get.result.length > 10) doRedirect(get.result);
+                    };
+                } catch(e2) {}
+            };
+        } catch(e) {}
     })();
     </script>
     """, height=0)
@@ -305,30 +319,53 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) 
 """, unsafe_allow_html=True)
 
 _hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
-# CSS om knoppen exact 68px hoog te maken
+# CSS — header uitlijning + knoppen styling
 st.markdown("""
 <style>
-[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button,
-[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(4) button {
-    height: 68px !important;
+/* Verwijder padding/margin van kolommen in de header rij */
+[data-testid="stHorizontalBlock"]:first-of-type {
+    align-items: stretch !important;
+    gap: 8px !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] {
+    padding: 0 !important;
+}
+/* Maak de knop containers even hoog */
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3),
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) {
+    display: flex !important;
+    align-items: stretch !important;
+}
+/* Knop styling */
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button,
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) button {
+    height: 100% !important;
+    min-height: 68px !important;
     border-radius: 14px !important;
     border: 1px solid #334155 !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
     background: linear-gradient(135deg,#1e293b,#0f172a) !important;
     color: #94a3b8 !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    width: 100% !important;
 }
-[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button {
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button {
     color: #60a5fa !important;
     border-color: #2563eb !important;
     background: linear-gradient(135deg,#1e3a5f,#0f2040) !important;
 }
-[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button:hover,
-[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(4) button:hover {
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button:hover,
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) button:hover {
     color: #f8fafc !important;
     border-color: #475569 !important;
+    background: #1e293b !important;
+}
+/* Verwijder gap tussen de header div en knoppen */
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] > div {
+    height: 100% !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] > div > div {
+    height: 100% !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -395,12 +432,25 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         import streamlit.components.v1 as _comp2
         _comp2.html(f"""
         <script>
-        localStorage.setItem('carboo_uid', '{_uid_save}');
-        var d = new Date();
-        d.setTime(d.getTime() + (365*24*60*60*1000));
-        document.cookie = 'carboo_uid={_uid_save}; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
+        (function() {{
+            var uid = '{_uid_save}';
+            var expires = new Date();
+            expires.setTime(expires.getTime() + (365*24*60*60*1000));
+            var expStr = expires.toUTCString();
+            try {{ localStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
+            try {{ sessionStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
+            try {{ document.cookie = 'carboo_uid=' + uid + '; expires=' + expStr + '; path=/; SameSite=Lax'; }} catch(e) {{}}
+            try {{ window.parent.localStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
+            try {{
+                var req = indexedDB.open('carboo', 1);
+                req.onupgradeneeded = function(e) {{ e.target.result.createObjectStore('kv'); }};
+                req.onsuccess = function(e) {{
+                    try {{ e.target.result.transaction('kv','readwrite').objectStore('kv').put(uid,'carboo_uid'); }} catch(e2) {{}}
+                }};
+            }} catch(e) {{}}
+        }})();
         </script>
-        """, height=1)
+        """, height=2)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 
