@@ -318,72 +318,40 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) 
 </style>
 """, unsafe_allow_html=True)
 
-# Header als één HTML blok met JS knoppen
-_admin_js = "" if not is_admin else f"""
-<a onclick="window.parent.postMessage({{type:'streamlit:setComponentValue',key:'_goto',value:'admin'}},'{{}}'.replace('{{}}','*'))" 
-   style="padding:0 18px;height:68px;display:flex;align-items:center;justify-content:center;
-          background:linear-gradient(135deg,#1e3a5f,#0f2040);border-radius:14px;
-          border:1px solid #2563eb;color:#60a5fa;font-size:0.78rem;font-weight:500;
-          cursor:pointer;text-decoration:none;white-space:nowrap;min-width:90px;">
-   ⚙ Admin
-</a>"""
-
-st.markdown(f"""
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-  <!-- Logo -->
-  <div style="flex:4;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-              padding:0 20px;border:1px solid #334155;height:68px;
-              display:flex;align-items:center;gap:12px;">
-    <img src="{CARBOO_AVATAR}" style="width:42px;height:42px;border-radius:50%;
-         border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
-    <div>
-      <div style="font-size:1.35rem;font-weight:900;letter-spacing:3px;color:#f8fafc;line-height:1.1;">
-        CAR<span style="color:#f97316;">BOO</span></div>
-      <div style="font-size:0.6rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
-    </div>
+# HEADER — 4 kolommen, pure Streamlit
+_hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
+with _hc1:
+    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:10px;
+            padding:10px 16px;border:1px solid #334155;display:flex;align-items:center;gap:10px;">
+  <img src="{CARBOO_AVATAR}" style="width:38px;height:38px;border-radius:50%;
+       border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
+  <div>
+    <div style="font-size:1.2rem;font-weight:900;letter-spacing:2px;color:#f8fafc;line-height:1.1;">
+      CAR<span style="color:#f97316;">BOO</span></div>
+    <div style="font-size:0.58rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
   </div>
-  <!-- Gebruiker -->
-  <div style="flex:2;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-              padding:0 20px;border:1px solid #334155;height:68px;
-              display:flex;flex-direction:column;justify-content:center;align-items:flex-end;">
-    <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
-    <div style="font-size:0.68rem;color:#64748b;margin-top:3px;">
-      <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
-  </div>
-  <!-- Admin knop -->
-  {"" if not is_admin else f'<div style="flex:1;height:68px;"><div id="admin-btn" onclick="document.getElementById(\'admin-form\').submit()" style="height:68px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#0f2040);border-radius:14px;border:1px solid #2563eb;color:#60a5fa;font-size:0.78rem;font-weight:500;cursor:pointer;white-space:nowrap;">⚙ Admin</div></div>'}
-  <!-- Uitloggen knop -->
-  <div id="logout-btn" onclick="doLogout()" 
-       style="flex:1;height:68px;display:flex;align-items:center;justify-content:center;
-              background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-              border:1px solid #334155;color:#94a3b8;font-size:0.78rem;font-weight:500;
-              cursor:pointer;white-space:nowrap;min-width:80px;">
-    ↩ Uit
-  </div>
-</div>
-<script>
-function doLogout(){{
-  try{{localStorage.removeItem('carboo_uid')}}catch(e){{}}
-  try{{sessionStorage.removeItem('carboo_uid')}}catch(e){{}}
-  document.cookie='carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;';
-  window.parent.location.reload();
-}}
-</script>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
-# Verstopte Streamlit knoppen via CSS
-st.markdown("""
-<style>
-button[kind="secondary"][data-testid="baseButton-secondary"]:has(+ [data-testid]) { display:none; }
-div[data-testid="column"]:has(button[key="nav_admin_btn"]),
-div[data-testid="column"]:has(button[key="nav_logout_btn"]) { display:none !important; }
-</style>""", unsafe_allow_html=True)
+with _hc2:
+    st.markdown(f"""
+<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:10px;
+            padding:10px 16px;border:1px solid #334155;text-align:right;">
+  <div style="font-size:0.8rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
+  <div style="font-size:0.65rem;color:#64748b;margin-top:2px;">
+    <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
+</div>""", unsafe_allow_html=True)
 
-if is_admin and st.button("admin", key="nav_admin_btn"):
-    st.session_state.module = "admin"; st.rerun()
-if st.button("uit", key="nav_logout_btn"):
-    for k in list(st.session_state.keys()): del st.session_state[k]
-    st.rerun()
+with _hc3:
+    if is_admin:
+        if st.button("⚙ Admin", key="nav_admin_btn", use_container_width=True):
+            st.session_state.module = "admin"; st.rerun()
+    else:
+        st.empty()
+
+with _hc4:
+    if st.button("← Modules", key="nav_modules_btn", use_container_width=True):
+        st.session_state.module = "menu"; st.rerun()
 
 # Toon openstaande coach uitnodigingen
 if not is_admin:
