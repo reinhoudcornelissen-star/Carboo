@@ -6004,14 +6004,9 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Terug knop + Navigatiebalk ───────────────────────────────────────────
-    top1, top2 = st.columns([1, 4])
-    with top1:
-        if st.button("← Modules", key="fc_terug_modules", use_container_width=True):
-            st.session_state.module = "menu"
-            st.rerun()
-
+    # ── Navigatiebalk met terug knop ─────────────────────────────────────────
     NAV = [
+        (-1, "← Modules"),
         (0, "👤 Profiel"),
         (1, "🏃 Trainingen"),
         (2, "📚 Bibliotheek"),
@@ -6028,7 +6023,10 @@ def render_fuelc(user: dict):
                 use_container_width=True,
                 type="primary" if actief else "secondary",
             ):
-                st.session_state.fc_stap = s
+                if s == -1:
+                    st.session_state.module = "menu"
+                else:
+                    st.session_state.fc_stap = s
                 st.rerun()
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
