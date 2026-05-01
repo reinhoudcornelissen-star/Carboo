@@ -318,97 +318,72 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) 
 </style>
 """, unsafe_allow_html=True)
 
-_hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
-# CSS — header uitlijning + knoppen styling
-st.markdown("""
-<style>
-/* Verwijder padding/margin van kolommen in de header rij */
-[data-testid="stHorizontalBlock"]:first-of-type {
-    align-items: stretch !important;
-    gap: 8px !important;
-}
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] {
-    padding: 0 !important;
-}
-/* Maak de knop containers even hoog */
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3),
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) {
-    display: flex !important;
-    align-items: stretch !important;
-}
-/* Knop styling */
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button,
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) button {
-    height: 100% !important;
-    min-height: 68px !important;
-    border-radius: 14px !important;
-    border: 1px solid #334155 !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    background: linear-gradient(135deg,#1e293b,#0f172a) !important;
-    color: #94a3b8 !important;
-    width: 100% !important;
-}
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button {
-    color: #60a5fa !important;
-    border-color: #2563eb !important;
-    background: linear-gradient(135deg,#1e3a5f,#0f2040) !important;
-}
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(3) button:hover,
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"]:nth-child(4) button:hover {
-    color: #f8fafc !important;
-    border-color: #475569 !important;
-    background: #1e293b !important;
-}
-/* Verwijder gap tussen de header div en knoppen */
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] > div {
-    height: 100% !important;
-}
-[data-testid="stHorizontalBlock"]:first-of-type > [data-testid="stColumn"] > div > div {
-    height: 100% !important;
-}
-</style>
+# Header als één HTML blok met JS knoppen
+_admin_js = "" if not is_admin else f"""
+<a onclick="window.parent.postMessage({{type:'streamlit:setComponentValue',key:'_goto',value:'admin'}},'{{}}'.replace('{{}}','*'))" 
+   style="padding:0 18px;height:68px;display:flex;align-items:center;justify-content:center;
+          background:linear-gradient(135deg,#1e3a5f,#0f2040);border-radius:14px;
+          border:1px solid #2563eb;color:#60a5fa;font-size:0.78rem;font-weight:500;
+          cursor:pointer;text-decoration:none;white-space:nowrap;min-width:90px;">
+   ⚙ Admin
+</a>"""
+
+st.markdown(f"""
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+  <!-- Logo -->
+  <div style="flex:4;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
+              padding:0 20px;border:1px solid #334155;height:68px;
+              display:flex;align-items:center;gap:12px;">
+    <img src="{CARBOO_AVATAR}" style="width:42px;height:42px;border-radius:50%;
+         border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
+    <div>
+      <div style="font-size:1.35rem;font-weight:900;letter-spacing:3px;color:#f8fafc;line-height:1.1;">
+        CAR<span style="color:#f97316;">BOO</span></div>
+      <div style="font-size:0.6rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
+    </div>
+  </div>
+  <!-- Gebruiker -->
+  <div style="flex:2;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
+              padding:0 20px;border:1px solid #334155;height:68px;
+              display:flex;flex-direction:column;justify-content:center;align-items:flex-end;">
+    <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
+    <div style="font-size:0.68rem;color:#64748b;margin-top:3px;">
+      <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
+  </div>
+  <!-- Admin knop -->
+  {"" if not is_admin else f'<div style="flex:1;height:68px;"><div id="admin-btn" onclick="document.getElementById(\'admin-form\').submit()" style="height:68px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e3a5f,#0f2040);border-radius:14px;border:1px solid #2563eb;color:#60a5fa;font-size:0.78rem;font-weight:500;cursor:pointer;white-space:nowrap;">⚙ Admin</div></div>'}
+  <!-- Uitloggen knop -->
+  <div id="logout-btn" onclick="doLogout()" 
+       style="flex:1;height:68px;display:flex;align-items:center;justify-content:center;
+              background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
+              border:1px solid #334155;color:#94a3b8;font-size:0.78rem;font-weight:500;
+              cursor:pointer;white-space:nowrap;min-width:80px;">
+    ↩ Uit
+  </div>
+</div>
+<script>
+function doLogout(){{
+  try{{localStorage.removeItem('carboo_uid')}}catch(e){{}}
+  try{{sessionStorage.removeItem('carboo_uid')}}catch(e){{}}
+  document.cookie='carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;';
+  window.parent.location.reload();
+}}
+</script>
 """, unsafe_allow_html=True)
 
-with _hc1:
-    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-            padding:12px 20px;border:1px solid #334155;height:68px;
-            display:flex;align-items:center;gap:12px;">
-  <img src="{CARBOO_AVATAR}" style="width:42px;height:42px;border-radius:50%;border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
-  <div>
-    <div style="font-size:1.35rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
-      CAR<span style="color:#f97316;">BOO</span></div>
-    <div style="font-size:0.6rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
-  </div>
-</div>""", unsafe_allow_html=True)
-
-with _hc2:
-    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-            padding:12px 20px;border:1px solid #334155;height:68px;
-            display:flex;flex-direction:column;justify-content:center;align-items:flex-end;">
-  <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
-  <div style="font-size:0.68rem;color:#64748b;margin-top:2px;">
-    <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
-</div>""", unsafe_allow_html=True)
-
-with _hc3:
+# Streamlit knoppen verstopt — enkel voor functionaliteit
+_hid1, _hid2 = st.columns([1,1])
+with _hid1:
     if is_admin:
-        if st.button("⚙ Admin", key="nav_admin_btn", use_container_width=True):
-            st.session_state.module = "admin"
-            st.rerun()
-
-with _hc4:
-    if st.button("↩ Uitloggen", key="nav_logout_btn", use_container_width=True):
-        import streamlit.components.v1 as _comp3
-        _comp3.html("""<script>
-        try{localStorage.removeItem('carboo_uid')}catch(e){}
-        try{sessionStorage.removeItem('carboo_uid')}catch(e){}
-        document.cookie='carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;';
-        </script>""", height=1)
+        _admin_click = st.button("admin_hidden", key="nav_admin_btn", label_visibility="hidden")
+        if _admin_click:
+            st.session_state.module = "admin"; st.rerun()
+with _hid2:
+    _logout_click = st.button("uit_hidden", key="nav_logout_btn", label_visibility="hidden")
+    if _logout_click:
         for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
+
 # Toon openstaande coach uitnodigingen
 if not is_admin:
     render_coach_uitnodigingen(_uid)
