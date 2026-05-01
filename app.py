@@ -274,7 +274,23 @@ if _abo.get("trial") and not is_admin:
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 _user_naam_h = st.session_state.current_user.get("name","") if st.session_state.get("current_user") else ""
 _admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 7px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ""
-_logout_js = "try{localStorage.removeItem(\'carboo_uid\')}catch(e){};try{sessionStorage.removeItem(\'carboo_uid\')}catch(e){};document.cookie=\'carboo_uid=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;\';"
+
+# Admin via query param
+if st.query_params.get("goto") == "admin":
+    st.query_params.clear()
+    st.session_state.module = "admin"
+    st.rerun()
+
+# Uitloggen via query param
+if st.query_params.get("logout") == "1":
+    st.query_params.clear()
+    for k in list(st.session_state.keys()):
+        del st.session_state[k]
+    st.rerun()
+
+_admin_link = f'<a href="?goto=admin" style="background:rgba(255,255,255,0.08);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:5px 14px;font-size:0.72rem;color:#f8fafc;text-decoration:none;font-weight:500;">⚙ Admin</a>' if is_admin else ""
+_logout_js = "try{localStorage.removeItem(\'carboo_uid\')}catch(e){};try{sessionStorage.removeItem(\'carboo_uid\')}catch(e){};document.cookie=\'carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;\';window.parent.location.href=window.parent.location.href.split(\'?\')[0]+\'?logout=1\';"
+
 st.markdown(f"""
 <div style="display:flex;align-items:center;justify-content:space-between;
             background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;
@@ -288,18 +304,16 @@ st.markdown(f"""
       <div style="font-size:0.65rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:16px;">
-    <div style="text-align:right;">
-      <div style="font-size:0.78rem;color:#94a3b8;">
-        {_user_naam_h}{_admin_badge_h}</div>
-      <div style="font-size:0.65rem;color:#475569;margin-top:2px;">
-        <span style="color:#f97316;font-weight:800;">{_credits}</span> credits</div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="text-align:right;line-height:1.4;">
+      <div style="font-size:0.8rem;color:#f8fafc;font-weight:600;">{_user_naam_h}{_admin_badge_h}</div>
+      <div style="font-size:0.7rem;color:#64748b;"><span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
     </div>
-    {"<a href='?admin=1' onclick=\"event.preventDefault();window.parent.postMessage({type:\'streamlit:setComponentValue\',value:\'admin\'},\'*\');\" style=\"background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 14px;font-size:0.72rem;color:#94a3b8;text-decoration:none;cursor:pointer;\">⚙️ Admin</a>" if is_admin else ""}
+    {_admin_link}
+    <a href="javascript:void(0)" onclick="{_logout_js}" style="background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.12);border-radius:8px;padding:5px 12px;font-size:0.72rem;color:#94a3b8;text-decoration:none;">↩ Uit</a>
   </div>
 </div>
 """, unsafe_allow_html=True)
-
 # Toon openstaande coach uitnodigingen
 if not is_admin:
     render_coach_uitnodigingen(_uid)
@@ -331,22 +345,7 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         """, height=1)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
-# Uitloggen knop — klein en discreet
-_ul1, _ul2, _ul3 = st.columns([9, 1, 1]) if is_admin else st.columns([10, 1, 0.01])
-with _ul2:
-    if is_admin:
-        if st.button("⚙️", key="nav_admin_top", help="Admin panel", use_container_width=True):
-            st.session_state.module = "admin"; st.rerun()
-with _ul3:
-    if st.button("↩", key="nav_logout_top", help="Uitloggen", use_container_width=True):
-        import streamlit.components.v1 as _comp3
-        _comp3.html("""<script>
-        try{localStorage.removeItem('carboo_uid')}catch(e){}
-        try{sessionStorage.removeItem('carboo_uid')}catch(e){}
-        document.cookie='carboo_uid=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
-        </script>""", height=1)
-        for k in list(st.session_state.keys()): del st.session_state[k]
-        st.rerun()
+
 module = st.session_state.module
 
 # Controleer of gebruiker terugkomt van Mollie betaling
