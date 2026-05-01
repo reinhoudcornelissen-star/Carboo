@@ -305,10 +305,39 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) 
 """, unsafe_allow_html=True)
 
 _hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
+# CSS om knoppen exact 68px hoog te maken
+st.markdown("""
+<style>
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button,
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(4) button {
+    height: 68px !important;
+    border-radius: 14px !important;
+    border: 1px solid #334155 !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    background: linear-gradient(135deg,#1e293b,#0f172a) !important;
+    color: #94a3b8 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button {
+    color: #60a5fa !important;
+    border-color: #2563eb !important;
+    background: linear-gradient(135deg,#1e3a5f,#0f2040) !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(3) button:hover,
+[data-testid="stHorizontalBlock"]:first-of-type [data-testid="stColumn"]:nth-child(4) button:hover {
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 with _hc1:
     st.markdown(f"""
 <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
-            padding:12px 20px;border:1px solid #334155;display:flex;align-items:center;gap:12px;">
+            padding:12px 20px;border:1px solid #334155;height:68px;
+            display:flex;align-items:center;gap:12px;">
   <img src="{CARBOO_AVATAR}" style="width:42px;height:42px;border-radius:50%;border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
   <div>
     <div style="font-size:1.35rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
