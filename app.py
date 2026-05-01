@@ -271,20 +271,32 @@ if _abo.get("trial") and not is_admin:
 
 
 # HEADER
+_user_naam_h = st.session_state.current_user.get("name","") if st.session_state.get("current_user") else ""
+_admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 7px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ""
+_logout_js = "try{localStorage.removeItem(\'carboo_uid\')}catch(e){};try{sessionStorage.removeItem(\'carboo_uid\')}catch(e){};document.cookie=\'carboo_uid=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;\';"
 st.markdown(f"""
-<div style="display:flex; align-items:center; justify-content:space-between;
-            background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:16px;
-            padding:16px 24px; margin-bottom:20px; border:1px solid #334155;">
-  <div style="display:flex; align-items:center; gap:14px;">
-    <img src="{CARBOO_AVATAR}" style="width:44px; height:44px; border-radius:50%;
-         border:2px solid #f97316; object-fit:cover;">
+<div style="display:flex;align-items:center;justify-content:space-between;
+            background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;
+            padding:14px 24px;margin-bottom:16px;border:1px solid #334155;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <img src="{CARBOO_AVATAR}" style="width:46px;height:46px;border-radius:50%;
+         border:2px solid #f97316;object-fit:cover;">
     <div>
-      <div style="font-size:1.5rem; font-weight:900; letter-spacing:3px; color:#f8fafc;">
-        CAR<span style="color:#f97316;">BOO</span>
-      </div>
-      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">SPORTS NUTRITION COACH</div>
+      <div style="font-size:1.5rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
+        CAR<span style="color:#f97316;">BOO</span></div>
+      <div style="font-size:0.65rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
     </div>
   </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div style="text-align:right;">
+      <div style="font-size:0.78rem;color:#94a3b8;">
+        {_user_naam_h}{_admin_badge_h}</div>
+      <div style="font-size:0.65rem;color:#475569;margin-top:2px;">
+        <span style="color:#f97316;font-weight:800;">{_credits}</span> credits</div>
+    </div>
+    {"<a href='?admin=1' onclick=\"event.preventDefault();window.parent.postMessage({type:\'streamlit:setComponentValue\',value:\'admin\'},\'*\');\" style=\"background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 14px;font-size:0.72rem;color:#94a3b8;text-decoration:none;cursor:pointer;\">⚙️ Admin</a>" if is_admin else ""}
+  </div>
+</div>
 """, unsafe_allow_html=True)
 
 # Toon openstaande coach uitnodigingen
@@ -318,32 +330,14 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         """, height=1)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
-# ── Header rechts: gebruikersinfo ────────────────────────────────────────────
-_user_naam = st.session_state.current_user.get("name","")
-_is_admin_str = "ADMIN" if is_admin else ""
-st.markdown(
-    f'''<div style="display:flex;justify-content:flex-end;align-items:center;
-        gap:12px;margin:-8px 0 8px 0;">
-        <div style="font-size:0.75rem;color:#64748b;">
-            Ingelogd als <b style="color:#f8fafc;">{_user_naam}</b>
-            {"&nbsp;<span style=\'background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 6px;font-weight:700;\'>ADMIN</span>" if is_admin else ""}
-        </div>
-        <div style="background:#1e293b;border:1px solid #334155;border-radius:20px;
-            padding:4px 12px;display:flex;align-items:center;gap:6px;">
-            <span style="font-size:0.7rem;color:#f97316;font-weight:900;">{_credits}</span>
-            <span style="font-size:0.65rem;color:#64748b;">credits</span>
-        </div>
-    </div>''',
-    unsafe_allow_html=True)
-
-# Admin + Uitloggen — discreet rechts
-_hcols = st.columns([8, 1, 1]) if is_admin else st.columns([9, 1])
-with _hcols[-2] if is_admin else _hcols[-1]:
+# Uitloggen knop — klein en discreet
+_ul1, _ul2, _ul3 = st.columns([9, 1, 1]) if is_admin else st.columns([10, 1, 0.01])
+with _ul2:
     if is_admin:
-        if st.button("Admin", key="nav_admin_top", use_container_width=True):
+        if st.button("⚙️", key="nav_admin_top", help="Admin panel", use_container_width=True):
             st.session_state.module = "admin"; st.rerun()
-with _hcols[-1]:
-    if st.button("Uitloggen", key="nav_logout_top", use_container_width=True):
+with _ul3:
+    if st.button("↩", key="nav_logout_top", help="Uitloggen", use_container_width=True):
         import streamlit.components.v1 as _comp3
         _comp3.html("""<script>
         try{localStorage.removeItem('carboo_uid')}catch(e){}
