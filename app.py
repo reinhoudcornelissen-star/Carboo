@@ -319,6 +319,22 @@ div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) 
 """, unsafe_allow_html=True)
 
 # HEADER — 4 kolommen, pure Streamlit
+st.markdown("""
+<style>
+/* Header rij uitlijning */
+div[data-testid="stHorizontalBlock"]:first-of-type {
+    align-items: stretch !important;
+}
+div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="stColumn"] > div {
+    height: 100%;
+}
+div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="stColumn"] > div > div > button {
+    height: 100% !important;
+    min-height: 62px !important;
+    border-radius: 10px !important;
+}
+</style>
+""", unsafe_allow_html=True)
 _hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
 with _hc1:
     st.markdown(f"""
