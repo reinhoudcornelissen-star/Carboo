@@ -285,11 +285,6 @@ st.markdown(f"""
       <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">SPORTS NUTRITION COACH</div>
     </div>
   </div>
-  <div style="text-align:right; font-size:0.82rem; color:#64748b;">
-    Ingelogd als <b style="color:#f8fafc;">{naam}</b>
-    {'&nbsp;&nbsp;<span style="background:#f97316;color:white;border-radius:4px;padding:1px 7px;font-size:0.72rem;">ADMIN</span>' if is_admin else ''}
-  </div>
-</div>
 """, unsafe_allow_html=True)
 
 # Toon openstaande coach uitnodigingen
@@ -324,29 +319,38 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
-with nav_cols[-3] if is_admin else nav_cols[-2]:
+with nav_cols[-1]:
+    # Credits + Admin + Uitloggen als clean pill menu
+    _user_naam = st.session_state.current_user.get("name","")
+    _role_badge = f'<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 6px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ''
     st.markdown(
-        f'<div style="background:#0f172a;border:1px solid #334155;border-radius:8px;'
-        f'padding:6px 12px;text-align:center;">'
-        f'<div style="font-size:8px;color:#64748b;font-weight:bold;">CREDITS</div>'
-        f'<div style="font-size:16px;font-weight:900;color:#f97316;">{_credits}</div>'
+        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">' +
+        f'<div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:8px;">' +
+        f'<span style="font-size:0.7rem;color:#64748b;">💰</span>' +
+        f'<span style="font-size:0.85rem;font-weight:800;color:#f97316;">{_credits}</span>' +
+        f'<span style="font-size:0.65rem;color:#475569;">credits</span>' +
+        f'</div>' +
+        f'<div style="font-size:0.8rem;color:#94a3b8;">Ingelogd als <b style="color:#f8fafc;">{_user_naam}</b>{_role_badge}</div>' +
         f'</div>',
-        unsafe_allow_html=True
-    )
-with nav_cols[-2] if is_admin else nav_cols[-1]:
+        unsafe_allow_html=True)
+
+# Admin en uitloggen als kleine links onder de header
+_ah1, _ah2, _ah3 = st.columns([6, 1, 1])
+with _ah2:
     if is_admin:
-        if st.button("⚙️", key="nav_admin_top", help="Admin panel", use_container_width=True):
+        if st.button("⚙️ Admin", key="nav_admin_top", use_container_width=True):
             st.session_state.module = "admin"
             st.rerun()
-with nav_cols[-1] if is_admin else nav_cols[-1]:
-    if st.button("↩️", key="nav_logout_top", help="Uitloggen", use_container_width=True):
+with _ah3:
+    if st.button("Uitloggen", key="nav_logout_top", use_container_width=True):
         import streamlit.components.v1 as _comp3
         _comp3.html("""
         <script>
-        localStorage.removeItem('carboo_uid');
+        try { localStorage.removeItem('carboo_uid'); } catch(e) {}
+        try { sessionStorage.removeItem('carboo_uid'); } catch(e) {}
         document.cookie = 'carboo_uid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
         </script>
-        """, height=0)
+        """, height=1)
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
@@ -357,16 +361,9 @@ module = st.session_state.module
 controleer_betaling_url()
 
 if module == "menu":
-    # Mascotte + header
-    _m1, _m2, _m3 = st.columns([1, 2, 1])
-    with _m2:
-        st.markdown(
-            f'<div style="text-align:center;padding:8px 0 4px;">' +
-            f'<img src="data:image/png;base64,{_MASCOTTE_B64}" style="height:160px;object-fit:contain;margin-bottom:4px;"/>' +
-            f'<div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin-bottom:4px;">JOUW NUTRITION TOOLS</div>' +
-            f'<div style="font-size:1.2rem;font-weight:800;color:#f8fafc;">Kies een module om te starten</div>' +
-            f'</div>',
-            unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin:8px 0 16px;">JOUW NUTRITION TOOLS</div>',
+        unsafe_allow_html=True)
 
     # ── Fueling (bovenaan) ────────────────────────────────────────────────────
     if is_admin or _abo.get("fueling"):
