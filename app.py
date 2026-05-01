@@ -318,43 +318,40 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         """, height=1)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
-nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
-with nav_cols[-1]:
-    # Credits + Admin + Uitloggen als clean pill menu
-    _user_naam = st.session_state.current_user.get("name","")
-    _role_badge = f'<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 6px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ''
-    st.markdown(
-        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">' +
-        f'<div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:8px;">' +
-        f'<span style="font-size:0.7rem;color:#64748b;">💰</span>' +
-        f'<span style="font-size:0.85rem;font-weight:800;color:#f97316;">{_credits}</span>' +
-        f'<span style="font-size:0.65rem;color:#475569;">credits</span>' +
-        f'</div>' +
-        f'<div style="font-size:0.8rem;color:#94a3b8;">Ingelogd als <b style="color:#f8fafc;">{_user_naam}</b>{_role_badge}</div>' +
-        f'</div>',
-        unsafe_allow_html=True)
+# ── Header rechts: gebruikersinfo ────────────────────────────────────────────
+_user_naam = st.session_state.current_user.get("name","")
+_is_admin_str = "ADMIN" if is_admin else ""
+st.markdown(
+    f'''<div style="display:flex;justify-content:flex-end;align-items:center;
+        gap:12px;margin:-8px 0 8px 0;">
+        <div style="font-size:0.75rem;color:#64748b;">
+            Ingelogd als <b style="color:#f8fafc;">{_user_naam}</b>
+            {"&nbsp;<span style=\'background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 6px;font-weight:700;\'>ADMIN</span>" if is_admin else ""}
+        </div>
+        <div style="background:#1e293b;border:1px solid #334155;border-radius:20px;
+            padding:4px 12px;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:0.7rem;color:#f97316;font-weight:900;">{_credits}</span>
+            <span style="font-size:0.65rem;color:#64748b;">credits</span>
+        </div>
+    </div>''',
+    unsafe_allow_html=True)
 
-# Admin en uitloggen als kleine links onder de header
-_ah1, _ah2, _ah3 = st.columns([6, 1, 1])
-with _ah2:
+# Admin + Uitloggen — discreet rechts
+_hcols = st.columns([8, 1, 1]) if is_admin else st.columns([9, 1])
+with _hcols[-2] if is_admin else _hcols[-1]:
     if is_admin:
-        if st.button("⚙️ Admin", key="nav_admin_top", use_container_width=True):
-            st.session_state.module = "admin"
-            st.rerun()
-with _ah3:
+        if st.button("Admin", key="nav_admin_top", use_container_width=True):
+            st.session_state.module = "admin"; st.rerun()
+with _hcols[-1]:
     if st.button("Uitloggen", key="nav_logout_top", use_container_width=True):
         import streamlit.components.v1 as _comp3
-        _comp3.html("""
-        <script>
-        try { localStorage.removeItem('carboo_uid'); } catch(e) {}
-        try { sessionStorage.removeItem('carboo_uid'); } catch(e) {}
-        document.cookie = 'carboo_uid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        </script>
-        """, height=1)
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+        _comp3.html("""<script>
+        try{localStorage.removeItem('carboo_uid')}catch(e){}
+        try{sessionStorage.removeItem('carboo_uid')}catch(e){}
+        document.cookie='carboo_uid=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;';
+        </script>""", height=1)
+        for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
-
 module = st.session_state.module
 
 # Controleer of gebruiker terugkomt van Mollie betaling
