@@ -273,46 +273,76 @@ if _abo.get("trial") and not is_admin:
 # HEADER
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
 _user_naam_h = st.session_state.current_user.get("name","") if st.session_state.get("current_user") else ""
-_admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 7px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ""
+_admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.55rem;padding:2px 6px;font-weight:700;margin-left:5px;vertical-align:middle;">ADMIN</span>' if is_admin else ""
 
-_hcol1, _hcol2 = st.columns([3, 1])
-with _hcol1:
+# CSS om de knoppen naadloos in de header te laten passen
+st.markdown("""
+<style>
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button,
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(4) button {
+    background: #0f172a !important;
+    border: 1px solid #334155 !important;
+    color: #94a3b8 !important;
+    border-radius: 8px !important;
+    padding: 6px 14px !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    height: 36px !important;
+    margin-top: 18px;
+}
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button:hover,
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(4) button:hover {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+}
+div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button {
+    background: #1e3a5f !important;
+    color: #60a5fa !important;
+    border-color: #2563eb !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+_hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
+with _hc1:
     st.markdown(f"""
-<div style="display:flex;align-items:center;gap:14px;
-            background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;
-            padding:14px 24px;border:1px solid #334155;margin-bottom:4px;">
-  <img src="{CARBOO_AVATAR}" style="width:46px;height:46px;border-radius:50%;border:2px solid #f97316;object-fit:cover;">
+<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
+            padding:12px 20px;border:1px solid #334155;display:flex;align-items:center;gap:12px;">
+  <img src="{CARBOO_AVATAR}" style="width:42px;height:42px;border-radius:50%;border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
   <div>
-    <div style="font-size:1.5rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
+    <div style="font-size:1.35rem;font-weight:900;letter-spacing:3px;color:#f8fafc;">
       CAR<span style="color:#f97316;">BOO</span></div>
-    <div style="font-size:0.65rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
+    <div style="font-size:0.6rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
-with _hcol2:
+with _hc2:
     st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:16px;
-            padding:14px 20px;border:1px solid #334155;margin-bottom:4px;text-align:right;">
-  <div style="font-size:0.85rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
-  <div style="font-size:0.7rem;color:#64748b;margin-top:2px;">
+<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;
+            padding:12px 20px;border:1px solid #334155;height:68px;
+            display:flex;flex-direction:column;justify-content:center;align-items:flex-end;">
+  <div style="font-size:0.82rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
+  <div style="font-size:0.68rem;color:#64748b;margin-top:2px;">
     <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
 </div>""", unsafe_allow_html=True)
-    _hb1, _hb2 = st.columns(2) if is_admin else st.columns([0.01, 1])
-    with _hb1:
-        if is_admin:
-            if st.button("⚙ Admin", key="nav_admin_btn", use_container_width=True):
-                st.session_state.module = "admin"
-                st.rerun()
-    with _hb2:
-        if st.button("↩ Uitloggen", key="nav_logout_btn", use_container_width=True):
-            import streamlit.components.v1 as _comp3
-            _comp3.html("""<script>
-            try{localStorage.removeItem('carboo_uid')}catch(e){}
-            try{sessionStorage.removeItem('carboo_uid')}catch(e){}
-            document.cookie='carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;';
-            </script>""", height=1)
-            for k in list(st.session_state.keys()): del st.session_state[k]
+
+with _hc3:
+    if is_admin:
+        if st.button("⚙ Admin", key="nav_admin_btn", use_container_width=True):
+            st.session_state.module = "admin"
             st.rerun()
+
+with _hc4:
+    if st.button("↩ Uitloggen", key="nav_logout_btn", use_container_width=True):
+        import streamlit.components.v1 as _comp3
+        _comp3.html("""<script>
+        try{localStorage.removeItem('carboo_uid')}catch(e){}
+        try{sessionStorage.removeItem('carboo_uid')}catch(e){}
+        document.cookie='carboo_uid=;expires=Thu,01 Jan 1970 00:00:00 UTC;path=/;';
+        </script>""", height=1)
+        for k in list(st.session_state.keys()): del st.session_state[k]
+        st.rerun()
 # Toon openstaande coach uitnodigingen
 if not is_admin:
     render_coach_uitnodigingen(_uid)
@@ -448,14 +478,20 @@ if module == "menu":
 
 
 elif module == "coach":
-    if st.button("← Modules", key="coach_terug"):
-        st.session_state.module = "menu"; st.rerun()
+    _cb1, _cb2 = st.columns([1,6])
+    with _cb1:
+        if st.button("← Modules", key="coach_terug", use_container_width=True):
+            st.session_state.module = "menu"; st.rerun()
     render_coach(user)
 
 elif module == "carbomax":
     render_carbomax()
 
 elif module == "raceprep":
+    _rb1, _rb2 = st.columns([1, 6])
+    with _rb1:
+        if st.button("← Modules", key="race_terug", use_container_width=True):
+            st.session_state.module = "menu"; st.rerun()
     render_raceprep()
 
 elif module == "optimeal":
@@ -476,8 +512,6 @@ elif module == "coaching":
 
 elif module == "testing":
     if is_admin or _abo.get("gut"):
-        if st.button("← Modules", key="gut_terug"):
-            st.session_state.module = "menu"; st.rerun()
         render_testing(user)
     else:
         st.warning("⚠️ Train the Gut is niet inbegrepen in je huidig abonnement.")
