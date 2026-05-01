@@ -5612,33 +5612,18 @@ def _render_analyses(user: dict):
             # Top suikerproducten met GI
             if suiker_producten:
                 st.markdown(
-                    '<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 4px;">🍬 Voedingsmiddelen met toegevoegde suikers — top deze periode</div>',
-                    unsafe_allow_html=True)
-                st.markdown(
-                    '<div style="font-size:0.7rem;color:#64748b;margin-bottom:10px;">GI: laag &lt;55 · matig 55-70 · hoog &gt;70 · — = niet bekend</div>',
+                    '<div style="font-size:0.82rem;font-weight:700;color:#f8fafc;margin:20px 0 8px;">Voedingsmiddelen met toegevoegde suikers</div>',
                     unsafe_allow_html=True)
                 top_su = sorted(suiker_producten.items(), key=lambda x: -x[1]["su"] if isinstance(x[1], dict) else -x[1])[:8]
-                max_su_val = top_su[0][1]["su"] if isinstance(top_su[0][1], dict) else top_su[0][1] if top_su else 1
                 for naam_su, data_su in top_su:
                     gram_su = data_su["su"] if isinstance(data_su, dict) else data_su
-                    gi_su   = data_su.get("gi") if isinstance(data_su, dict) else None
-                    pct_bar = round(gram_su/max(max_su_val,1)*100)
-                    if gi_su:
-                        gi_int = int(gi_su)
-                        gi_lbl = str(gi_int)
-                        gi_kl  = "#22c55e" if gi_int<55 else ("#fbbf24" if gi_int<=70 else "#ef4444")
-                    else:
-                        gi_lbl = "—"; gi_kl = "#475569"
                     st.markdown(
-                        f'<div style="background:#1e293b;border-radius:8px;padding:9px 12px;margin-bottom:5px;">'
-                        f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">'
-                        f'<div style="flex:1;font-size:0.78rem;color:#f1f5f9;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{naam_su}</div>'
-                        f'<div style="font-size:0.72rem;color:#f97316;font-weight:700;min-width:40px;text-align:right;">{round(gram_su,1)}g</div>'
-                        f'<div style="font-size:0.72rem;font-weight:700;color:{gi_kl};min-width:52px;text-align:right;">GI {gi_lbl}</div>'
-                        f'</div>'
-                        f'<div style="background:#0f172a;border-radius:3px;height:5px;">'
-                        f'<div style="width:{pct_bar}%;height:100%;background:#f97316;border-radius:3px;"></div>'
-                        f'</div></div>', unsafe_allow_html=True)
+                        f'<div style="display:flex;justify-content:space-between;align-items:center;' +
+                        f'padding:7px 0;border-bottom:0.5px solid #1e293b;">' +
+                        f'<span style="font-size:0.82rem;color:#f1f5f9;">{naam_su}</span>' +
+                        f'<span style="font-size:0.82rem;color:#f97316;font-weight:600;">{round(gram_su,1)}g</span>' +
+                        f'</div>', unsafe_allow_html=True)
+
 
             # ── GI overzicht ─────────────────────────────────────────────────────
             st.markdown("<br>", unsafe_allow_html=True)
@@ -5669,53 +5654,18 @@ def _render_analyses(user: dict):
                         gi_producten[naam_gi]["gram"] += float(it.get("hoeveelheid_g", 0) or 0)
 
             if gi_producten:
-                # Gewogen GI berekenen
                 totaal_kcal_gi = sum(v["kcal"] for v in gi_producten.values())
                 gewogen_gi = round(sum(v["gi"] * v["kcal"] for v in gi_producten.values()) / max(totaal_kcal_gi, 1))
                 k_wgi = "#22c55e" if gewogen_gi < 55 else ("#fbbf24" if gewogen_gi <= 70 else "#ef4444")
-                cat_wgi = "Laag" if gewogen_gi < 55 else ("Matig" if gewogen_gi <= 70 else "Hoog")
-
-                # KPI gewogen GI
+                cat_wgi = "Laag GI" if gewogen_gi < 55 else ("Matig GI" if gewogen_gi <= 70 else "Hoog GI")
+                adv_wgi = "✓ Overwegend trage koolhydraten." if gewogen_gi < 55 else ("⚠️ Probeer meer volkoren en groenten." if gewogen_gi <= 70 else "⚠️ Vervang witte rijst en suikerrijke producten.")
                 st.markdown(
-                    f'<div style="background:#1e293b;border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:20px;">' +
-                    f'<div><div style="font-size:0.6rem;color:#64748b;">GEWOGEN GI DEZE PERIODE</div>' +
-                    f'<div style="font-size:2rem;font-weight:900;color:{k_wgi};">{gewogen_gi}</div>' +
-                    f'<div style="font-size:0.72rem;color:{k_wgi};">{cat_wgi} GI</div></div>' +
-                    f'<div style="font-size:0.78rem;color:#94a3b8;line-height:1.6;">' +
-                    f'{"✓ Goede GI score — overwegend trage koolhydraten." if gewogen_gi < 55 else ("⚠️ Matige GI — probeer meer volkoren en groenten." if gewogen_gi <= 70 else "⚠️ Hoge GI — vervang witte rijst, wit brood en suikerrijke producten.")}' +
-                    f'</div></div>', unsafe_allow_html=True)
-
-                # Drie kolommen: laag / matig / hoog
-                laag  = {k:v for k,v in gi_producten.items() if v["gi"] < 55}
-                matig = {k:v for k,v in gi_producten.items() if 55 <= v["gi"] <= 70}
-                hoog  = {k:v for k,v in gi_producten.items() if v["gi"] > 70}
-
-                gc1, gc2, gc3 = st.columns(3)
-                for col, titel, prod_dict, kleur in [
-                    (gc1, "🟢 Laag GI (<55)",   laag,  "#22c55e"),
-                    (gc2, "🟡 Matig GI (55-70)", matig, "#fbbf24"),
-                    (gc3, "🔴 Hoog GI (>70)",    hoog,  "#ef4444"),
-                ]:
-                    with col:
-                        st.markdown(
-                            f'<div style="font-size:0.72rem;font-weight:700;color:{kleur};margin-bottom:8px;">{titel} ({len(prod_dict)})</div>',
-                            unsafe_allow_html=True)
-                        if prod_dict:
-                            gesorteerd = sorted(prod_dict.items(), key=lambda x: -x[1]["kcal"])
-                            for naam_p, data_p in gesorteerd[:8]:
-                                gem_gram = round(data_p["gram"] / max(len(dagen_met), 1))
-                                st.markdown(
-                                    f'<div style="background:#1e293b;border-radius:6px;padding:7px 10px;margin-bottom:4px;">' +
-                                    f'<div style="display:flex;justify-content:space-between;">' +
-                                    f'<span style="font-size:0.75rem;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;">{naam_p}</span>' +
-                                    f'<span style="font-size:0.72rem;color:{kleur};font-weight:700;">GI {data_p["gi"]}</span>' +
-                                    f'</div>' +
-                                    f'<div style="font-size:0.68rem;color:#64748b;">{gem_gram}g/dag gem.</div>' +
-                                    f'</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown(
-                                f'<div style="font-size:0.75rem;color:#475569;padding:8px;">Geen producten</div>',
-                                unsafe_allow_html=True)
+                    f'<div style="display:flex;align-items:center;gap:20px;background:#1e293b;border-radius:8px;padding:14px 16px;">' +
+                    f'<div style="text-align:center;min-width:60px;">' +
+                    f'<div style="font-size:2rem;font-weight:900;color:{k_wgi};line-height:1;">{gewogen_gi}</div>' +
+                    f'<div style="font-size:0.65rem;color:{k_wgi};margin-top:2px;">{cat_wgi}</div></div>' +
+                    f'<div style="font-size:0.82rem;color:#94a3b8;">{adv_wgi}</div>' +
+                    f'</div>', unsafe_allow_html=True)
             else:
                 st.info("Voeg GI-waarden toe aan je producten in de bibliotheek voor dit overzicht.")
 
