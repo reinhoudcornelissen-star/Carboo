@@ -6005,6 +6005,20 @@ def render_fuelc(user: dict):
     stap = st.session_state.fc_stap
 
     # ── Navigatiebalk met terug knop ─────────────────────────────────────────
+    st.markdown("""
+<style>
+/* Gelijke breedte voor alle nav knoppen */
+section[data-testid="stMain"] div[data-testid="stHorizontalBlock"]:nth-of-type(1) > div[data-testid="stColumn"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+}
+section[data-testid="stMain"] div[data-testid="stHorizontalBlock"]:nth-of-type(1) button {
+    width: 100% !important;
+    font-size: 0.78rem !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+</style>""", unsafe_allow_html=True)
     NAV = [
         (0, "👤 Profiel"),
         (1, "🏃 Trainingen"),
