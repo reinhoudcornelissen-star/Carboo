@@ -371,18 +371,19 @@ function doLogout(){{
 </script>
 """, unsafe_allow_html=True)
 
-# Streamlit knoppen verstopt — enkel voor functionaliteit
-_hid1, _hid2 = st.columns([1,1])
-with _hid1:
-    if is_admin:
-        _admin_click = st.button("admin_hidden", key="nav_admin_btn", label_visibility="hidden")
-        if _admin_click:
-            st.session_state.module = "admin"; st.rerun()
-with _hid2:
-    _logout_click = st.button("uit_hidden", key="nav_logout_btn", label_visibility="hidden")
-    if _logout_click:
-        for k in list(st.session_state.keys()): del st.session_state[k]
-        st.rerun()
+# Verstopte Streamlit knoppen via CSS
+st.markdown("""
+<style>
+button[kind="secondary"][data-testid="baseButton-secondary"]:has(+ [data-testid]) { display:none; }
+div[data-testid="column"]:has(button[key="nav_admin_btn"]),
+div[data-testid="column"]:has(button[key="nav_logout_btn"]) { display:none !important; }
+</style>""", unsafe_allow_html=True)
+
+if is_admin and st.button("admin", key="nav_admin_btn"):
+    st.session_state.module = "admin"; st.rerun()
+if st.button("uit", key="nav_logout_btn"):
+    for k in list(st.session_state.keys()): del st.session_state[k]
+    st.rerun()
 
 # Toon openstaande coach uitnodigingen
 if not is_admin:
