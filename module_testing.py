@@ -1212,19 +1212,22 @@ def render_testing(user: dict):
 
 
     stap  = st.session_state.get("tg_stap",1)
-    namen = ["Intro","Profiel","Producten","Schema","Dagboek","Rapport"]
+    namen = ["← Modules","Intro","Profiel","Producten","Schema","Dagboek","Rapport"]
     cols  = st.columns(len(namen))
     for i, (col, naam) in enumerate(zip(cols, namen)):
-        actief = (i+1)==stap
-        gedaan = i+1 < stap
+        actief = (i) == stap and i > 0
+        gedaan = i > 0 and i < stap
         with col:
             if st.button(
                 f'{"✓ " if gedaan else ""}{naam}',
-                key=f"tg_nav_{i+1}",
+                key=f"tg_nav_{i}",
                 use_container_width=True,
                 type="primary" if actief else "secondary"
             ):
-                st.session_state["tg_stap"] = i+1
+                if i == 0:
+                    st.session_state.module = "menu"
+                else:
+                    st.session_state["tg_stap"] = i
                 st.rerun()
 
     st.markdown("<br>", unsafe_allow_html=True)
