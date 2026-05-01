@@ -271,6 +271,7 @@ if _abo.get("trial") and not is_admin:
 
 
 # HEADER
+_credits = st.session_state.get("current_user", {}).get("credits", 0)
 _user_naam_h = st.session_state.current_user.get("name","") if st.session_state.get("current_user") else ""
 _admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 7px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ""
 _logout_js = "try{localStorage.removeItem(\'carboo_uid\')}catch(e){};try{sessionStorage.removeItem(\'carboo_uid\')}catch(e){};document.cookie=\'carboo_uid=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;\';"
