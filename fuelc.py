@@ -2510,31 +2510,10 @@ def _render_receptenbeheer(user_id: str):
 
 @st.cache_data(ttl=60)
 def _laad_alle_recepten(user_id: str) -> list:
-    """Laad eigen + gedeelde recepten — twee aparte queries als fallback."""
+    """Laad eigen + gedeelde recepten."""
     try:
-        r = _get_supabase().table("fuelc_recepten_eigen").select("*") \
-            .or_(f"user_id.eq.{user_id},is_globaal.eq.true") \
-            .order("naam").execute()
+        r = _get_supabase().table("fuelc_recepten_eigen").select("*")            .or_(f"user_id.eq.{user_id},is_globaal.eq.true")            .order("naam").execute()
         return r.data or []
-    except Exception:
-        pass
-    try:
-        r1 = _get_supabase().table("fuelc_recepten_eigen").select("*") \
-            .eq("is_globaal", True).order("naam").execute()
-        globaal = r1.data or []
-        try:
-            r2 = _get_supabase().table("fuelc_recepten_eigen").select("*") \
-                .eq("user_id", user_id).order("naam").execute()
-            eigen = r2.data or []
-        except Exception:
-            eigen = []
-        namen = set()
-        result = []
-        for rec in eigen + globaal:
-            if rec.get("naam") not in namen:
-                namen.add(rec.get("naam"))
-                result.append(rec)
-        return result
     except Exception as e:
         print(f"Fout laden recepten: {e}")
         return []
@@ -6025,31 +6004,33 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Navigatiebalk: ← Modules + 5 tabs in 6 gelijke kolommen ─────────────
-    _c0, _c1, _c2, _c3, _c4, _c5 = st.columns(6)
-    with _c0:
+    # ── Terug knop + Navigatiebalk ───────────────────────────────────────────
+    top1, top2 = st.columns([1, 4])
+    with top1:
         if st.button("← Modules", key="fc_terug_modules", use_container_width=True):
-            st.session_state.module = "menu"; st.rerun()
-    with _c1:
-        if st.button("👤 Profiel", key="fc_nav_0", use_container_width=True,
-                     type="primary" if stap==0 else "secondary"):
-            st.session_state.fc_stap=0; st.rerun()
-    with _c2:
-        if st.button("🏃 Trainingen", key="fc_nav_1", use_container_width=True,
-                     type="primary" if stap==1 else "secondary"):
-            st.session_state.fc_stap=1; st.rerun()
-    with _c3:
-        if st.button("📚 Bibliotheek", key="fc_nav_2", use_container_width=True,
-                     type="primary" if stap==2 else "secondary"):
-            st.session_state.fc_stap=2; st.rerun()
-    with _c4:
-        if st.button("📅 Dagschema", key="fc_nav_3", use_container_width=True,
-                     type="primary" if stap==3 else "secondary"):
-            st.session_state.fc_stap=3; st.rerun()
-    with _c5:
-        if st.button("📊 Analyses", key="fc_nav_4", use_container_width=True,
-                     type="primary" if stap==4 else "secondary"):
-            st.session_state.fc_stap=4; st.rerun()
+            st.session_state.module = "menu"
+            st.rerun()
+
+    NAV = [
+        (0, "👤 Profiel"),
+        (1, "🏃 Trainingen"),
+        (2, "📚 Bibliotheek"),
+        (3, "📅 Dagschema"),
+        (4, "📊 Analyses"),
+    ]
+    cols = st.columns(len(NAV))
+    for col, (s, label) in zip(cols, NAV):
+        with col:
+            actief = stap == s
+            if st.button(
+                label,
+                key=f"fc_nav_{s}",
+                use_container_width=True,
+                type="primary" if actief else "secondary",
+            ):
+                st.session_state.fc_stap = s
+                st.rerun()
+
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Module routing ────────────────────────────────────────────────────────
