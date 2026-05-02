@@ -2510,10 +2510,31 @@ def _render_receptenbeheer(user_id: str):
 
 @st.cache_data(ttl=60)
 def _laad_alle_recepten(user_id: str) -> list:
-    """Laad eigen + gedeelde recepten."""
+    """Laad eigen + gedeelde recepten — twee aparte queries als fallback."""
     try:
-        r = _get_supabase().table("fuelc_recepten_eigen").select("*")            .or_(f"user_id.eq.{user_id},is_globaal.eq.true")            .order("naam").execute()
+        r = _get_supabase().table("fuelc_recepten_eigen").select("*") \
+            .or_(f"user_id.eq.{user_id},is_globaal.eq.true") \
+            .order("naam").execute()
         return r.data or []
+    except Exception:
+        pass
+    try:
+        r1 = _get_supabase().table("fuelc_recepten_eigen").select("*") \
+            .eq("is_globaal", True).order("naam").execute()
+        globaal = r1.data or []
+        try:
+            r2 = _get_supabase().table("fuelc_recepten_eigen").select("*") \
+                .eq("user_id", user_id).order("naam").execute()
+            eigen = r2.data or []
+        except Exception:
+            eigen = []
+        namen = set()
+        result = []
+        for rec in eigen + globaal:
+            if rec.get("naam") not in namen:
+                namen.add(rec.get("naam"))
+                result.append(rec)
+        return result
     except Exception as e:
         print(f"Fout laden recepten: {e}")
         return []
@@ -6004,41 +6025,25 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Navigatiebalk met terug knop ─────────────────────────────────────────
-    st.markdown("""
-<style>
-/* Gelijke breedte voor alle nav knoppen */
-section[data-testid="stMain"] div[data-testid="stHorizontalBlock"]:nth-of-type(1) > div[data-testid="stColumn"] {
-    flex: 1 1 0% !important;
-    min-width: 0 !important;
-}
-section[data-testid="stMain"] div[data-testid="stHorizontalBlock"]:nth-of-type(1) button {
-    width: 100% !important;
-    font-size: 0.78rem !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
-}
-</style>""", unsafe_allow_html=True)
+    # ── Navigatiebalk ─────────────────────────────────────────────────────────
     NAV = [
-        (0, "👤 Profiel"),
-        (1, "🏃 Trainingen"),
-        (2, "📚 Bibliotheek"),
-        (3, "📅 Dagschema"),
-        (4, "📊 Analyses"),
+        (0, "Profiel"),
+        (1, "Trainingen"),
+        (2, "Bibliotheek"),
+        (3, "Dagschema"),
+        (4, "Analyses"),
     ]
-    cols = st.columns([1]*len(NAV))
-    for col, (s, label) in zip(cols, NAV):
+    _nc = st.columns(5)
+    for col, (s, label) in zip(_nc, NAV):
         with col:
-            actief = stap == s
             if st.button(
                 label,
                 key=f"fc_nav_{s}",
                 use_container_width=True,
-                type="primary" if actief else "secondary",
+                type="primary" if stap == s else "secondary",
             ):
                 st.session_state.fc_stap = s
                 st.rerun()
-
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Module routing ────────────────────────────────────────────────────────
