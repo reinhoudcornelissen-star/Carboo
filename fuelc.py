@@ -6025,33 +6025,20 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Navigatiebalk als pure HTML ─────────────────────────────────────────
-    _nav_klik = st.query_params.get("fc_nav")
-    if _nav_klik is not None:
-        try:
-            st.session_state.fc_stap = int(_nav_klik)
-            stap = int(_nav_klik)
-        except Exception: pass
-        st.query_params.clear()
+    # ── Navigatiebalk ─────────────────────────────────────────────────────────
+    _n0, _n1, _n2, _n3, _n4 = st.columns(5)
+    with _n0:
+        if st.button("Profiel", key="fc_nav_0", use_container_width=True, type="primary" if stap==0 else "secondary"): st.session_state.fc_stap=0; st.rerun()
+    with _n1:
+        if st.button("Trainingen", key="fc_nav_1", use_container_width=True, type="primary" if stap==1 else "secondary"): st.session_state.fc_stap=1; st.rerun()
+    with _n2:
+        if st.button("Bibliotheek", key="fc_nav_2", use_container_width=True, type="primary" if stap==2 else "secondary"): st.session_state.fc_stap=2; st.rerun()
+    with _n3:
+        if st.button("Dagschema", key="fc_nav_3", use_container_width=True, type="primary" if stap==3 else "secondary"): st.session_state.fc_stap=3; st.rerun()
+    with _n4:
+        if st.button("Analyses", key="fc_nav_4", use_container_width=True, type="primary" if stap==4 else "secondary"): st.session_state.fc_stap=4; st.rerun()
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    def _maak_nav_html(stap_actief):
-        items = [(0,"Profiel"),(1,"Trainingen"),(2,"Bibliotheek"),(3,"Dagschema"),(4,"Analyses")]
-        html = '<div style="display:flex;gap:6px;margin-bottom:12px;">'
-        for ns, nl in items:
-            bg = "#f97316" if stap_actief==ns else "#1e293b"
-            bc = "#f97316" if stap_actief==ns else "#334155"
-            tc = "white" if stap_actief==ns else "#94a3b8"
-            fw = "700" if stap_actief==ns else "500"
-            html += (
-                '<a href="?fc_nav=' + str(ns) + '" target="_self" '
-                'style="flex:1;display:block;padding:10px 4px;text-align:center;'
-                'background:' + bg + ';border:1px solid ' + bc + ';border-radius:8px;'
-                'color:' + tc + ';font-size:0.78rem;font-weight:' + fw + ';text-decoration:none;">'
-                + nl + '</a>'
-            )
-        html += '</div>'
-        return html
-    st.markdown(_maak_nav_html(stap), unsafe_allow_html=True)
     # ── Module routing ────────────────────────────────────────────────────────
     if stap == 0: _stap_profiel(user)
     elif stap == 1: _stap_trainingen(user)
