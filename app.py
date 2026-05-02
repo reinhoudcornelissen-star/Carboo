@@ -183,8 +183,31 @@ if not st.session_state.get("logged_in"):
     _comp.html("""
     <script>
     (function() {
-        function doRedirect(uid) {
-            if (!uid || uid.length <= 10) return;
+        var uid = null;
+        // 1. Probeer localStorage
+        try { uid = localStorage.getItem('carboo_uid'); } catch(e) {}
+        // 2. Probeer sessionStorage
+        if (!uid || uid.length <= 10) {
+            try { uid = sessionStorage.getItem('carboo_uid'); } catch(e) {}
+        }
+        // 3. Probeer parent localStorage (embedded iframe)
+        if (!uid || uid.length <= 10) {
+            try { uid = window.parent.localStorage.getItem('carboo_uid'); } catch(e) {}
+        }
+        // 4. Fallback: cookie
+        if (!uid || uid.length <= 10) {
+            try {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var c = cookies[i].trim();
+                    if (c.startsWith('carboo_uid=')) {
+                        uid = c.substring('carboo_uid='.length).trim();
+                        break;
+                    }
+                }
+            } catch(e) {}
+        }
+        if (uid && uid.length > 10) {
             try {
                 var url = new URL(window.parent.location.href);
                 if (!url.searchParams.get('_uid')) {
@@ -192,51 +215,14 @@ if not st.session_state.get("logged_in"):
                     window.parent.location.replace(url.toString());
                 }
             } catch(e) {
-                try {
-                    var url2 = new URL(window.location.href);
-                    if (!url2.searchParams.get('_uid')) {
-                        url2.searchParams.set('_uid', uid);
-                        window.location.replace(url2.toString());
-                    }
-                } catch(e2) {}
-            }
-        }
-
-        var uid = null;
-        // 1. localStorage
-        try { uid = localStorage.getItem('carboo_uid'); } catch(e) {}
-        if (uid && uid.length > 10) { doRedirect(uid); return; }
-        // 2. sessionStorage
-        try { uid = sessionStorage.getItem('carboo_uid'); } catch(e) {}
-        if (uid && uid.length > 10) { doRedirect(uid); return; }
-        // 3. parent localStorage
-        try { uid = window.parent.localStorage.getItem('carboo_uid'); } catch(e) {}
-        if (uid && uid.length > 10) { doRedirect(uid); return; }
-        // 4. Cookie
-        try {
-            var cookies = document.cookie.split(';');
-            for (var i = 0; i < cookies.length; i++) {
-                var c = cookies[i].trim();
-                if (c.startsWith('carboo_uid=')) {
-                    uid = c.substring('carboo_uid='.length).trim();
-                    break;
+                // Fallback voor als window.parent niet werkt
+                var url2 = new URL(window.location.href);
+                if (!url2.searchParams.get('_uid')) {
+                    url2.searchParams.set('_uid', uid);
+                    window.location.replace(url2.toString());
                 }
             }
-        } catch(e) {}
-        if (uid && uid.length > 10) { doRedirect(uid); return; }
-        // 5. IndexedDB (async - laatste resort)
-        try {
-            var req = indexedDB.open('carboo', 1);
-            req.onsuccess = function(e) {
-                try {
-                    var tx = e.target.result.transaction('kv', 'readonly');
-                    var get = tx.objectStore('kv').get('carboo_uid');
-                    get.onsuccess = function() {
-                        if (get.result && get.result.length > 10) doRedirect(get.result);
-                    };
-                } catch(e2) {}
-            };
-        } catch(e) {}
+        }
     })();
     </script>
     """, height=0)
@@ -285,88 +271,21 @@ if _abo.get("trial") and not is_admin:
 
 
 # HEADER
-_credits = st.session_state.get("current_user", {}).get("credits", 0)
-_user_naam_h = st.session_state.current_user.get("name","") if st.session_state.get("current_user") else ""
-_admin_badge_h = '<span style="background:#f97316;color:white;border-radius:4px;font-size:0.55rem;padding:2px 6px;font-weight:700;margin-left:5px;vertical-align:middle;">ADMIN</span>' if is_admin else ""
-
-# CSS om de knoppen naadloos in de header te laten passen
-st.markdown("""
-<style>
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button,
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(4) button {
-    background: #0f172a !important;
-    border: 1px solid #334155 !important;
-    color: #94a3b8 !important;
-    border-radius: 8px !important;
-    padding: 6px 14px !important;
-    font-size: 0.75rem !important;
-    font-weight: 500 !important;
-    height: 36px !important;
-    margin-top: 18px;
-}
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button:hover,
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(4) button:hover {
-    background: #1e293b !important;
-    color: #f8fafc !important;
-    border-color: #475569 !important;
-}
-div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(3) button {
-    background: #1e3a5f !important;
-    color: #60a5fa !important;
-    border-color: #2563eb !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# HEADER — 4 kolommen, pure Streamlit
-st.markdown("""
-<style>
-/* Header rij uitlijning */
-div[data-testid="stHorizontalBlock"]:first-of-type {
-    align-items: stretch !important;
-}
-div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="stColumn"] > div {
-    height: 100%;
-}
-div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="stColumn"] > div > div > button {
-    height: 100% !important;
-    min-height: 62px !important;
-    border-radius: 10px !important;
-}
-</style>
-""", unsafe_allow_html=True)
-_hc1, _hc2, _hc3, _hc4 = st.columns([4, 2, 1, 1])
-with _hc1:
-    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:10px;
-            padding:10px 16px;border:1px solid #334155;display:flex;align-items:center;gap:10px;">
-  <img src="{CARBOO_AVATAR}" style="width:38px;height:38px;border-radius:50%;
-       border:2px solid #f97316;object-fit:cover;flex-shrink:0;">
-  <div>
-    <div style="font-size:1.2rem;font-weight:900;letter-spacing:2px;color:#f8fafc;line-height:1.1;">
-      CAR<span style="color:#f97316;">BOO</span></div>
-    <div style="font-size:0.58rem;color:#64748b;letter-spacing:1px;">SPORTS NUTRITION COACH</div>
+st.markdown(f"""
+<div style="display:flex; align-items:center; justify-content:space-between;
+            background:linear-gradient(135deg,#1e293b,#0f172a); border-radius:16px;
+            padding:16px 24px; margin-bottom:20px; border:1px solid #334155;">
+  <div style="display:flex; align-items:center; gap:14px;">
+    <img src="{CARBOO_AVATAR}" style="width:44px; height:44px; border-radius:50%;
+         border:2px solid #f97316; object-fit:cover;">
+    <div>
+      <div style="font-size:1.5rem; font-weight:900; letter-spacing:3px; color:#f8fafc;">
+        CAR<span style="color:#f97316;">BOO</span>
+      </div>
+      <div style="font-size:0.68rem; color:#64748b; letter-spacing:1px;">SPORTS NUTRITION COACH</div>
+    </div>
   </div>
-</div>""", unsafe_allow_html=True)
-
-with _hc2:
-    st.markdown(f"""
-<div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:10px;
-            padding:10px 16px;border:1px solid #334155;text-align:right;">
-  <div style="font-size:0.8rem;font-weight:600;color:#f8fafc;">{_user_naam_h}{_admin_badge_h}</div>
-  <div style="font-size:0.65rem;color:#64748b;margin-top:2px;">
-    <span style="color:#f97316;font-weight:700;">{_credits}</span> credits</div>
-</div>""", unsafe_allow_html=True)
-
-with _hc3:
-    if is_admin:
-        if st.button("⚙ Admin", key="nav_admin_btn", use_container_width=True):
-            st.session_state.module = "admin"; st.rerun()
-    else:
-        st.empty()
-
-with _hc4:
-    st.empty()
+""", unsafe_allow_html=True)
 
 # Toon openstaande coach uitnodigingen
 if not is_admin:
@@ -391,27 +310,50 @@ if st.session_state.get("logged_in") and st.session_state.get("current_user"):
         import streamlit.components.v1 as _comp2
         _comp2.html(f"""
         <script>
-        (function() {{
-            var uid = '{_uid_save}';
-            var expires = new Date();
-            expires.setTime(expires.getTime() + (365*24*60*60*1000));
-            var expStr = expires.toUTCString();
-            try {{ localStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
-            try {{ sessionStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
-            try {{ document.cookie = 'carboo_uid=' + uid + '; expires=' + expStr + '; path=/; SameSite=Lax'; }} catch(e) {{}}
-            try {{ window.parent.localStorage.setItem('carboo_uid', uid); }} catch(e) {{}}
-            try {{
-                var req = indexedDB.open('carboo', 1);
-                req.onupgradeneeded = function(e) {{ e.target.result.createObjectStore('kv'); }};
-                req.onsuccess = function(e) {{
-                    try {{ e.target.result.transaction('kv','readwrite').objectStore('kv').put(uid,'carboo_uid'); }} catch(e2) {{}}
-                }};
-            }} catch(e) {{}}
-        }})();
+        localStorage.setItem('carboo_uid', '{_uid_save}');
+        var d = new Date();
+        d.setTime(d.getTime() + (365*24*60*60*1000));
+        document.cookie = 'carboo_uid={_uid_save}; expires=' + d.toUTCString() + '; path=/; SameSite=Lax';
         </script>
-        """, height=2)
+        """, height=1)
 # ─── NAVIGATIE / MODULE ROUTING ───────────────────────────────────────────────
 _credits = st.session_state.get("current_user", {}).get("credits", 0)
+nav_cols = st.columns([6, 1, 1, 1]) if is_admin else st.columns([7, 1, 1])
+with nav_cols[-1]:
+    # Credits + Admin + Uitloggen als clean pill menu
+    _user_naam = st.session_state.current_user.get("name","")
+    _role_badge = f'<span style="background:#f97316;color:white;border-radius:4px;font-size:0.6rem;padding:2px 6px;font-weight:700;margin-left:6px;">ADMIN</span>' if is_admin else ''
+    st.markdown(
+        f'<div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;">' +
+        f'<div style="background:#1e293b;border:1px solid #334155;border-radius:8px;padding:6px 12px;display:flex;align-items:center;gap:8px;">' +
+        f'<span style="font-size:0.7rem;color:#64748b;">💰</span>' +
+        f'<span style="font-size:0.85rem;font-weight:800;color:#f97316;">{_credits}</span>' +
+        f'<span style="font-size:0.65rem;color:#475569;">credits</span>' +
+        f'</div>' +
+        f'<div style="font-size:0.8rem;color:#94a3b8;">Ingelogd als <b style="color:#f8fafc;">{_user_naam}</b>{_role_badge}</div>' +
+        f'</div>',
+        unsafe_allow_html=True)
+
+# Admin en uitloggen als kleine links onder de header
+_ah1, _ah2, _ah3 = st.columns([6, 1, 1])
+with _ah2:
+    if is_admin:
+        if st.button("⚙️ Admin", key="nav_admin_top", use_container_width=True):
+            st.session_state.module = "admin"
+            st.rerun()
+with _ah3:
+    if st.button("Uitloggen", key="nav_logout_top", use_container_width=True):
+        import streamlit.components.v1 as _comp3
+        _comp3.html("""
+        <script>
+        try { localStorage.removeItem('carboo_uid'); } catch(e) {}
+        try { sessionStorage.removeItem('carboo_uid'); } catch(e) {}
+        document.cookie = 'carboo_uid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        </script>
+        """, height=1)
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
 
 module = st.session_state.module
 
@@ -420,7 +362,7 @@ controleer_betaling_url()
 
 if module == "menu":
     st.markdown(
-        '<div style="font-size:1rem;font-weight:500;color:#94a3b8;letter-spacing:2px;margin:8px 0 16px;">JOUW NUTRITION TOOLS</div>',
+        '<div style="font-size:0.7rem;color:#64748b;letter-spacing:3px;margin:8px 0 16px;">JOUW NUTRITION TOOLS</div>',
         unsafe_allow_html=True)
 
     # ── Fueling (bovenaan) ────────────────────────────────────────────────────
@@ -516,20 +458,14 @@ if module == "menu":
 
 
 elif module == "coach":
-    _cb1, _cb2 = st.columns([1,6])
-    with _cb1:
-        if st.button("← Modules", key="coach_terug", use_container_width=True):
-            st.session_state.module = "menu"; st.rerun()
+    if st.button("← Modules", key="coach_terug"):
+        st.session_state.module = "menu"; st.rerun()
     render_coach(user)
 
 elif module == "carbomax":
     render_carbomax()
 
 elif module == "raceprep":
-    _rb1, _rb2 = st.columns([1, 6])
-    with _rb1:
-        if st.button("← Modules", key="race_terug", use_container_width=True):
-            st.session_state.module = "menu"; st.rerun()
     render_raceprep()
 
 elif module == "optimeal":
@@ -550,6 +486,8 @@ elif module == "coaching":
 
 elif module == "testing":
     if is_admin or _abo.get("gut"):
+        if st.button("← Modules", key="gut_terug"):
+            st.session_state.module = "menu"; st.rerun()
         render_testing(user)
     else:
         st.warning("⚠️ Train the Gut is niet inbegrepen in je huidig abonnement.")
