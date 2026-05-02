@@ -366,8 +366,7 @@ with _hc3:
         st.empty()
 
 with _hc4:
-    if st.button("← Modules", key="nav_modules_btn", use_container_width=True):
-        st.session_state.module = "menu"; st.rerun()
+    st.empty()
 
 # Toon openstaande coach uitnodigingen
 if not is_admin:
