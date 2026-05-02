@@ -6025,18 +6025,33 @@ def render_fuelc(user: dict):
 
     stap = st.session_state.fc_stap
 
-    # ── Navigatiebalk ─────────────────────────────────────────────────────────
-    _n0, _n1, _n2, _n3, _n4 = st.columns(5)
-    with _n0:
-        if st.button("Profiel", key="fc_nav_0", use_container_width=True, type="primary" if stap==0 else "secondary"): st.session_state.fc_stap=0; st.rerun()
-    with _n1:
-        if st.button("Trainingen", key="fc_nav_1", use_container_width=True, type="primary" if stap==1 else "secondary"): st.session_state.fc_stap=1; st.rerun()
-    with _n2:
-        if st.button("Bibliotheek", key="fc_nav_2", use_container_width=True, type="primary" if stap==2 else "secondary"): st.session_state.fc_stap=2; st.rerun()
-    with _n3:
-        if st.button("Dagschema", key="fc_nav_3", use_container_width=True, type="primary" if stap==3 else "secondary"): st.session_state.fc_stap=3; st.rerun()
-    with _n4:
-        if st.button("Analyses", key="fc_nav_4", use_container_width=True, type="primary" if stap==4 else "secondary"): st.session_state.fc_stap=4; st.rerun()
+    # ── Terug knop + Navigatiebalk ───────────────────────────────────────────
+    top1, top2 = st.columns([1, 4])
+    with top1:
+        if st.button("← Modules", key="fc_terug_modules", use_container_width=True):
+            st.session_state.module = "menu"
+            st.rerun()
+
+    NAV = [
+        (0, "👤 Profiel"),
+        (1, "🏃 Trainingen"),
+        (2, "📚 Bibliotheek"),
+        (3, "📅 Dagschema"),
+        (4, "📊 Analyses"),
+    ]
+    cols = st.columns(len(NAV))
+    for col, (s, label) in zip(cols, NAV):
+        with col:
+            actief = stap == s
+            if st.button(
+                label,
+                key=f"fc_nav_{s}",
+                use_container_width=True,
+                type="primary" if actief else "secondary",
+            ):
+                st.session_state.fc_stap = s
+                st.rerun()
+
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Module routing ────────────────────────────────────────────────────────
